@@ -30,3 +30,9 @@ logs/
 
 # Backup JSONs (keep them out of source control)
 *-backup-*.json
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
