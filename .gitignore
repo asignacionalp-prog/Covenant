@@ -1,0 +1,32 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Convex generated
+convex/_generated/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build output
+dist/
+build/
+
+# Logs
+logs/
+*.log
+
+# Backup JSONs (keep them out of source control)
+*-backup-*.json

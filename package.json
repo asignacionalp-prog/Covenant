@@ -1,0 +1,17 @@
+{
+  "name": "covenant",
+  "version": "0.1.0",
+  "description": "Covenant — Ministry Accounting & HRIS (SaaS)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy"
+  },
+  "dependencies": {
+    "convex": "^1.17.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}
