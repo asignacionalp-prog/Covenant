@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "convex dev",
-    "deploy": "wrangler deploy",
+    "deploy:convex": "convex deploy",
+    "deploy:cf": "wrangler deploy",
     "preview": "wrangler dev"
   },
   "dependencies": {

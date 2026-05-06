@@ -1,14 +1,28 @@
+/**
+ * Cloudflare Workers + Static Assets configuration.
+ *
+ * Covenant is a static site (no Worker entrypoint) — Cloudflare will
+ * serve every file in ./public directly. The `assets.directory`
+ * setting is what makes the deploy work without a `main` field.
+ *
+ * On `npx wrangler deploy` this uploads public/* and routes the
+ * worker at https://covenant.<account-subdomain>.workers.dev/.
+ *
+ * Future Workers code (PayMongo proxy, etc.) goes via Convex HTTP
+ * actions instead of here, so this file should stay simple.
+ */
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "covenant",
   "compatibility_date": "2026-05-06",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "observability": {
     "enabled": true
   },
   "assets": {
-    "directory": "public"
-  },
-  "compatibility_flags": [
-    "nodejs_compat"
-  ]
+    "directory": "public",
+    "not_found_handling": "404-page"
+  }
 }
