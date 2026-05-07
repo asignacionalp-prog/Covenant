@@ -2763,7 +2763,10 @@ function doLogin(){
   document.getElementById('sb-role').textContent=u.role.toUpperCase();
   document.getElementById('login-screen').classList.remove('active');
   document.getElementById('app-screen').classList.add('active');
-  seedAtt();computeAll();applyTheme();applyAnimation();renderDashboard();
+  // seedAtt() removed in Phase 2a — it injected demo attendance
+  // for partners 1 and 2 each time a demo user signed in, polluting
+  // real data. Convex bridge in /app.html no longer calls it either.
+  computeAll();applyTheme();applyAnimation();renderDashboard();
 }
 function doLogout(){
   S.cu=null;
@@ -4853,8 +4856,15 @@ function saveSalary(){
     const proceed = confirm(`${p?p.fn+' '+p.ln:'This partner'} already has ${sourceLabel} for period ${pe} (gross ${fmt(php(existing.am,existing.cu,existing.rt))}).\n\nThis is FINE if you're recording a second pay cycle within the same month (e.g. semi-monthly: 1-15 then 16-31).\n\nThis is a MISTAKE if you're trying to edit an existing record (use the Edit button instead) or if you forgot you already entered this.\n\nClick OK to add a second record for the same period, or Cancel to stop.`);
     if (!proceed) return;
   }
-  const ad=pe?cAttDeductMonth(pid,pe):0;
-  const g=php(am,cu,rt);const p=gP(pid);const aft=Math.max(0,g-ad);const td2=p&&p.tc?aft*(p.tp/100):0;
+  // Manual salary entries deliberately disregard attendance logs.
+  // The CEO has already considered attendance when deciding the
+  // amount they typed in. Auto-generated payroll-run salaries still
+  // apply attendance deductions — that path is separate.
+  const ad = 0;
+  const g = php(am, cu, rt);
+  const p = gP(pid);
+  const aft = g;
+  const td2 = p && p.tc ? aft * (p.tp / 100) : 0;
   const ci = parseInt(document.getElementById('sal-cl').value) || null;
   const pc = parseFloat(document.getElementById('sal-pc').value) || 100;
   const dt = document.getElementById('sal-dt').value;
