@@ -118,16 +118,29 @@
   }
 
   async function run() {
-    // Already signed in? Skip token consumption, go straight to bootstrap check.
     let sessionToken = localStorage.getItem(SESSION_KEY);
 
-    if (token && !sessionToken) {
+    // If a magic-link token is in the URL, ALWAYS consume it — even
+    // if there's an existing session. Pasting a magic link is the
+    // user's explicit "sign me in as this account" instruction, and
+    // letting the old session win silently is confusing (they think
+    // they signed in as the new person but end up in their old org).
+    if (token) {
+      const previousSession = sessionToken;
       try {
         const result = await client.mutation("auth:consumeMagicLink", { token });
         sessionToken = result.sessionToken;
         localStorage.setItem(SESSION_KEY, sessionToken);
         // Strip token from URL so a refresh doesn't try to re-consume.
         history.replaceState({}, "", "/auth.html");
+
+        // Best-effort: invalidate the previous session in Convex too
+        // so other devices/tabs can't keep using it. Don't let a
+        // failure here block sign-in.
+        if (previousSession && previousSession !== sessionToken) {
+          client.mutation("auth:signOut", { sessionToken: previousSession })
+            .catch(() => { /* ignore */ });
+        }
       } catch (err) {
         showError(err.message || "This link is invalid or expired.");
         return;
