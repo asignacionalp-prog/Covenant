@@ -58,8 +58,9 @@
       <span class="label">one-time · per CEO</span>
     </div>
 
-    <button class="cta" id="buy-btn" disabled>Buy access — coming soon</button>
-    <div class="cta-note">PayMongo checkout opens in Phase 1.3 · cards · GCash · Maya · GrabPay · online banking</div>
+    <button class="cta" id="buy-btn">Buy access</button>
+    <div class="cta-note">Cards · GCash · Maya · GrabPay · online banking — secured by PayMongo</div>
+    <div id="buy-status" class="cta-note" style="display:none;color:#A14B5F;"></div>
   </section>
 
   <section class="features">
@@ -76,8 +77,90 @@
 
   <footer>
     <span>© Covenant · TrueVine Home Office</span>
-    <span><a href="/app.html">Already a CEO? Sign in →</a></span>
+    <span><a href="/signin.html">Already a CEO? Sign in →</a></span>
   </footer>
 </div>
+
+<!-- Email-capture modal for the buy flow -->
+<div id="buy-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.7);align-items:center;justify-content:center;font-family:'Cardo',Georgia,serif;">
+  <div style="background:#1A2842;border:1px solid #3A4A6E;border-radius:8px;padding:2rem;max-width:420px;width:90%;color:#F4EDD9;">
+    <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.6rem;margin-bottom:.4rem;">One last step</h3>
+    <p style="color:#C9A78D;font-size:.9rem;margin-bottom:1.4rem;">We'll email your sign-in link here right after payment. Make sure it's an inbox you actually check.</p>
+    <label style="display:block;font-family:'DM Sans',sans-serif;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:#C9A78D;margin-bottom:.4rem;">Email</label>
+    <input type="email" id="buy-email" required autofocus placeholder="you@example.com" style="width:100%;padding:11px 14px;background:rgba(244,237,217,.04);border:1px solid #3A4A6E;border-radius:5px;color:#F4EDD9;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;"/>
+    <div style="margin-top:1.4rem;display:flex;gap:.6rem;flex-wrap:wrap;">
+      <button id="buy-confirm" style="flex:1;padding:13px;background:#C9A227;color:#0E1830;border:none;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;">Continue to payment</button>
+      <button id="buy-cancel" style="padding:13px 20px;background:transparent;color:#C9A78D;border:1px solid #3A4A6E;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;">Cancel</button>
+    </div>
+    <div id="buy-modal-err" style="margin-top:1rem;font-size:.85rem;color:#A14B5F;display:none;"></div>
+  </div>
+</div>
+
+<script type="module">
+  import { ConvexClient } from "https://esm.sh/convex@1.17/browser";
+  const client = new ConvexClient("https://standing-quail-556.convex.cloud");
+
+  const buyBtn = document.getElementById("buy-btn");
+  const modal = document.getElementById("buy-modal");
+  const emailInput = document.getElementById("buy-email");
+  const confirmBtn = document.getElementById("buy-confirm");
+  const cancelBtn = document.getElementById("buy-cancel");
+  const errEl = document.getElementById("buy-modal-err");
+  const statusEl = document.getElementById("buy-status");
+
+  function showError(text) {
+    errEl.textContent = text;
+    errEl.style.display = "block";
+  }
+  function clearError() {
+    errEl.textContent = "";
+    errEl.style.display = "none";
+  }
+
+  buyBtn.addEventListener("click", () => {
+    clearError();
+    modal.style.display = "flex";
+    setTimeout(() => emailInput.focus(), 50);
+  });
+  cancelBtn.addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.style.display = "none";
+  });
+
+  confirmBtn.addEventListener("click", checkout);
+  emailInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") checkout();
+  });
+
+  async function checkout() {
+    const email = emailInput.value.trim();
+    if (!email || !email.includes("@")) {
+      showError("Please enter a valid email.");
+      return;
+    }
+    clearError();
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Opening checkout…";
+    try {
+      const result = await client.action("paymongo:createCheckoutSession", { email });
+      // Redirect the whole tab to PayMongo's hosted checkout.
+      location.href = result.url;
+    } catch (err) {
+      const msg = (err && err.message) || String(err);
+      showError(msg);
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "Continue to payment";
+    }
+  }
+
+  // Show a small note if we returned from a canceled checkout.
+  if (location.search.indexOf("canceled=1") !== -1) {
+    statusEl.textContent = "Checkout was canceled. No charge was made — try again whenever you're ready.";
+    statusEl.style.display = "block";
+    statusEl.style.color = "#C9A78D";
+  }
+</script>
 </body>
 </html>

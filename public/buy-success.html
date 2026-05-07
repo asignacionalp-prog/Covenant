@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Welcome to Covenant — payment received</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Cardo:ital,wght@0,400;0,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0E1830;--paper:#1A2842;--text:#F4EDD9;--text2:#C9A78D;
+    --gold:#C9A227;--gold-bright:#E0B83A;--border:#3A4A6E;--teal:#2F6B3F;
+  }
+  body{font-family:'Cardo',Georgia,serif;background:var(--bg);color:var(--text);
+    line-height:1.65;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;
+    background-image:
+      radial-gradient(circle at 20% 30%,rgba(201,162,39,.06) 0%,transparent 40%),
+      radial-gradient(circle at 80% 70%,rgba(124,45,45,.04) 0%,transparent 40%);}
+  .card{max-width:520px;width:100%;padding:3rem 2.4rem;background:var(--paper);
+    border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.4);text-align:center;}
+  .check{
+    width:64px;height:64px;border-radius:50%;background:rgba(47,107,63,.18);
+    margin:0 auto 1.4rem;display:flex;align-items:center;justify-content:center;
+    color:var(--teal);font-size:2rem;animation:in .6s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes in{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
+  h1{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:2.2rem;line-height:1.1;margin-bottom:.6rem;}
+  h1 em{font-style:normal;color:var(--gold);}
+  .sub{color:var(--text2);font-size:.95rem;margin-bottom:2rem;line-height:1.55;}
+  .next{background:rgba(201,162,39,.06);border-left:3px solid var(--gold);padding:1.1rem 1.2rem;border-radius:5px;font-size:.92rem;line-height:1.55;text-align:left;color:var(--text2);margin-bottom:1.6rem;}
+  .next strong{color:var(--text);font-weight:500;}
+  ol{padding-left:1.2rem;margin-top:.6rem;}
+  ol li{margin-bottom:.35rem;}
+  .verse{font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.95rem;letter-spacing:.04em;margin-top:1.5rem;line-height:1.55;}
+  .verse cite{display:block;margin-top:.3rem;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);font-style:normal;font-family:'DM Sans',sans-serif;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="check">✓</div>
+  <h1>Payment <em>received</em>.</h1>
+  <p class="sub">We've emailed your sign-in link. Check your inbox (and your spam folder, just in case).</p>
+
+  <div class="next">
+    <strong>What happens next:</strong>
+    <ol>
+      <li>Open the email from Covenant titled <em>"Your Covenant sign-in link"</em>.</li>
+      <li>Click the magic link (it expires in 15 minutes).</li>
+      <li>Set up your organisation — takes 30 seconds.</li>
+      <li>Land in your workspace, ready to use.</li>
+    </ol>
+  </div>
+
+  <p class="sub" style="font-size:.82rem;font-style:italic;">Didn't get the email after a few minutes? <a href="/signin.html" style="color:var(--gold);">Request another link →</a></p>
+
+  <div class="verse">
+    "She has done a beautiful thing to me."
+    <cite>Mark 14:6</cite>
+  </div>
+</div>
+</body>
+</html>
