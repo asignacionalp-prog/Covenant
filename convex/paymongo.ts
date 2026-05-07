@@ -28,6 +28,7 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 const PAYMONGO_API = "https://api.paymongo.com/v1";
 
@@ -133,5 +134,67 @@ export const createCheckoutSession = action({
       url: json.data.attributes.checkout_url,
       sessionId: json.data.id,
     };
+  },
+});
+
+/**
+ * Called by /buy-success.html immediately after PayMongo redirects
+ * the buyer back. Looks up the license by checkout id and returns
+ * a fresh 15-minute auth token so the page can redirect them
+ * straight to /auth.html?token=… — bypassing email entirely.
+ *
+ * Why this exists: email delivery (Resend, Gmail SMTP) can fail or
+ * be delayed, especially when the seller doesn't yet own a sending
+ * domain. Customers paid ₱1,000 — they shouldn't have to wait /
+ * dig through spam folders to actually use what they bought. The
+ * success page route is the primary sign-in path now; email is a
+ * fallback if they close the page before the redirect fires.
+ *
+ * Retry loop: PayMongo redirects to success_url ≈100-300ms before
+ * the webhook reaches us. The license row may not exist yet on
+ * the first call. We retry up to 5 times with 1.5s gaps before
+ * giving up.
+ */
+export const claimAccessFromCheckout = action({
+  args: { checkoutId: v.string() },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<
+    | { ok: true; token: string }
+    | { ok: false; reason: "not_found" | "already_activated" | "invalid_status"; status?: string }
+  > => {
+    let license: { email: string; status: string; _id: string } | null = null;
+    for (let i = 0; i < 5; i++) {
+      const found = await ctx.runQuery(
+        internal.http.findLicenseByCheckoutIdInternal,
+        { checkoutId: args.checkoutId },
+      );
+      if (found) {
+        license = {
+          email: found.email,
+          status: found.status,
+          _id: String(found._id),
+        };
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+
+    if (!license) {
+      return { ok: false, reason: "not_found" };
+    }
+    if (license.status === "activated") {
+      return { ok: false, reason: "already_activated" };
+    }
+    if (license.status !== "paid") {
+      return { ok: false, reason: "invalid_status", status: license.status };
+    }
+
+    const result = await ctx.runMutation(
+      internal.http.createAuthTokenForEmailInternal,
+      { email: license.email },
+    );
+    return { ok: true, token: result.token };
   },
 });

@@ -18,7 +18,11 @@
  * re-serialization — must use the bytes you received).
  */
 import { httpRouter } from "convex/server";
-import { httpAction, internalMutation } from "./_generated/server";
+import {
+  httpAction,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { internal, api } from "./_generated/api";
 
@@ -209,6 +213,45 @@ export const recordPaidCheckoutInternal = internalMutation({
       createdAt: now,
     });
     return { fresh: true, licenseId };
+  },
+});
+
+// ─── INTERNAL — used by paymongo.claimAccessFromCheckout to give
+// the buyer instant sign-in straight from the success page (so the
+// flow doesn't depend on email delivery actually working).
+//
+// Splitting these helpers out as V8 internalQuery + internalMutation
+// because paymongo.ts is "use node" and can only call mutations and
+// queries, not declare them.
+
+export const findLicenseByCheckoutIdInternal = internalQuery({
+  args: { checkoutId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("licenses")
+      .withIndex("by_paymongo_payment", (q) =>
+        q.eq("paymongoPaymentId", args.checkoutId),
+      )
+      .first();
+  },
+});
+
+export const createAuthTokenForEmailInternal = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const tokenBytes = new Uint8Array(24);
+    crypto.getRandomValues(tokenBytes);
+    const token = Array.from(tokenBytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const now = Date.now();
+    await ctx.db.insert("authTokens", {
+      email: args.email,
+      token,
+      expiresAt: now + 15 * 60 * 1000, // 15 minutes
+      createdAt: now,
+    });
+    return { token };
   },
 });
 

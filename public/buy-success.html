@@ -10,13 +10,14 @@
   :root{
     --bg:#0E1830;--paper:#1A2842;--text:#F4EDD9;--text2:#C9A78D;
     --gold:#C9A227;--gold-bright:#E0B83A;--border:#3A4A6E;--teal:#2F6B3F;
+    --coral:#A14B5F;
   }
   body{font-family:'Cardo',Georgia,serif;background:var(--bg);color:var(--text);
     line-height:1.65;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;
     background-image:
       radial-gradient(circle at 20% 30%,rgba(201,162,39,.06) 0%,transparent 40%),
       radial-gradient(circle at 80% 70%,rgba(124,45,45,.04) 0%,transparent 40%);}
-  .card{max-width:520px;width:100%;padding:3rem 2.4rem;background:var(--paper);
+  .card{max-width:560px;width:100%;padding:3rem 2.4rem;background:var(--paper);
     border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.4);text-align:center;}
   .check{
     width:64px;height:64px;border-radius:50%;background:rgba(47,107,63,.18);
@@ -26,37 +27,120 @@
   @keyframes in{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
   h1{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:2.2rem;line-height:1.1;margin-bottom:.6rem;}
   h1 em{font-style:normal;color:var(--gold);}
-  .sub{color:var(--text2);font-size:.95rem;margin-bottom:2rem;line-height:1.55;}
-  .next{background:rgba(201,162,39,.06);border-left:3px solid var(--gold);padding:1.1rem 1.2rem;border-radius:5px;font-size:.92rem;line-height:1.55;text-align:left;color:var(--text2);margin-bottom:1.6rem;}
+  .sub{color:var(--text2);font-size:.95rem;margin-bottom:1.6rem;line-height:1.55;}
+  .spin{display:inline-block;width:22px;height:22px;border:2px solid rgba(201,162,39,.2);border-top-color:var(--gold);border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .next{background:rgba(201,162,39,.06);border-left:3px solid var(--gold);padding:1.1rem 1.2rem;border-radius:5px;font-size:.92rem;line-height:1.55;text-align:left;color:var(--text2);margin:1.4rem 0;}
   .next strong{color:var(--text);font-weight:500;}
   ol{padding-left:1.2rem;margin-top:.6rem;}
   ol li{margin-bottom:.35rem;}
+  .cta{display:inline-block;padding:14px 32px;background:var(--gold);color:#0E1830;border:none;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;text-decoration:none;margin-top:.4rem;}
+  .cta:hover{box-shadow:0 6px 20px rgba(201,162,39,.3);}
+  .cta-secondary{display:inline-block;padding:11px 22px;background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:5px;font-family:'DM Sans',sans-serif;font-size:12px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;text-decoration:none;margin-top:.6rem;margin-left:.5rem;}
+  .err{background:rgba(124,45,45,.12);border-left:3px solid var(--coral);padding:1rem;border-radius:5px;font-size:.88rem;color:#e8a8b3;margin:1.2rem 0;text-align:left;}
   .verse{font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.95rem;letter-spacing:.04em;margin-top:1.5rem;line-height:1.55;}
   .verse cite{display:block;margin-top:.3rem;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);font-style:normal;font-family:'DM Sans',sans-serif;}
 </style>
 </head>
 <body>
 <div class="card">
-  <div class="check">✓</div>
-  <h1>Payment <em>received</em>.</h1>
-  <p class="sub">We've emailed your sign-in link. Check your inbox (and your spam folder, just in case).</p>
 
-  <div class="next">
-    <strong>What happens next:</strong>
-    <ol>
-      <li>Open the email from Covenant titled <em>"Your Covenant sign-in link"</em>.</li>
-      <li>Click the magic link (it expires in 15 minutes).</li>
-      <li>Set up your organisation — takes 30 seconds.</li>
-      <li>Land in your workspace, ready to use.</li>
-    </ol>
+  <!-- STAGE 1: claiming access (default visible) -->
+  <div id="stage-claiming">
+    <div class="check">✓</div>
+    <h1>Payment <em>received</em>.</h1>
+    <p class="sub">Setting up your access… <span class="spin"></span></p>
   </div>
 
-  <p class="sub" style="font-size:.82rem;font-style:italic;">Didn't get the email after a few minutes? <a href="/signin.html" style="color:var(--gold);">Request another link →</a></p>
+  <!-- STAGE 2: redirecting -->
+  <div id="stage-redirect" style="display:none;">
+    <div class="check">✓</div>
+    <h1>You're <em>in</em>.</h1>
+    <p class="sub">Sending you to your new workspace…</p>
+  </div>
+
+  <!-- STAGE 3: fallback (claim failed — show inbox + manual route) -->
+  <div id="stage-fallback" style="display:none;">
+    <div class="check">✓</div>
+    <h1>Payment <em>received</em>.</h1>
+    <p class="sub">Two ways to get into your new workspace — pick whichever's faster.</p>
+
+    <div class="next">
+      <strong>Option 1 — your inbox</strong>
+      <p style="margin-top:.5rem;">A sign-in email titled <em>"Your Covenant sign-in link"</em> is on its way. Click the gold "Sign in" button inside. Check spam if it doesn't appear in 2-3 minutes.</p>
+    </div>
+
+    <div class="next">
+      <strong>Option 2 — request a fresh link</strong>
+      <p style="margin-top:.5rem;">If the email never arrives, request a new sign-in link using the same email you paid with.</p>
+      <a href="/signin.html" class="cta" style="margin-top:.8rem;">Request sign-in link</a>
+    </div>
+
+    <div id="claim-err" class="err" style="display:none;"></div>
+
+    <p class="sub" style="font-size:.82rem;font-style:italic;margin-top:1.2rem;">Stuck? Reach out to support and we'll sign you in manually.</p>
+  </div>
 
   <div class="verse">
     "She has done a beautiful thing to me."
     <cite>Mark 14:6</cite>
   </div>
 </div>
+
+<script type="module">
+  import { ConvexClient } from "https://esm.sh/convex@1.17/browser";
+  const client = new ConvexClient("https://standing-quail-556.convex.cloud");
+
+  const params = new URLSearchParams(location.search);
+  // PayMongo appends ?id=<checkout_session_id> to success_url. Some
+  // builds use ?session_id=. Accept either to be safe.
+  const checkoutId =
+    params.get("id") ||
+    params.get("session_id") ||
+    params.get("checkout_session_id") ||
+    "";
+
+  function showStage(id) {
+    ["stage-claiming","stage-redirect","stage-fallback"]
+      .forEach(s => { const el = document.getElementById(s); if (el) el.style.display = "none"; });
+    document.getElementById(id).style.display = "";
+  }
+  function showError(text) {
+    const el = document.getElementById("claim-err");
+    el.textContent = text;
+    el.style.display = "block";
+  }
+
+  async function claim() {
+    if (!checkoutId) {
+      showStage("stage-fallback");
+      return;
+    }
+    try {
+      const result = await client.action("paymongo:claimAccessFromCheckout", { checkoutId });
+      if (result.ok && result.token) {
+        showStage("stage-redirect");
+        // Brief pause so the user actually sees the success state.
+        setTimeout(() => location.replace(`/auth.html?token=${encodeURIComponent(result.token)}`), 900);
+        return;
+      }
+      // Failure paths — fall through to inbox/manual.
+      showStage("stage-fallback");
+      if (result.reason === "already_activated") {
+        showError("Looks like this checkout is already activated on another device. Sign in normally instead.");
+      } else if (result.reason === "not_found") {
+        showError("Couldn't locate your purchase yet. The webhook may still be processing — try option 1 or 2 below.");
+      } else if (result.reason === "invalid_status") {
+        showError(`Unexpected status: ${result.status}. Use option 2 to sign in instead.`);
+      }
+    } catch (err) {
+      console.error("[buy-success] claim failed:", err);
+      showStage("stage-fallback");
+      showError(err.message || String(err));
+    }
+  }
+
+  claim();
+</script>
 </body>
 </html>
