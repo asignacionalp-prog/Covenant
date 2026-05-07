@@ -19,6 +19,50 @@ import { v } from "convex/values";
 
 export default defineSchema({
   // ─────────────────────────────────────────────────────────────
+  // AUTH (custom magic-link)
+  //
+  // Phase 1.2b uses a simple home-grown auth instead of
+  // @convex-dev/auth — the app is vanilla HTML+JS and the React-first
+  // ergonomics of @convex-dev/auth would force a build step we don't
+  // need. The mechanics are identical: short-lived magic-link tokens
+  // grant longer-lived session tokens stored in localStorage.
+  // ─────────────────────────────────────────────────────────────
+
+  users: defineTable({
+    email: v.string(),
+    createdAt: v.number(),
+    lastSignInAt: v.optional(v.number()),
+  }).index("by_email", ["email"]),
+
+  /**
+   * Long-lived session tokens (30 days). The frontend stores the
+   * sessionToken in localStorage and passes it on every query/mutation
+   * call as `sessionToken` arg. `requireSession()` validates.
+   */
+  sessions: defineTable({
+    userId: v.id("users"),
+    sessionToken: v.string(),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_token", ["sessionToken"])
+    .index("by_user", ["userId"]),
+
+  /**
+   * Short-lived magic-link tokens (15 minutes). Single use — once
+   * consumed, `consumedAt` is stamped and the row is no longer
+   * accepted. Rows are not deleted on consume so the audit trail
+   * survives.
+   */
+  authTokens: defineTable({
+    email: v.string(),
+    token: v.string(),
+    expiresAt: v.number(),
+    consumedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_token", ["token"]),
+
+  // ─────────────────────────────────────────────────────────────
   // ORGS + LICENSES + MEMBERSHIP
   // ─────────────────────────────────────────────────────────────
 

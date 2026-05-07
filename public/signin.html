@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Sign in — Covenant</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Cardo:ital,wght@0,400;0,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0E1830;--paper:#1A2842;--text:#F4EDD9;--text2:#C9A78D;
+    --gold:#C9A227;--gold-bright:#E0B83A;--border:#3A4A6E;
+    --coral:#A14B5F;
+  }
+  body{font-family:'Cardo',Georgia,serif;background:var(--bg);color:var(--text);
+    line-height:1.6;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background-image:
+      radial-gradient(circle at 20% 30%,rgba(201,162,39,.06) 0%,transparent 40%),
+      radial-gradient(circle at 80% 70%,rgba(124,45,45,.04) 0%,transparent 40%);}
+  .card{max-width:430px;width:90%;padding:2.5rem 2rem;background:var(--paper);
+    border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 36px rgba(0,0,0,.3);}
+  .brand{display:flex;align-items:center;gap:.5rem;justify-content:center;margin-bottom:1.6rem;}
+  .cross{color:var(--gold);font-size:1.4rem;}
+  .brand h1{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;}
+  h2{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.7rem;text-align:center;margin-bottom:.4rem;}
+  .sub{font-size:.85rem;color:var(--text2);text-align:center;margin-bottom:1.8rem;letter-spacing:.04em;}
+  label{display:block;font-family:'DM Sans',sans-serif;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);margin-bottom:.4rem;}
+  input{width:100%;padding:11px 14px;background:rgba(244,237,217,.04);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s;}
+  input:focus{border-color:var(--gold);}
+  button{width:100%;margin-top:1.4rem;padding:13px;background:var(--gold);color:#0E1830;border:none;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:transform .2s,box-shadow .2s,opacity .2s;}
+  button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(201,162,39,.3);}
+  button:disabled{opacity:.5;cursor:wait;}
+  .msg{margin-top:1.2rem;padding:.8rem 1rem;border-radius:5px;font-size:.85rem;line-height:1.5;}
+  .msg.ok{background:rgba(47,107,63,.15);border-left:3px solid #2F6B3F;color:#a8d4b3;}
+  .msg.err{background:rgba(124,45,45,.15);border-left:3px solid var(--coral);color:#e8a8b3;}
+  .foot{margin-top:1.6rem;text-align:center;font-size:.78rem;color:var(--text2);font-style:italic;}
+  .foot a{color:var(--gold);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand"><span class="cross">✝</span><h1>Covenant</h1></div>
+  <h2>Welcome back</h2>
+  <p class="sub">SIGN IN WITH A MAGIC LINK</p>
+
+  <form id="form">
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com" autofocus/>
+    <button type="submit" id="btn">Send magic link</button>
+  </form>
+
+  <div id="msg" class="msg" style="display:none;"></div>
+
+  <div class="foot">
+    Don't have access yet? <a href="/">Buy ₱1,000 →</a>
+  </div>
+</div>
+
+<script type="module">
+  import { ConvexClient } from "https://esm.sh/convex@1.17/browser";
+
+  // Convex deployment URL — pages.dev frontend talks to standing-quail-556 backend.
+  const client = new ConvexClient("https://standing-quail-556.convex.cloud");
+
+  const form = document.getElementById("form");
+  const btn = document.getElementById("btn");
+  const msg = document.getElementById("msg");
+  const emailInput = document.getElementById("email");
+
+  function show(text, kind) {
+    msg.textContent = text;
+    msg.className = "msg " + kind;
+    msg.style.display = "block";
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    msg.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    try {
+      // String function reference — `module:function`. No bundler /
+      // codegen import needed.
+      await client.mutation("auth:requestMagicLink", {
+        email: emailInput.value,
+      });
+      show(
+        "Check your inbox. A sign-in link is on its way — it expires in 15 minutes. " +
+        "If you don't see it in a couple minutes, check spam. " +
+        "(Pre-launch: the link is also printed in the Convex dashboard logs.)",
+        "ok"
+      );
+      btn.textContent = "Sent ✓";
+    } catch (err) {
+      show(err.message || "Something went wrong. Please try again.", "err");
+      btn.disabled = false;
+      btn.textContent = "Send magic link";
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,60 +1,150 @@
 /**
- * Org / member queries + utilities.
+ * Org / member queries + bootstrap mutations.
  *
- * Phase 1.1: skeleton. Phase 1.2 fills in `getMyOrg`, `createOrgFromLicense`,
- * `requireOrgMember`, and the role-gating helpers.
+ * Two paths into membership:
+ *
+ *   1. License-driven (production): a paying CEO buys via PayMongo,
+ *      a `licenses` row gets created with their email, they get a
+ *      magic link, sign in, then `bootstrapOrgFromLicense` finds
+ *      the unconsumed license for their email and creates their org
+ *      + member record. Ties the license to the new org.
+ *
+ *   2. Manual (dev/admin): a license row is created by hand in the
+ *      Convex dashboard for the developer's own email — the rest of
+ *      the flow is the same.
+ *
+ * `getMyOrg` reads the org for whoever holds the session token.
  */
-import { query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
+import { loadSession, requireSession } from "./auth";
 
-/**
- * Returns the org the current authenticated user belongs to, or null.
- * Used by the app shell on first load to decide between the welcome /
- * import wizard and the main dashboard.
- */
 export const getMyOrg = query({
-  args: {},
-  handler: async (_ctx) => {
-    // TODO Phase 1.2:
-    //   const userId = await getAuthUserId(ctx);
-    //   if (!userId) return null;
-    //   const member = await ctx.db
-    //     .query("members")
-    //     .withIndex("by_user", q => q.eq("userId", userId))
-    //     .first();
-    //   if (!member) return null;
-    //   const org = await ctx.db.get(member.orgId);
-    //   return { org, member };
-    return null;
+  args: { sessionToken: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const session = await loadSession(ctx, args.sessionToken);
+    if (!session) return null;
+    const member = await ctx.db
+      .query("members")
+      .withIndex("by_user", (q) => q.eq("userId", session.userId))
+      .first();
+    if (!member) return null;
+    const org = await ctx.db.get(member.orgId);
+    if (!org) return null;
+    return { org, member };
   },
 });
 
 /**
- * Light-weight check used by mutations: confirms the caller is a member
- * of the given org and returns their role. Throws otherwise.
+ * Called by the frontend right after a fresh sign-in. If the user
+ * already has a member row, returns that org. If not, looks for a
+ * paid-but-unactivated license for this user's email and activates
+ * it, creating an org + a `ceo` member row.
+ *
+ * Returns:
+ *   { status: "ready", orgId }       — user is in
+ *   { status: "no-license" }         — they need to buy access
+ *   { status: "needs-info", license } — license found; show org-name form
  */
-export async function requireOrgMember(
-  _ctx: unknown,
-  _orgId: unknown,
-): Promise<{ role: "ceo" | "admin" | "accountant" }> {
-  // TODO Phase 1.2: real implementation against ctx.auth + members table.
-  throw new Error("requireOrgMember: not implemented yet (Phase 1.2)");
-}
+export const bootstrapOrgFromLicense = mutation({
+  args: {
+    sessionToken: v.string(),
+    orgName: v.optional(v.string()),
+    fn: v.optional(v.string()),
+    ln: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await requireSession(ctx, args.sessionToken);
+
+    // Already a member? Idempotent return.
+    const existing = await ctx.db
+      .query("members")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+    if (existing) {
+      return { status: "ready" as const, orgId: existing.orgId };
+    }
+
+    // Find a paid, unactivated license for this email.
+    const license = await ctx.db
+      .query("licenses")
+      .withIndex("by_email", (q) => q.eq("email", user.email))
+      .filter((q) => q.eq(q.field("status"), "paid"))
+      .first();
+
+    if (!license) {
+      return { status: "no-license" as const };
+    }
+
+    // First call: ask the frontend to collect org name + caller's name.
+    if (!args.orgName || !args.fn || !args.ln) {
+      return {
+        status: "needs-info" as const,
+        license: {
+          id: license._id,
+          email: license.email,
+          paidAt: license.createdAt,
+        },
+      };
+    }
+
+    // Second call: actually create the org + member, mark the license
+    // activated.
+    const now = Date.now();
+    const orgId: Id<"orgs"> = await ctx.db.insert("orgs", {
+      name: args.orgName,
+      titheRate: 10,
+      cpRate: 10,
+      createdAt: now,
+      licenseId: license._id,
+    });
+    await ctx.db.insert("members", {
+      orgId,
+      userId: user._id,
+      role: "ceo",
+      fn: args.fn,
+      ln: args.ln,
+      em: user.email,
+      joinedAt: now,
+      status: "active",
+    });
+    await ctx.db.patch(license._id, {
+      status: "activated",
+      activatedAt: now,
+      activatedOrgId: orgId,
+      activatedUserId: user._id,
+    });
+
+    return { status: "ready" as const, orgId };
+  },
+});
 
 /**
- * Public placeholder — let the frontend display config (logo, name)
- * even before the user is signed in (e.g., on the landing page footer).
- * Future revision may scope to a specific org by domain.
+ * Admin/dev escape hatch: create an unactivated license for a given
+ * email. Lets you (Al) bootstrap your own org without PayMongo wired
+ * up yet. Phase 1.3 deletes this in favor of the webhook-driven
+ * license creation.
+ *
+ * Gate: caller must already be signed in. (Doesn't enforce CEO-only
+ * because the dev hasn't activated their org yet — chicken/egg.)
  */
-export const getPublicConfig = query({
-  args: { orgId: v.optional(v.id("orgs")) },
+export const devCreateLicenseForEmail = mutation({
+  args: { sessionToken: v.string(), email: v.string() },
   handler: async (ctx, args) => {
-    if (!args.orgId) return null;
-    const org = await ctx.db.get(args.orgId);
-    if (!org) return null;
-    return {
-      name: org.name,
-      logo: org.logo ?? null,
-    };
+    await requireSession(ctx, args.sessionToken);
+    const email = args.email.trim().toLowerCase();
+    const now = Date.now();
+    const id = await ctx.db.insert("licenses", {
+      email,
+      paymongoPaymentId: `dev-${now}`,
+      amount: 100000,
+      currency: "PHP",
+      signupToken: "dev-no-token-needed",
+      tokenExpiresAt: now + 365 * 24 * 60 * 60 * 1000,
+      status: "paid",
+      createdAt: now,
+    });
+    return { id };
   },
 });
