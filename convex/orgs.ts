@@ -120,31 +120,9 @@ export const bootstrapOrgFromLicense = mutation({
   },
 });
 
-/**
- * Admin/dev escape hatch: create an unactivated license for a given
- * email. Lets you (Al) bootstrap your own org without PayMongo wired
- * up yet. Phase 1.3 deletes this in favor of the webhook-driven
- * license creation.
- *
- * Gate: caller must already be signed in. (Doesn't enforce CEO-only
- * because the dev hasn't activated their org yet — chicken/egg.)
- */
-export const devCreateLicenseForEmail = mutation({
-  args: { sessionToken: v.string(), email: v.string() },
-  handler: async (ctx, args) => {
-    await requireSession(ctx, args.sessionToken);
-    const email = args.email.trim().toLowerCase();
-    const now = Date.now();
-    const id = await ctx.db.insert("licenses", {
-      email,
-      paymongoPaymentId: `dev-${now}`,
-      amount: 100000,
-      currency: "PHP",
-      signupToken: "dev-no-token-needed",
-      tokenExpiresAt: now + 365 * 24 * 60 * 60 * 1000,
-      status: "paid",
-      createdAt: now,
-    });
-    return { id };
-  },
-});
+// devCreateLicenseForEmail removed in Phase 2b. PayMongo now mints
+// licenses via the signed webhook; the dev backdoor is no longer
+// needed and would let any signed-in user grant themselves a license
+// for any email — a security hole we don't want against a public URL.
+// If a developer needs to seed a license for testing, they can insert
+// directly through the Convex dashboard.

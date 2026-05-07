@@ -1556,16 +1556,11 @@ body{
       <div style="text-align:center;margin-top:14px;">
         <a onclick="showForgotPassword()" style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;color:var(--gold-soft,#E8D27D);cursor:pointer;text-decoration:underline;letter-spacing:.04em;">Forgot password?</a>
       </div>
-      <details class="login-demos" style="margin-top:1.25rem;">
-        <summary style="cursor:pointer;text-align:center;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:11px;color:rgba(244,237,217,.45);letter-spacing:.18em;text-transform:uppercase;list-style:none;padding:6px;">View demo accounts</summary>
-        <div style="margin-top:10px;padding:11px 14px;background:rgba(244,237,217,.04);border:1px solid rgba(201,162,39,.18);border-radius:5px;font-family:'Cardo',serif;font-size:12px;color:rgba(244,237,217,.6);line-height:1.7;">
-          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px;">For evaluation</div>
-          <div><strong style="color:#fff;">CEO:</strong> ceo@covenant.ph &nbsp;·&nbsp; <code style="font-family:Courier,monospace;color:#fff;">ceo123</code></div>
-          <div><strong style="color:#fff;">Admin:</strong> admin@covenant.ph &nbsp;·&nbsp; <code style="font-family:Courier,monospace;color:#fff;">admin123</code></div>
-          <div><strong style="color:#fff;">Accountant:</strong> acct@covenant.ph &nbsp;·&nbsp; <code style="font-family:Courier,monospace;color:#fff;">acct123</code></div>
-          <div style="margin-top:8px;font-style:italic;font-size:11px;color:rgba(244,237,217,.4);">Type these into the fields above. For real use, the CEO can edit accounts under Users.</div>
-        </div>
-      </details>
+      <!-- Phase 2b: legacy demo-account block removed. The session
+           gate at the top of <head> redirects unauthenticated users
+           to /signin.html for magic-link auth. This login screen is
+           only reachable via ?demo=1 and is preserved as an offline
+           fallback only. -->
     </div>
     <div class="login-verse">"Bring the whole tithe into the storehouse, that there may be food in my house."<cite>Malachi 3:10</cite></div>
   </div>
@@ -2146,16 +2141,19 @@ body{
     <div id="view-settings" class="view">
       <div class="page-hdr"><div><div class="page-title">Settings</div></div></div>
       <div class="card" style="border:1px solid var(--gold);">
-        <div class="card-section-title">Backup & Restore</div>
-        <div class="info-box">
-          <strong>Important:</strong> All data lives in this browser tab only. If you refresh, close the tab, or open a newer version of the app, your data is gone unless you've backed it up. Download a backup regularly. Save it to Google Drive, Dropbox, or your local disk.
+        <div class="card-section-title">Your Data</div>
+        <div class="info-box" style="background:rgba(47,107,63,.08);border-left-color:var(--teal,#2F6B3F);">
+          <strong>Auto-saved to Convex.</strong> Every change you make is pushed to your private Convex deployment within a few seconds. No more manual backups — your data lives in the cloud the moment you type it.
         </div>
-        <div id="backup-status" style="margin:1rem 0;padding:11px 14px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:var(--radius-sm);font-family:'Cardo',serif;font-size:13px;"></div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-          <button class="btn btn-gold" onclick="downloadBackup()">⬇ Download backup</button>
-          <button class="btn btn-dark" onclick="document.getElementById('restore-input').click()">⬆ Restore from backup</button>
-          <input type="file" id="restore-input" accept=".json,application/json" style="display:none;" onchange="handleRestore(this.files)"/>
-          <span style="font-family:'Cardo',serif;font-style:italic;font-size:13px;color:var(--text2);">Restore replaces ALL current data</span>
+        <div style="margin:1rem 0;padding:11px 14px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:var(--radius-sm);font-family:'Cardo',serif;font-size:13px;line-height:1.5;color:var(--text2);">
+          <strong style="color:var(--text);">Want a personal copy?</strong> Download a portable JSON of everything in your workspace at any time. We never lock you in — your data is yours to take anywhere.
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:1rem;">
+          <button class="btn btn-gold" onclick="downloadBackup()">⬇ Export my data (JSON)</button>
+          <span style="font-family:'Cardo',serif;font-style:italic;font-size:13px;color:var(--text2);">Useful for archiving, accountant hand-off, or migrating off Covenant</span>
+        </div>
+        <div style="font-family:'Cardo',serif;font-style:italic;font-size:12px;color:var(--text3,#8C7853);margin-top:1rem;line-height:1.5;">
+          <strong style="font-style:normal;color:var(--text2);">Need to import data from somewhere?</strong> Use the <a href="/import.html" style="color:var(--gold);text-decoration:underline;">data import wizard</a> instead. It safely loads a JSON into Convex without overwriting current records mid-edit.
         </div>
       </div>
       <div class="card" id="migration-card" style="border:1px solid var(--gold-soft);">
@@ -2582,11 +2580,12 @@ body{
 // ============================================================
 const S = {
   cu: null,
-  users: [
-    {id:1,fn:'Joshua',ln:'Reyes',em:'ceo@covenant.ph',pw:'ceo123',role:'ceo'},
-    {id:2,fn:'Maria',ln:'Santos',em:'admin@covenant.ph',pw:'admin123',role:'admin'},
-    {id:3,fn:'Ruth',ln:'Cruz',em:'acct@covenant.ph',pw:'acct123',role:'accountant'}
-  ],
+  // Phase 2b: legacy hardcoded demo users removed. In SaaS mode the
+  // Convex bridge populates `users` from the org's `members` table on
+  // load. The legacy login screen at /app.html is now only reachable
+  // via `?demo=1` — without S.users seeded it'll reject everything,
+  // which is the right behaviour for production.
+  users: [],
   partners: [],
   businesses: [],
   sales: [],
