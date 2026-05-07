@@ -4,6 +4,17 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Covenant — Ministry Accounting & HRIS</title>
+<script>
+  // Phase 2 session gate. If no Convex session token in localStorage,
+  // bounce immediately to /signin.html. Allows ?demo=1 query param to
+  // bypass — useful for offline/demo testing of the legacy login screen.
+  (function() {
+    if (location.search.indexOf('demo=1') !== -1) return;
+    if (!localStorage.getItem('cov_session')) {
+      location.replace('/signin.html');
+    }
+  })();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Cardo:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
 /* =========================================================
@@ -12359,6 +12370,324 @@ applyAnimation();
 <!-- Custom cursor -->
 <div class="cov-cursor__ring" id="cov-cursor-ring" aria-hidden="true"></div>
 <div class="cov-cursor" id="cov-cursor" aria-hidden="true"></div>
+
+<!-- =========================================================
+     PHASE 2 — CONVEX BRIDGE
+     Hydrates `S` from Convex on load and auto-syncs back on every
+     change. Replaces the local-only login + localStorage backup flow.
+     Runs after the main script so it has access to S, markDirty,
+     computeAll, applyTheme, applyAnimation, renderDashboard, gP, etc.
+     ========================================================= -->
+<script>
+(async function covConvexBridge() {
+  // Demo mode (?demo=1) bypasses everything — useful for testing the
+  // legacy login screen without a Convex session.
+  if (location.search.indexOf('demo=1') !== -1) return;
+
+  const SESSION_KEY = 'cov_session';
+  const sessionToken = localStorage.getItem(SESSION_KEY);
+  if (!sessionToken) {
+    // Belt-and-braces — head script should already have redirected.
+    location.replace('/signin.html');
+    return;
+  }
+
+  const CONVEX_URL = 'https://standing-quail-556.convex.cloud';
+
+  // Inject a tiny status overlay so the user sees what's happening
+  // before the app shell paints over the login screen.
+  function statusOverlay(text) {
+    let el = document.getElementById('cov-bridge-status');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'cov-bridge-status';
+      el.style.cssText = 'position:fixed;inset:0;z-index:13000;display:flex;align-items:center;justify-content:center;background:#0E1830;color:#F4EDD9;font-family:Cardo,Georgia,serif;font-size:.95rem;letter-spacing:.04em;flex-direction:column;gap:1.4rem;';
+      el.innerHTML = '<div style="font-family:\'Cormorant Garamond\',serif;font-style:italic;color:#C9A227;font-size:2.2rem;">✝ Covenant</div><div id="cov-bridge-text" style="color:#C9A78D;">Loading your workspace…</div>';
+      document.body.appendChild(el);
+    }
+    const t = document.getElementById('cov-bridge-text');
+    if (t) t.textContent = text;
+  }
+  statusOverlay('Loading your workspace…');
+
+  let ConvexClient;
+  try {
+    ({ ConvexClient } = await import('https://esm.sh/convex@1.17/browser'));
+  } catch (err) {
+    statusOverlay('Failed to load Convex. Check your connection.');
+    console.error('[covBridge] dynamic import failed:', err);
+    return;
+  }
+  const client = new ConvexClient(CONVEX_URL);
+
+  // ─── HYDRATE S FROM CONVEX ───────────────────────────────
+  let snapshot;
+  try {
+    snapshot = await client.query('data:listAll', { sessionToken });
+  } catch (err) {
+    statusOverlay('Could not load your data: ' + (err && err.message || err));
+    console.error('[covBridge] listAll failed:', err);
+    return;
+  }
+
+  if (!snapshot) {
+    // Session probably expired or org missing. Bounce back to auth.
+    localStorage.removeItem(SESSION_KEY);
+    location.replace('/auth.html');
+    return;
+  }
+
+  // Mutate S in place (it's a const binding so we can't reassign).
+  S.cfg = snapshot.cfg || S.cfg;
+  S.myProfile = snapshot.myProfile || S.myProfile;
+  S.cu = snapshot.cu || null;
+  S.users = snapshot.users || [];
+  S.partners = snapshot.partners || [];
+  S.businesses = snapshot.businesses || [];
+  S.clients = snapshot.clients || [];
+  S.payments = snapshot.payments || [];
+  S.salaries = snapshot.salaries || [];
+  S.att = snapshot.att || {};
+  S.obls = snapshot.obls || [];
+  S.logs = snapshot.logs || [];
+  S.runs = snapshot.runs || [];
+  S.invoices = snapshot.invoices || [];
+  S.sales = snapshot.sales || [];
+  S.expenses = snapshot.expenses || [];
+  S.convictionFirstfruits = snapshot.convictionFirstfruits || [];
+  S.apps = snapshot.apps || [];
+  S.credits = snapshot.credits || [];
+  S.clientCredits = snapshot.clientCredits || [];
+  S.nid = snapshot.nid || S.nid;
+  S.__orgId = snapshot._orgId;
+  S.__userId = snapshot._userId;
+
+  if (!S.cu) {
+    statusOverlay('Your account isn\'t linked to an organization. Sign in again.');
+    setTimeout(() => location.replace('/auth.html'), 1800);
+    return;
+  }
+
+  // Show the app, mirror what doLogin would do.
+  try {
+    document.getElementById('sb-av').textContent =
+      (S.cu.fn && S.cu.fn[0] || '') + (S.cu.ln && S.cu.ln[0] || '');
+    document.getElementById('sb-name').textContent =
+      (S.cu.fn || '') + ' ' + (S.cu.ln || '');
+    document.getElementById('sb-role').textContent =
+      (S.cu.role || '').toUpperCase();
+    document.getElementById('login-screen').classList.remove('active');
+    document.getElementById('app-screen').classList.add('active');
+
+    if (typeof computeAll === 'function') computeAll();
+    if (typeof applyTheme === 'function') applyTheme();
+    if (typeof applyAnimation === 'function') applyAnimation();
+    if (typeof renderDashboard === 'function') renderDashboard();
+  } catch (err) {
+    console.error('[covBridge] showing app shell failed:', err);
+  }
+
+  // Remove the loading overlay now the real app is visible.
+  const overlay = document.getElementById('cov-bridge-status');
+  if (overlay) overlay.remove();
+
+  // ─── AUTO-SAVE ON markDirty ──────────────────────────────
+  // The existing __wrapDirty machinery already calls markDirty after
+  // every mutation. We override markDirty to also schedule a Convex
+  // sync, debounced 3s, so a burst of edits coalesces into one push.
+
+  let saveTimer = null;
+  let saveInFlight = false;
+  let savePending = false;
+  let lastSaveAt = null;
+  let lastError = null;
+
+  // Mirror the original markDirty behaviour (sets __dirty + updates the
+  // sidebar indicator) but redirect the sidebar UI to our sync status.
+  const originalMarkDirty =
+    typeof window.markDirty === 'function' ? window.markDirty : null;
+
+  // Replace the legacy backup indicator with a sync-status indicator
+  // that reflects "saved Xs ago / saving... / unsaved".
+  function renderSyncIndicator(state, detail) {
+    const el = document.getElementById('sb-backup-indicator');
+    if (!el) return;
+    let label = 'Synced';
+    let color = 'var(--emerald, #2F6B3F)';
+    let icon = '✓';
+    if (state === 'pending') {
+      label = 'Saving in 3s…';
+      color = 'var(--gold, #C9A227)';
+      icon = '⋯';
+    } else if (state === 'saving') {
+      label = 'Saving…';
+      color = 'var(--gold, #C9A227)';
+      icon = '↻';
+    } else if (state === 'error') {
+      label = 'Sync failed';
+      color = 'var(--coral, #7C2D2D)';
+      icon = '⚠';
+    } else if (state === 'idle' && lastSaveAt) {
+      const ageS = Math.max(0, Math.floor((Date.now() - lastSaveAt) / 1000));
+      const age =
+        ageS < 60 ? ageS + 's ago'
+        : ageS < 3600 ? Math.floor(ageS / 60) + 'm ago'
+        : Math.floor(ageS / 3600) + 'h ago';
+      label = 'Synced ' + age;
+    }
+    el.innerHTML =
+      '<div style="color:' + color + ';font-weight:600;font-family:\'Cormorant Garamond\',serif;font-size:13px;letter-spacing:.04em;">' +
+        icon + ' ' + label +
+      '</div>' +
+      (detail ? '<div style="color:var(--text2);font-style:italic;margin-top:2px;">' + detail + '</div>' : '');
+    el.title = 'Auto-syncing to Convex. Click to force a save now.';
+    el.onclick = () => { clearTimeout(saveTimer); flushNow(); };
+  }
+  // Keep the indicator fresh every 30s so "Xs ago" advances.
+  setInterval(() => { if (!saveInFlight && !saveTimer) renderSyncIndicator('idle'); }, 30000);
+  renderSyncIndicator('idle');
+
+  // Neutralise the legacy backup-indicator updaters — they target the
+  // same DOM node and would clobber our sync status text on their own
+  // setInterval. Auto-sync to Convex replaces local backup entirely.
+  if (typeof window.updateBackupIndicator === 'function') {
+    window.updateBackupIndicator = function() { /* phase-2 noop */ };
+  }
+  if (typeof window.renderBackupStatus === 'function') {
+    window.renderBackupStatus = function() { /* phase-2 noop */ };
+  }
+
+  window.markDirty = function() {
+    if (originalMarkDirty) {
+      try { originalMarkDirty(); } catch (e) { /* ignore */ }
+    }
+    scheduleSave();
+  };
+
+  function scheduleSave() {
+    if (saveInFlight) { savePending = true; return; }
+    if (saveTimer) clearTimeout(saveTimer);
+    renderSyncIndicator('pending');
+    saveTimer = setTimeout(flushNow, 3000);
+  }
+
+  async function flushNow() {
+    saveTimer = null;
+    if (saveInFlight) { savePending = true; return; }
+    saveInFlight = true;
+    renderSyncIndicator('saving');
+
+    try {
+      // Fire all per-entity syncs in parallel. They're independent and
+      // small enough to fit in a single mutation each.
+      const tasks = [
+        client.mutation('sync:syncOrgConfig', { sessionToken, cfg: S.cfg || {} }),
+        client.mutation('sync:syncBusinesses', { sessionToken, items: S.businesses || [] }),
+        client.mutation('sync:syncPartners', { sessionToken, items: S.partners || [] }),
+        client.mutation('sync:syncClients', { sessionToken, items: S.clients || [] }),
+        client.mutation('sync:syncPayments', { sessionToken, items: S.payments || [] }),
+        client.mutation('sync:syncSalaries', { sessionToken, items: S.salaries || [] }),
+        client.mutation('sync:syncObligations', { sessionToken, items: S.obls || [] }),
+        client.mutation('sync:syncRemittanceLogs', { sessionToken, items: S.logs || [] }),
+        client.mutation('sync:syncPayrollRuns', { sessionToken, items: S.runs || [] }),
+        client.mutation('sync:syncInvoices', { sessionToken, items: S.invoices || [] }),
+        client.mutation('sync:syncSales', { sessionToken, items: S.sales || [] }),
+        client.mutation('sync:syncExpenses', { sessionToken, items: S.expenses || [] }),
+        client.mutation('sync:syncConvictionFirstfruits', { sessionToken, items: S.convictionFirstfruits || [] }),
+        client.mutation('sync:syncApplications', { sessionToken, items: S.apps || [] }),
+        flushAttendance(),
+      ];
+      await Promise.all(tasks);
+      lastSaveAt = Date.now();
+      lastError = null;
+      renderSyncIndicator('idle');
+    } catch (err) {
+      lastError = err;
+      console.error('[covBridge] sync failed:', err);
+      renderSyncIndicator('error', (err && err.message) || String(err));
+    } finally {
+      saveInFlight = false;
+      if (savePending) {
+        savePending = false;
+        scheduleSave();
+      }
+    }
+  }
+
+  // Attendance can be ~thousands of rows. Chunk into batches of 400
+  // and use the chunkIndex==0 + expectedKeys pattern so the first
+  // chunk garbage-collects rows the user deleted.
+  async function flushAttendance() {
+    const att = S.att || {};
+    const items = Object.entries(att).map(([key, val]) => {
+      const [pid, ...rest] = key.split(':');
+      return {
+        partnerId: parseInt(pid, 10),
+        date: rest.join(':'),
+        ...val,
+      };
+    });
+    const expectedKeys = items
+      .filter(i => i.partnerId && i.date)
+      .map(i => i.partnerId + ':' + i.date);
+    const CHUNK = 400;
+    for (let i = 0; i < items.length; i += CHUNK) {
+      const chunk = items.slice(i, i + CHUNK);
+      await client.mutation('sync:syncAttendanceChunk', {
+        sessionToken,
+        items: chunk,
+        chunkIndex: i / CHUNK,
+        ...(i === 0 ? { expectedKeys } : {}),
+      });
+    }
+    // If there were no items at all but we still need to garbage collect
+    // (user deleted everything), fire one empty chunk with the empty key
+    // list so the delete-missing pass runs.
+    if (items.length === 0) {
+      await client.mutation('sync:syncAttendanceChunk', {
+        sessionToken,
+        items: [],
+        chunkIndex: 0,
+        expectedKeys: [],
+      });
+    }
+  }
+
+  // ─── SIGN OUT ────────────────────────────────────────────
+  // Replace the legacy doLogout (which just toggles screens) with a
+  // real sign-out: flush pending changes, drop the session, and bounce.
+  const originalDoLogout = typeof window.doLogout === 'function'
+    ? window.doLogout : null;
+  window.doLogout = async function() {
+    try {
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        await flushNow();
+      }
+      await client.mutation('auth:signOut', { sessionToken });
+    } catch (e) {
+      console.warn('[covBridge] signOut failed (continuing):', e);
+    }
+    localStorage.removeItem(SESSION_KEY);
+    if (originalDoLogout) {
+      try { originalDoLogout(); } catch (e) { /* ignore */ }
+    }
+    location.replace('/signin.html');
+  };
+
+  // Try to flush pending edits before the user navigates away.
+  window.addEventListener('beforeunload', (e) => {
+    if (saveTimer || savePending || saveInFlight) {
+      e.preventDefault();
+      e.returnValue = 'You have unsaved changes that are still syncing. Stay a moment longer?';
+      return e.returnValue;
+    }
+  });
+
+  // Expose for debugging in devtools.
+  window.__cov = { client, flushNow, snapshot, sessionToken };
+})();
+</script>
 
 </body>
 </html>

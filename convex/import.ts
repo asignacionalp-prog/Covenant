@@ -37,7 +37,11 @@ async function requireOrg(
   return { user, orgId: member.orgId };
 }
 
-type LookupTable = "businesses" | "partners" | "clients" | "obligations";
+// Tables that have a `by_org_legacyId` index — lookupLegacy only
+// works against these. `obligations` was incorrectly listed here in
+// an earlier iteration; it has `by_org_key` for dedupe but no legacyId
+// index.
+type LookupTable = "businesses" | "partners" | "clients";
 
 async function lookupLegacy<T extends LookupTable>(
   ctx: MutationCtx,
