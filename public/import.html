@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Import data — Covenant</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Cardo:ital,wght@0,400;0,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0E1830;--paper:#1A2842;--text:#F4EDD9;--text2:#C9A78D;
+    --gold:#C9A227;--gold-bright:#E0B83A;--border:#3A4A6E;
+    --coral:#A14B5F;--teal:#2F6B3F;
+  }
+  body{font-family:'Cardo',Georgia,serif;background:var(--bg);color:var(--text);
+    line-height:1.6;min-height:100vh;
+    background-image:
+      radial-gradient(circle at 20% 30%,rgba(201,162,39,.06) 0%,transparent 40%),
+      radial-gradient(circle at 80% 70%,rgba(124,45,45,.04) 0%,transparent 40%);
+    padding:3rem 1.5rem;}
+  .wrap{max-width:760px;margin:0 auto;}
+  .brand{display:flex;align-items:center;gap:.5rem;margin-bottom:2rem;}
+  .cross{color:var(--gold);font-size:1.4rem;}
+  .brand h1{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;}
+  .brand .tag{font-family:'DM Sans',sans-serif;font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--text2);margin-left:.4rem;}
+  h2{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:2.4rem;margin-bottom:.5rem;line-height:1.05;}
+  h2 em{font-style:normal;color:var(--gold);}
+  .sub{font-size:.95rem;color:var(--text2);margin-bottom:2rem;line-height:1.55;}
+  .card{background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:2rem;margin-bottom:1.25rem;}
+  .card h3{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.4rem;margin-bottom:.4rem;color:var(--gold);}
+  .card p{color:var(--text2);font-size:.92rem;line-height:1.55;}
+  .file-zone{border:2px dashed var(--border);border-radius:8px;padding:2.5rem 1.5rem;text-align:center;cursor:pointer;transition:border-color .25s,background .25s;background:rgba(244,237,217,.02);}
+  .file-zone:hover,.file-zone.drag{border-color:var(--gold);background:rgba(201,162,39,.04);}
+  .file-zone .ico{font-size:2rem;margin-bottom:.6rem;color:var(--gold);}
+  .file-zone p{margin:0;color:var(--text2);}
+  .file-zone strong{color:var(--text);font-weight:500;}
+  input[type=file]{display:none;}
+  button{padding:13px 28px;background:var(--gold);color:#0E1830;border:none;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:transform .2s,box-shadow .2s,opacity .2s;}
+  button.ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
+  button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(201,162,39,.3);}
+  button.ghost:hover:not(:disabled){box-shadow:none;border-color:var(--gold);color:var(--gold);}
+  button:disabled{opacity:.5;cursor:wait;}
+  .preview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin:1.25rem 0;}
+  .preview-tile{padding:.9rem;background:rgba(244,237,217,.04);border:1px solid var(--border);border-radius:5px;text-align:center;}
+  .preview-tile .n{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.7rem;color:var(--gold);display:block;}
+  .preview-tile .l{font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);margin-top:.2rem;}
+  .row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1.25rem;}
+  .progress{margin-top:1rem;}
+  .progress-row{display:flex;justify-content:space-between;align-items:center;padding:.55rem 0;border-bottom:.5px solid var(--border);font-size:.88rem;font-family:'DM Sans',sans-serif;}
+  .progress-row:last-child{border-bottom:none;}
+  .progress-row .name{color:var(--text2);}
+  .progress-row .status{font-size:.78rem;letter-spacing:.06em;color:var(--text3,#8C7853);}
+  .progress-row.done .status{color:var(--teal);}
+  .progress-row.running .status{color:var(--gold);}
+  .progress-row.fail .status{color:var(--coral);}
+  .msg{padding:.9rem 1rem;border-radius:5px;font-size:.88rem;line-height:1.55;margin-top:1rem;}
+  .msg.ok{background:rgba(47,107,63,.15);border-left:3px solid var(--teal);color:#a8d4b3;}
+  .msg.err{background:rgba(124,45,45,.15);border-left:3px solid var(--coral);color:#e8a8b3;}
+  .msg.warn{background:rgba(201,162,39,.1);border-left:3px solid var(--gold);color:var(--text2);}
+  .msg.info{background:rgba(244,237,217,.04);border-left:3px solid var(--border);color:var(--text2);}
+  a{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <span class="cross">✝</span>
+    <h1>Covenant</h1>
+    <span class="tag">DATA IMPORT</span>
+  </div>
+
+  <h2>Bring your <em>existing</em> records in.</h2>
+  <p class="sub">Upload a <code>covenant-backup-vN.json</code> file (the one you exported from the standalone version). We'll load every business, partner, client, payment, salary, attendance entry, obligation, remittance, payroll run, invoice, conviction firstfruit, and application into your live workspace.</p>
+
+  <!-- STAGE 1: existing data warning -->
+  <div id="stage-existing" style="display:none;">
+    <div class="card">
+      <h3>Heads up — there's already data here</h3>
+      <p>Your workspace has existing records. Importing will <strong>append</strong> — it won't replace anything. If you want a clean slate first, delete data via the Convex dashboard before continuing.</p>
+      <div class="row">
+        <button id="proceed-existing">I understand — let me upload</button>
+        <a href="/app.html"><button class="ghost">Take me to the app</button></a>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAGE 2: file picker -->
+  <div id="stage-pick">
+    <div class="card">
+      <label class="file-zone" id="drop">
+        <div class="ico">⬆</div>
+        <p><strong>Drop your JSON here</strong> or click to browse</p>
+        <p style="font-size:.8rem;margin-top:.3rem;">Up to ~10 MB. We don't upload anywhere except your own Convex deployment.</p>
+        <input type="file" id="file" accept=".json,application/json"/>
+      </label>
+    </div>
+  </div>
+
+  <!-- STAGE 3: preview -->
+  <div id="stage-preview" style="display:none;">
+    <div class="card">
+      <h3>Found this in your file</h3>
+      <p id="preview-meta" style="font-size:.85rem;font-style:italic;"></p>
+      <div class="preview-grid" id="preview-grid"></div>
+      <div class="row">
+        <button id="start">Import everything</button>
+        <button id="reset" class="ghost">Pick a different file</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAGE 4: progress -->
+  <div id="stage-running" style="display:none;">
+    <div class="card">
+      <h3>Importing…</h3>
+      <p>This usually takes a minute or two depending on size. Don't close this tab.</p>
+      <div class="progress" id="progress"></div>
+    </div>
+  </div>
+
+  <!-- STAGE 5: done -->
+  <div id="stage-done" style="display:none;">
+    <div class="card">
+      <h3>Import complete ✓</h3>
+      <p>Everything is now in your Convex deployment. You can verify each table in the <a href="https://dashboard.convex.dev/d/standing-quail-556/data" target="_blank">Convex dashboard</a>.</p>
+      <div class="msg info" id="done-summary"></div>
+      <div class="row">
+        <a href="/app.html"><button>Go to the app</button></a>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAGE 6: error -->
+  <div id="stage-err" style="display:none;">
+    <div class="card">
+      <h3>Something went wrong</h3>
+      <div class="msg err" id="err-text"></div>
+      <div class="row">
+        <button id="err-retry" class="ghost">Try again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { ConvexClient } from "https://esm.sh/convex@1.17/browser";
+
+  const client = new ConvexClient("https://standing-quail-556.convex.cloud");
+  const SESSION_KEY = "cov_session";
+  const sessionToken = localStorage.getItem(SESSION_KEY);
+
+  // Gate: must be signed in.
+  if (!sessionToken) {
+    location.replace("/signin.html");
+    throw new Error("redirecting");
+  }
+
+  let parsedState = null;       // the .state object from the JSON
+  let preflightedAttendance = []; // flattened from att{} keyed object
+  let parsedSchema = "";
+
+  function showStage(id) {
+    ["stage-existing","stage-pick","stage-preview","stage-running","stage-done","stage-err"]
+      .forEach(s => { const el = document.getElementById(s); if (el) el.style.display = "none"; });
+    document.getElementById(id).style.display = "";
+  }
+
+  function showError(text) {
+    document.getElementById("err-text").textContent = text;
+    showStage("stage-err");
+  }
+
+  // Detect existing data first.
+  async function checkExisting() {
+    try {
+      const sum = await client.mutation("import:summary", { sessionToken });
+      if (sum.hasPartners || sum.hasBusinesses || sum.hasClients || sum.hasPayments) {
+        showStage("stage-existing");
+      }
+    } catch (err) {
+      // Non-fatal — fall through to file picker.
+      console.warn("summary check failed:", err);
+    }
+  }
+  checkExisting();
+
+  document.getElementById("proceed-existing").addEventListener("click", () => {
+    showStage("stage-pick");
+  });
+
+  // ─── File picker / drop zone ───────────────────────────────
+  const drop = document.getElementById("drop");
+  const fileInput = document.getElementById("file");
+
+  fileInput.addEventListener("change", (e) => handleFile(e.target.files[0]));
+  ["dragenter","dragover"].forEach(ev =>
+    drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drag"); }));
+  ["dragleave","drop"].forEach(ev =>
+    drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("drag"); }));
+  drop.addEventListener("drop", (e) => {
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+
+  async function handleFile(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      if (!json.schema || !json.schema.startsWith("covenant-backup")) {
+        throw new Error("That doesn't look like a Covenant backup file. Expected `schema: \"covenant-backup-vN\"`.");
+      }
+      if (!json.state) throw new Error("Missing `state` key in the JSON.");
+
+      parsedSchema = json.schema;
+      parsedState = json.state;
+
+      // Flatten the keyed `att` object into an array.
+      const att = parsedState.att || {};
+      preflightedAttendance = Object.entries(att).map(([key, val]) => {
+        const [pid, ...rest] = key.split(":");
+        return {
+          partnerId: parseInt(pid, 10),
+          date: rest.join(":"),
+          ...val,
+        };
+      });
+
+      renderPreview(file);
+      showStage("stage-preview");
+    } catch (err) {
+      showError(err.message || String(err));
+    }
+  }
+
+  function renderPreview(file) {
+    const s = parsedState;
+    const counts = {
+      Businesses: (s.businesses || []).length,
+      Partners: (s.partners || []).length,
+      Clients: (s.clients || []).length,
+      Payments: (s.payments || []).length,
+      Salaries: (s.salaries || []).length,
+      Attendance: preflightedAttendance.length,
+      Obligations: (s.obls || []).length,
+      Remittances: (s.logs || []).length,
+      "Payroll runs": (s.runs || []).length,
+      Invoices: (s.invoices || []).length,
+      Sales: (s.sales || []).length,
+      Expenses: (s.expenses || []).length,
+      "Conviction FF": (s.convictionFirstfruits || []).length,
+      Applications: (s.apps || []).length,
+    };
+    document.getElementById("preview-meta").textContent =
+      `${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB · schema: ${parsedSchema}`;
+    document.getElementById("preview-grid").innerHTML = Object.entries(counts)
+      .map(([k, n]) =>
+        `<div class="preview-tile"><span class="n">${n.toLocaleString()}</span><div class="l">${k}</div></div>`
+      ).join("");
+  }
+
+  document.getElementById("reset").addEventListener("click", () => {
+    parsedState = null;
+    preflightedAttendance = [];
+    fileInput.value = "";
+    showStage("stage-pick");
+  });
+
+  document.getElementById("err-retry").addEventListener("click", () => {
+    showStage("stage-pick");
+  });
+
+  // ─── Run the import ────────────────────────────────────────
+  document.getElementById("start").addEventListener("click", runImport);
+
+  function chunk(arr, size) {
+    const out = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  }
+
+  async function runImport() {
+    const s = parsedState;
+    const stages = [
+      // [label, fn, payload-builder, count]
+      ["Org config",          () => [{ cfg: s.cfg || {} }],                                              "import:importOrgConfig"],
+      ["Businesses",          () => [{ items: s.businesses || [] }],                                     "import:importBusinesses"],
+      ["Partners",            () => [{ items: s.partners || [] }],                                       "import:importPartners"],
+      ["Clients",             () => [{ items: s.clients || [] }],                                        "import:importClients"],
+      ["Payments",            () => chunk(s.payments || [], 200).map(items => ({ items })),              "import:importPayments"],
+      ["Salaries",            () => chunk(s.salaries || [], 200).map(items => ({ items })),              "import:importSalaries"],
+      ["Attendance",          () => chunk(preflightedAttendance, 300).map(items => ({ items })),         "import:importAttendance"],
+      ["Obligations",         () => chunk(s.obls || [], 200).map(items => ({ items })),                  "import:importObligations"],
+      ["Remittance logs",     () => [{ items: s.logs || [] }],                                           "import:importRemittanceLogs"],
+      ["Payroll runs",        () => [{ items: s.runs || [] }],                                           "import:importPayrollRuns"],
+      ["Invoices",            () => [{ items: s.invoices || [] }],                                       "import:importInvoices"],
+      ["Sales",               () => [{ items: s.sales || [] }],                                          "import:importSales"],
+      ["Expenses",            () => [{ items: s.expenses || [] }],                                       "import:importExpenses"],
+      ["Conviction FF",       () => [{ items: s.convictionFirstfruits || [] }],                          "import:importConvictionFirstfruits"],
+      ["Applications",        () => [{ items: s.apps || [] }],                                           "import:importApplications"],
+    ];
+
+    const progressEl = document.getElementById("progress");
+    progressEl.innerHTML = stages
+      .map(([label]) => `<div class="progress-row" data-label="${label}"><div class="name">${label}</div><div class="status">queued</div></div>`)
+      .join("");
+    showStage("stage-running");
+
+    const totals = {
+      businesses: 0, partners: 0, clients: 0, payments: 0, salaries: 0,
+      attendance: 0, obligations: 0, remittanceLogs: 0, payrollRuns: 0,
+      invoices: 0, sales: 0, expenses: 0, convictionFirstfruits: 0, applications: 0,
+    };
+    const labelToTotalKey = {
+      "Businesses": "businesses", "Partners": "partners", "Clients": "clients",
+      "Payments": "payments", "Salaries": "salaries", "Attendance": "attendance",
+      "Obligations": "obligations", "Remittance logs": "remittanceLogs",
+      "Payroll runs": "payrollRuns", "Invoices": "invoices", "Sales": "sales",
+      "Expenses": "expenses", "Conviction FF": "convictionFirstfruits",
+      "Applications": "applications",
+    };
+
+    for (const [label, payloadBuilder, fn] of stages) {
+      const row = progressEl.querySelector(`[data-label="${label}"]`);
+      const status = row.querySelector(".status");
+      row.classList.add("running");
+      status.textContent = "running…";
+
+      const payloads = payloadBuilder();
+      let total = 0;
+      try {
+        for (let i = 0; i < payloads.length; i++) {
+          if (payloads.length > 1) status.textContent = `batch ${i + 1}/${payloads.length}`;
+          const result = await client.mutation(fn, { sessionToken, ...payloads[i] });
+          if (typeof result?.count === "number") total += result.count;
+        }
+        const key = labelToTotalKey[label];
+        if (key) totals[key] = total;
+        row.classList.remove("running");
+        row.classList.add("done");
+        status.textContent = total > 0 ? `${total.toLocaleString()} rows ✓` : "done ✓";
+      } catch (err) {
+        row.classList.remove("running");
+        row.classList.add("fail");
+        status.textContent = "failed";
+        showError(`${label} failed: ${err.message || err}`);
+        return;
+      }
+    }
+
+    // Audit row
+    try {
+      await client.mutation("import:recordImportJob", {
+        sessionToken,
+        schema: parsedSchema,
+        counts: totals,
+      });
+    } catch (err) {
+      console.warn("recordImportJob failed:", err);
+    }
+
+    document.getElementById("done-summary").innerHTML =
+      "<strong>Imported:</strong> " +
+      Object.entries(totals)
+        .filter(([, n]) => n > 0)
+        .map(([k, n]) => `${n.toLocaleString()} ${k}`)
+        .join(" · ");
+    showStage("stage-done");
+  }
+</script>
+</body>
+</html>
