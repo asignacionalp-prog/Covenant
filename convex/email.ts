@@ -1,24 +1,34 @@
 /**
- * Email — Resend integration.
+ * Email — pluggable provider.
  *
- * Behaviour gated on `RESEND_API_KEY`:
- *   - missing → log the message to the Convex console (dev mode)
- *   - present → POST to https://api.resend.com/emails
+ * Pick a path by which env vars are set, in priority order:
+ *
+ *   1. GMAIL_APP_PASSWORD set      → SMTP via nodemailer (your gmail
+ *                                    as the From, ~500/day free,
+ *                                    works without a verified domain)
+ *   2. RESEND_API_KEY set          → POST to Resend (best when you
+ *                                    have a verified domain)
+ *   3. neither                     → log to Convex console (dev fallback)
  *
  * Optional env vars:
- *   - RESEND_FROM = "Covenant <noreply@yourdomain.com>"
- *     Defaults to "Covenant <onboarding@resend.dev>", which is
- *     Resend's sandbox sender — works without DNS setup, deliverability
- *     is OK for transactional but customers will see resend.dev. Switch
- *     to a verified custom domain when you own one.
- *   - RESEND_REPLY_TO  (optional)
- *     The address customers reach if they hit "Reply" — typically your
- *     real support inbox (e.g. asignacionalp@gmail.com).
+ *   - GMAIL_USER             — defaults to the email part of GMAIL_FROM
+ *                              or "Covenant" + asignacionalp@gmail.com
+ *   - GMAIL_FROM             — full From, e.g. `Covenant <you@gmail.com>`
+ *   - RESEND_FROM            — full From, e.g. `Covenant <noreply@yourdomain.com>`
+ *                              (defaults to "Covenant <onboarding@resend.dev>")
+ *   - RESEND_REPLY_TO        — Reply-to address used in Resend mode
+ *
+ * For Gmail SMTP: you must enable 2-Step Verification on your Google
+ * account, then generate an App Password at
+ *   https://myaccount.google.com/apppasswords
+ * The 16-character app password (no spaces) goes into
+ * GMAIL_APP_PASSWORD. Your gmail address goes into GMAIL_USER.
  */
 "use node";
 
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
+import nodemailer from "nodemailer";
 
 interface EmailPayload {
   to: string;
@@ -28,28 +38,48 @@ interface EmailPayload {
   replyTo?: string;
 }
 
-async function sendEmail(payload: EmailPayload): Promise<void> {
-  const key = process.env.RESEND_API_KEY;
+async function sendViaGmail(payload: EmailPayload): Promise<void> {
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD!;
+  if (!user) {
+    throw new Error(
+      "GMAIL_USER not set. Set your gmail address in Convex env vars.",
+    );
+  }
+  const fromDefault = process.env.GMAIL_FROM ?? `Covenant <${user}>`;
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: { user, pass },
+  });
+  try {
+    const info = await transporter.sendMail({
+      from: payload.from ?? fromDefault,
+      to: payload.to,
+      subject: payload.subject,
+      html: payload.html,
+      replyTo: payload.replyTo,
+    });
+    console.log(
+      `[email] sent to ${payload.to} via Gmail SMTP (id ${info.messageId})`,
+    );
+  } catch (err: any) {
+    console.error("[email] Gmail SMTP error:", err);
+    throw new Error(
+      `Gmail SMTP refused the message: ${err?.message || String(err)}`,
+    );
+  }
+}
+
+async function sendViaResend(payload: EmailPayload): Promise<void> {
+  const key = process.env.RESEND_API_KEY!;
   const defaultFrom =
     process.env.RESEND_FROM ?? "Covenant <onboarding@resend.dev>";
   const defaultReplyTo = process.env.RESEND_REPLY_TO;
 
   const from = payload.from ?? defaultFrom;
   const replyTo = payload.replyTo ?? defaultReplyTo;
-
-  if (!key) {
-    // Pre-launch fallback. Magic link still works — copy it from the
-    // log and hand-deliver via Messenger/SMS to early customers.
-    console.log(
-      "\n────────────── EMAIL (stub — RESEND_API_KEY not set) ──────────────\n" +
-        `To:      ${payload.to}\n` +
-        `From:    ${from}\n` +
-        `Subject: ${payload.subject}\n\n` +
-        `${payload.html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()}\n` +
-        "─────────────────────────────────────────────────────────────────\n",
-    );
-    return;
-  }
 
   let res: Response;
   try {
@@ -75,22 +105,18 @@ async function sendEmail(payload: EmailPayload): Promise<void> {
   if (!res.ok) {
     const body = await res.text();
     console.error(`[email] Resend ${res.status}:`, body);
-    // Try to extract the human-readable reason so the Convex error
-    // surface is actually useful when this fails in production.
     let reason = `${res.status}`;
     try {
       const parsed = JSON.parse(body);
       if (parsed?.message) reason = `${res.status} — ${parsed.message}`;
       else if (parsed?.error) reason = `${res.status} — ${parsed.error}`;
     } catch {
-      // Body wasn't JSON; leave reason as the status code.
+      /* body wasn't JSON */
     }
     throw new Error(`Resend rejected the message: ${reason}`);
   }
 
-  const json = (await res.json().catch(() => null)) as
-    | { id?: string }
-    | null;
+  const json = (await res.json().catch(() => null)) as { id?: string } | null;
   console.log(
     `[email] sent to ${payload.to} via Resend${
       json?.id ? ` (id ${json.id})` : ""
@@ -98,11 +124,26 @@ async function sendEmail(payload: EmailPayload): Promise<void> {
   );
 }
 
+async function sendEmail(payload: EmailPayload): Promise<void> {
+  if (process.env.GMAIL_APP_PASSWORD) {
+    return sendViaGmail(payload);
+  }
+  if (process.env.RESEND_API_KEY) {
+    return sendViaResend(payload);
+  }
+  // Stub fallback — magic link still works, copy from log.
+  console.log(
+    "\n────────────── EMAIL (stub — no provider configured) ──────────────\n" +
+      `To:      ${payload.to}\n` +
+      `Subject: ${payload.subject}\n\n` +
+      `${payload.html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()}\n` +
+      "─────────────────────────────────────────────────────────────────\n",
+  );
+}
+
 /**
  * Internal action: compose + send the magic-link email.
- * Scheduled by `auth.requestMagicLink` (which is called either when
- * a returning user signs in via /signin.html, or automatically by
- * the PayMongo webhook after a successful checkout).
+ * Scheduled by `auth.requestMagicLink`.
  */
 export const sendMagicLink = internalAction({
   args: { email: v.string(), token: v.string() },
