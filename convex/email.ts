@@ -75,7 +75,17 @@ async function sendEmail(payload: EmailPayload): Promise<void> {
   if (!res.ok) {
     const body = await res.text();
     console.error(`[email] Resend ${res.status}:`, body);
-    throw new Error(`Resend rejected the message: ${res.status}`);
+    // Try to extract the human-readable reason so the Convex error
+    // surface is actually useful when this fails in production.
+    let reason = `${res.status}`;
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed?.message) reason = `${res.status} — ${parsed.message}`;
+      else if (parsed?.error) reason = `${res.status} — ${parsed.error}`;
+    } catch {
+      // Body wasn't JSON; leave reason as the status code.
+    }
+    throw new Error(`Resend rejected the message: ${reason}`);
   }
 
   const json = (await res.json().catch(() => null)) as
