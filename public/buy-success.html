@@ -92,13 +92,30 @@
   const client = new ConvexClient("https://standing-quail-556.convex.cloud");
 
   const params = new URLSearchParams(location.search);
-  // PayMongo appends ?id=<checkout_session_id> to success_url. Some
-  // builds use ?session_id=. Accept either to be safe.
-  const checkoutId =
+  // PayMongo doesn't propagate the checkout id to success_url query
+  // params, so the landing page stashes it in localStorage before the
+  // PayMongo redirect. We try URL first (in case PayMongo ever does)
+  // and fall back to localStorage.
+  let checkoutId =
     params.get("id") ||
     params.get("session_id") ||
     params.get("checkout_session_id") ||
     "";
+  let stashedEmail = "";
+  if (!checkoutId) {
+    try {
+      const raw = localStorage.getItem("cov_pending_checkout");
+      if (raw) {
+        const stashed = JSON.parse(raw);
+        // Only trust the stash if it was created in the last 30 minutes.
+        // Anything older is stale (browser-back, second tab, etc.).
+        if (stashed && stashed.createdAt && Date.now() - stashed.createdAt < 30 * 60 * 1000) {
+          checkoutId = stashed.checkoutId || "";
+          stashedEmail = stashed.email || "";
+        }
+      }
+    } catch (_) { /* corrupt JSON — fall through */ }
+  }
 
   function showStage(id) {
     ["stage-claiming","stage-redirect","stage-fallback"]
@@ -119,6 +136,9 @@
     try {
       const result = await client.action("paymongo:claimAccessFromCheckout", { checkoutId });
       if (result.ok && result.token) {
+        // Successful claim — clear the stash so a refresh/back-button
+        // doesn't try to re-mint a token from a now-activated license.
+        try { localStorage.removeItem("cov_pending_checkout"); } catch (_) {}
         showStage("stage-redirect");
         // Brief pause so the user actually sees the success state.
         setTimeout(() => location.replace(`/auth.html?token=${encodeURIComponent(result.token)}`), 900);

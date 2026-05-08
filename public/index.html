@@ -145,6 +145,16 @@
     confirmBtn.textContent = "Opening checkout…";
     try {
       const result = await client.action("paymongo:createCheckoutSession", { email });
+      // PayMongo doesn't propagate the checkout id to success_url query
+      // params, so stash it in localStorage now. /buy-success.html reads
+      // it back to instantly mint an auth token + redirect into the app.
+      try {
+        localStorage.setItem("cov_pending_checkout", JSON.stringify({
+          checkoutId: result.sessionId,
+          email,
+          createdAt: Date.now(),
+        }));
+      } catch (_) { /* localStorage may be disabled — claim falls back to email */ }
       // Redirect the whole tab to PayMongo's hosted checkout.
       location.href = result.url;
     } catch (err) {
