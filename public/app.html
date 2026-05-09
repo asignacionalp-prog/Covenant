@@ -2156,6 +2156,22 @@ body{
           <strong style="font-style:normal;color:var(--text2);">Need to import data from somewhere?</strong> Use the <a href="/import.html" style="color:var(--gold);text-decoration:underline;">data import wizard</a> instead. It safely loads a JSON into Convex without overwriting current records mid-edit.
         </div>
       </div>
+
+      <div class="card" id="security-card" style="border:1px solid var(--border);">
+        <div class="card-section-title">Sign-in &amp; security</div>
+        <div class="info-box" style="background:rgba(201,162,39,.06);border-left-color:var(--gold);">
+          <strong>Set a password</strong> for faster sign-in next time. Use at least 8 characters. You can change it any time.
+        </div>
+        <div class="f2" style="margin-top:1rem;">
+          <div class="fr"><label>New password</label><input type="password" id="set-pw" minlength="8" autocomplete="new-password" placeholder="At least 8 characters"/></div>
+          <div class="fr"><label>Confirm password</label><input type="password" id="set-pw-confirm" minlength="8" autocomplete="new-password" placeholder="Repeat to confirm"/></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:1rem;">
+          <button class="btn btn-dark" onclick="saveAccountPassword()">Save password</button>
+          <span id="set-pw-status" style="font-family:'Cardo',serif;font-style:italic;font-size:13px;color:var(--text2);"></span>
+        </div>
+      </div>
+
       <div class="card" id="migration-card" style="border:1px solid var(--gold-soft);">
         <div class="card-section-title">Migration &amp; Bulk Import</div>
         <div class="info-box" style="background:rgba(201,162,39,.06);border-left-color:var(--gold);">
@@ -2771,6 +2787,35 @@ function doLogout(){
   S.cu=null;
   document.getElementById('app-screen').classList.remove('active');
   document.getElementById('login-screen').classList.add('active');
+}
+
+// Settings → Sign-in & security → Save password.
+// Called from the Settings page password card. Requires the Convex
+// bridge (window.__cov) to be initialised — which it always is in
+// SaaS mode. In ?demo=1 mode this no-ops with a friendly message.
+async function saveAccountPassword(){
+  const statusEl = document.getElementById('set-pw-status');
+  const set = (text, color) => { statusEl.textContent = text; statusEl.style.color = color || ''; };
+  if (!window.__cov || !window.__cov.client || !window.__cov.sessionToken) {
+    set('Password changes need a real Convex session — not available in demo mode.', 'var(--coral)');
+    return;
+  }
+  const pw  = document.getElementById('set-pw').value;
+  const pw2 = document.getElementById('set-pw-confirm').value;
+  if (pw.length < 8) { set('Password must be at least 8 characters.', 'var(--coral)'); return; }
+  if (pw !== pw2)    { set("Passwords don't match — try retyping.", 'var(--coral)'); return; }
+  set('Saving…', 'var(--gold)');
+  try {
+    await window.__cov.client.mutation('auth:setPassword', {
+      sessionToken: window.__cov.sessionToken,
+      password: pw,
+    });
+    document.getElementById('set-pw').value = '';
+    document.getElementById('set-pw-confirm').value = '';
+    set('✓ Password saved. Use this next time you sign in.', 'var(--teal,#2F6B3F)');
+  } catch (err) {
+    set((err && err.message) || 'Could not save password.', 'var(--coral)');
+  }
 }
 
 // ============================================================

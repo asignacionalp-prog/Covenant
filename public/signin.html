@@ -10,14 +10,15 @@
   :root{
     --bg:#0E1830;--paper:#1A2842;--text:#F4EDD9;--text2:#C9A78D;
     --gold:#C9A227;--gold-bright:#E0B83A;--border:#3A4A6E;
-    --coral:#A14B5F;
+    --coral:#A14B5F;--teal:#2F6B3F;
   }
   body{font-family:'Cardo',Georgia,serif;background:var(--bg);color:var(--text);
     line-height:1.6;min-height:100vh;display:flex;align-items:center;justify-content:center;
     background-image:
       radial-gradient(circle at 20% 30%,rgba(201,162,39,.06) 0%,transparent 40%),
-      radial-gradient(circle at 80% 70%,rgba(124,45,45,.04) 0%,transparent 40%);}
-  .card{max-width:430px;width:90%;padding:2.5rem 2rem;background:var(--paper);
+      radial-gradient(circle at 80% 70%,rgba(124,45,45,.04) 0%,transparent 40%);
+    padding:2rem;}
+  .card{max-width:430px;width:100%;padding:2.5rem 2rem;background:var(--paper);
     border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 36px rgba(0,0,0,.3);}
   .brand{display:flex;align-items:center;gap:.5rem;justify-content:center;margin-bottom:1.6rem;}
   .cross{color:var(--gold);font-size:1.4rem;}
@@ -27,76 +28,194 @@
   label{display:block;font-family:'DM Sans',sans-serif;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);margin-bottom:.4rem;}
   input{width:100%;padding:11px 14px;background:rgba(244,237,217,.04);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s;}
   input:focus{border-color:var(--gold);}
+  .field + .field{margin-top:1rem;}
   button{width:100%;margin-top:1.4rem;padding:13px;background:var(--gold);color:#0E1830;border:none;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:transform .2s,box-shadow .2s,opacity .2s;}
   button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(201,162,39,.3);}
   button:disabled{opacity:.5;cursor:wait;}
+  button.ghost{background:transparent;color:var(--text2);border:1px solid var(--border);margin-top:0.6rem;}
+  button.ghost:hover:not(:disabled){border-color:var(--gold);color:var(--gold);box-shadow:none;}
   .msg{margin-top:1.2rem;padding:.8rem 1rem;border-radius:5px;font-size:.85rem;line-height:1.5;}
   .msg.ok{background:rgba(47,107,63,.15);border-left:3px solid #2F6B3F;color:#a8d4b3;}
   .msg.err{background:rgba(124,45,45,.15);border-left:3px solid var(--coral);color:#e8a8b3;}
   .foot{margin-top:1.6rem;text-align:center;font-size:.78rem;color:var(--text2);font-style:italic;}
-  .foot a{color:var(--gold);text-decoration:none;}
+  .foot a{color:var(--gold);text-decoration:none;cursor:pointer;}
+  .foot a:hover{text-decoration:underline;}
+  .divider{margin:1.4rem 0 1rem;text-align:center;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);position:relative;}
+  .divider::before,.divider::after{content:'';position:absolute;top:50%;width:35%;height:1px;background:var(--border);}
+  .divider::before{left:0;}
+  .divider::after{right:0;}
+  .recovery-panel{margin-top:1rem;padding:1rem;background:rgba(244,237,217,.03);border:1px solid var(--border);border-radius:5px;display:none;}
+  .recovery-panel.show{display:block;}
+  .recovery-panel p{font-size:.85rem;color:var(--text2);margin-bottom:.8rem;line-height:1.5;}
 </style>
 </head>
 <body>
 <div class="card">
   <div class="brand"><span class="cross">✝</span><h1>Covenant</h1></div>
   <h2>Welcome back</h2>
-  <p class="sub">SIGN IN WITH A MAGIC LINK</p>
+  <p class="sub">SIGN IN TO YOUR WORKSPACE</p>
 
   <form id="form">
-    <label for="email">Email</label>
-    <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com" autofocus/>
-    <button type="submit" id="btn">Send magic link</button>
+    <div class="field">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com" autofocus/>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="••••••••"/>
+    </div>
+    <button type="submit" id="btn">Sign in</button>
   </form>
 
   <div id="msg" class="msg" style="display:none;"></div>
 
   <div class="foot">
+    <a id="link-recovery">Already paid but never set up your account? →</a>
+  </div>
+
+  <div id="recovery-panel" class="recovery-panel">
+    <p>Enter the email you paid with. We'll take you back to the setup screen so you can finish creating your workspace and choose a password.</p>
+    <div class="field">
+      <label for="recovery-email">Paid email</label>
+      <input type="email" id="recovery-email" placeholder="you@example.com"/>
+    </div>
+    <button type="button" id="recovery-btn">Send me to setup</button>
+    <button type="button" id="recovery-cancel" class="ghost">Cancel</button>
+  </div>
+
+  <div class="foot" style="margin-top:1.4rem;">
     Don't have access yet? <a href="/">Buy ₱1,000 →</a>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       MAGIC LINK FALLBACK — hidden by default.
+       Re-enable by setting `enableMagicLink = true` in
+       the script below once the email provider is fixed
+       (verified domain in Resend, or a paid Gmail tier).
+       ────────────────────────────────────────────────── -->
+  <div class="foot" id="magic-link-row" style="display:none;">
+    <a id="link-magic">Use a one-time magic link instead</a>
   </div>
 </div>
 
 <script type="module">
   import { ConvexClient } from "https://esm.sh/convex@1.17/browser";
-
-  // Convex deployment URL — pages.dev frontend talks to standing-quail-556 backend.
   const client = new ConvexClient("https://standing-quail-556.convex.cloud");
+  const SESSION_KEY = "cov_session";
+
+  // ── Toggle for the magic-link UI. Off until email is reliable. ──
+  const enableMagicLink = false;
+  if (enableMagicLink) {
+    document.getElementById("magic-link-row").style.display = "";
+  }
 
   const form = document.getElementById("form");
   const btn = document.getElementById("btn");
   const msg = document.getElementById("msg");
   const emailInput = document.getElementById("email");
+  const pwInput = document.getElementById("password");
 
   function show(text, kind) {
     msg.textContent = text;
     msg.className = "msg " + kind;
     msg.style.display = "block";
   }
+  function hideMsg() {
+    msg.style.display = "none";
+  }
 
+  // ── PRIMARY: email + password ──
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    msg.style.display = "none";
+    hideMsg();
     btn.disabled = true;
-    btn.textContent = "Sending…";
+    btn.textContent = "Signing in…";
     try {
-      // String function reference — `module:function`. No bundler /
-      // codegen import needed.
-      await client.mutation("auth:requestMagicLink", {
+      const result = await client.mutation("auth:signInWithPassword", {
         email: emailInput.value,
+        password: pwInput.value,
       });
-      show(
-        "Check your inbox. A sign-in link is on its way — it expires in 15 minutes. " +
-        "If you don't see it in a couple minutes, check spam. " +
-        "(Pre-launch: the link is also printed in the Convex dashboard logs.)",
-        "ok"
-      );
-      btn.textContent = "Sent ✓";
-    } catch (err) {
-      show(err.message || "Something went wrong. Please try again.", "err");
+      if (result?.sessionToken) {
+        localStorage.setItem(SESSION_KEY, result.sessionToken);
+        location.replace("/app.html");
+        return;
+      }
+      show("Unexpected response from server. Try again.", "err");
       btn.disabled = false;
-      btn.textContent = "Send magic link";
+      btn.textContent = "Sign in";
+    } catch (err) {
+      show(err.message || "Sign-in failed. Try again.", "err");
+      btn.disabled = false;
+      btn.textContent = "Sign in";
     }
   });
+
+  // ── RECOVERY: didn't finish bootstrap ──
+  const recoveryPanel = document.getElementById("recovery-panel");
+  const recoveryBtn = document.getElementById("recovery-btn");
+  const recoveryCancel = document.getElementById("recovery-cancel");
+  const recoveryEmail = document.getElementById("recovery-email");
+
+  document.getElementById("link-recovery").addEventListener("click", () => {
+    hideMsg();
+    recoveryPanel.classList.add("show");
+    recoveryEmail.focus();
+  });
+  recoveryCancel.addEventListener("click", () => {
+    recoveryPanel.classList.remove("show");
+  });
+
+  recoveryBtn.addEventListener("click", async () => {
+    hideMsg();
+    const e = recoveryEmail.value.trim();
+    if (!e || !e.includes("@")) {
+      show("Please enter a valid email.", "err");
+      return;
+    }
+    recoveryBtn.disabled = true;
+    recoveryBtn.textContent = "Looking up…";
+    try {
+      const result = await client.mutation("auth:claimUnactivatedLicense", { email: e });
+      if (result?.ok && result.token) {
+        location.replace("/auth.html?token=" + encodeURIComponent(result.token));
+        return;
+      }
+      // We deliberately don't say whether the email matches a paid
+      // license to avoid leaking who's a customer. Just nudge them.
+      show(
+        "We couldn't find an unactivated purchase for that email. " +
+        "If you've already finished setup, sign in above. If you " +
+        "think this is wrong, contact support.",
+        "err"
+      );
+    } catch (err) {
+      show(err.message || "Recovery failed. Try again.", "err");
+    } finally {
+      recoveryBtn.disabled = false;
+      recoveryBtn.textContent = "Send me to setup";
+    }
+  });
+
+  // ── HIDDEN: magic link request (re-enable when email is fixed) ──
+  const magicLink = document.getElementById("link-magic");
+  if (magicLink) {
+    magicLink.addEventListener("click", async () => {
+      const e = emailInput.value.trim();
+      if (!e || !e.includes("@")) {
+        show("Type your email above first.", "err");
+        return;
+      }
+      try {
+        await client.mutation("auth:requestMagicLink", { email: e });
+        show(
+          "Check your inbox. A sign-in link is on its way — it expires in 15 minutes.",
+          "ok"
+        );
+      } catch (err) {
+        show(err.message || "Couldn't send link.", "err");
+      }
+    });
+  }
 </script>
 </body>
 </html>

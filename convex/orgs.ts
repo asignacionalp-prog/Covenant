@@ -53,6 +53,12 @@ export const bootstrapOrgFromLicense = mutation({
     orgName: v.optional(v.string()),
     fn: v.optional(v.string()),
     ln: v.optional(v.string()),
+    /**
+     * Optional — if the bootstrap form collects a password, we hash
+     * + store it as part of the same transaction so the user has
+     * password sign-in available immediately on next visit.
+     */
+    password: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { user } = await requireSession(ctx, args.sessionToken);
@@ -89,8 +95,17 @@ export const bootstrapOrgFromLicense = mutation({
       };
     }
 
+    // Hash the password BEFORE the transaction's writes so a bad
+    // password fails fast without leaving partial state.
+    let passwordHash: string | undefined;
+    let passwordSetAt: number | undefined;
+    if (args.password) {
+      passwordHash = await hashPasswordExternal(args.password);
+      passwordSetAt = Date.now();
+    }
+
     // Second call: actually create the org + member, mark the license
-    // activated.
+    // activated, and store the password if provided.
     const now = Date.now();
     const orgId: Id<"orgs"> = await ctx.db.insert("orgs", {
       name: args.orgName,
@@ -115,10 +130,40 @@ export const bootstrapOrgFromLicense = mutation({
       activatedOrgId: orgId,
       activatedUserId: user._id,
     });
+    if (passwordHash) {
+      await ctx.db.patch(user._id, { passwordHash, passwordSetAt });
+    }
 
     return { status: "ready" as const, orgId };
   },
 });
+
+// Local copy of the password hasher so this module doesn't have a
+// circular import on auth.ts. PBKDF2-SHA256 100K iters, 16-byte salt.
+async function hashPasswordExternal(password: string): Promise<string> {
+  if (typeof password !== "string" || password.length < 8) {
+    throw new Error("Password must be at least 8 characters.");
+  }
+  if (password.length > 256) throw new Error("Password is too long.");
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations: 100_000, hash: "SHA-256" },
+    key,
+    256,
+  );
+  const b64 = (b: Uint8Array) => {
+    let s = ""; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+    return btoa(s);
+  };
+  return `pbkdf2$100000$${b64(salt)}$${b64(new Uint8Array(bits))}`;
+}
 
 // devCreateLicenseForEmail removed in Phase 2b. PayMongo now mints
 // licenses via the signed webhook; the dev backdoor is no longer

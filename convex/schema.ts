@@ -32,6 +32,16 @@ export default defineSchema({
     email: v.string(),
     createdAt: v.number(),
     lastSignInAt: v.optional(v.number()),
+    /**
+     * PBKDF2 hash of the user's password, stored as
+     * `pbkdf2$<iterations>$<saltB64>$<hashB64>`. Optional because:
+     *  (a) magic-link-only users created before password support
+     *      have no hash yet — they still sign in via magic link,
+     *  (b) the bootstrap flow may be aborted before the password
+     *      step on a slow connection.
+     */
+    passwordHash: v.optional(v.string()),
+    passwordSetAt: v.optional(v.number()),
   }).index("by_email", ["email"]),
 
   /**

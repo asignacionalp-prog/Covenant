@@ -86,6 +86,11 @@
           <input type="text" id="ln" required placeholder="Last"/>
         </div>
       </div>
+      <label for="password" style="margin-top:1rem;">Choose a password</label>
+      <input type="password" id="password" required minlength="8" placeholder="At least 8 characters" autocomplete="new-password"/>
+      <label for="password-confirm" style="margin-top:.8rem;">Confirm password</label>
+      <input type="password" id="password-confirm" required minlength="8" placeholder="Repeat to confirm" autocomplete="new-password"/>
+      <div style="font-family:'Cardo',serif;font-style:italic;font-size:11px;color:var(--text2);margin-top:.6rem;line-height:1.5;">You'll use this password next time you sign in. Pick something at least 8 characters that you'll remember.</div>
       <button type="submit" id="boot-btn">Create my workspace</button>
     </form>
   </div>
@@ -182,6 +187,16 @@
   document.getElementById("boot-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = document.getElementById("boot-btn");
+    const pw = document.getElementById("password").value;
+    const pw2 = document.getElementById("password-confirm").value;
+    if (pw.length < 8) {
+      showError("Password must be at least 8 characters.");
+      return;
+    }
+    if (pw !== pw2) {
+      showError("The two passwords don't match. Try retyping them.");
+      return;
+    }
     btn.disabled = true;
     btn.textContent = "Creating…";
     try {
@@ -191,6 +206,7 @@
         orgName: document.getElementById("org-name").value.trim(),
         fn: document.getElementById("fn").value.trim(),
         ln: document.getElementById("ln").value.trim(),
+        password: pw,
       });
       if (result.status === "ready") {
         showState("state-ready");

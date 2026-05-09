@@ -48,6 +48,88 @@ function normalizeEmail(raw: string): string {
   return e;
 }
 
+// ─── PASSWORD HASHING ───────────────────────────────────────
+// Web Crypto PBKDF2-SHA256, 100K iterations, 16-byte salt, 32-byte
+// derived key. Stored as `pbkdf2$<iters>$<saltB64>$<hashB64>` so the
+// algorithm + parameters are self-describing for future migrations.
+
+const PBKDF2_ITERATIONS = 100_000;
+const PBKDF2_SALT_BYTES = 16;
+const PBKDF2_HASH_BYTES = 32;
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s);
+}
+function base64ToBytes(b64: string): Uint8Array {
+  const s = atob(b64);
+  const out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out;
+}
+
+async function hashPassword(password: string): Promise<string> {
+  if (typeof password !== "string" || password.length < 8) {
+    throw new Error("Password must be at least 8 characters.");
+  }
+  if (password.length > 256) {
+    throw new Error("Password is too long.");
+  }
+  const salt = crypto.getRandomValues(new Uint8Array(PBKDF2_SALT_BYTES));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: PBKDF2_ITERATIONS,
+      hash: "SHA-256",
+    },
+    key,
+    PBKDF2_HASH_BYTES * 8,
+  );
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${bytesToBase64(salt)}$${bytesToBase64(new Uint8Array(bits))}`;
+}
+
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  if (!password || !stored) return false;
+  const parts = stored.split("$");
+  if (parts.length !== 4 || parts[0] !== "pbkdf2") return false;
+  const iters = parseInt(parts[1], 10);
+  if (!Number.isFinite(iters) || iters < 1000) return false;
+  let salt: Uint8Array, expected: Uint8Array;
+  try {
+    salt = base64ToBytes(parts[2]);
+    expected = base64ToBytes(parts[3]);
+  } catch {
+    return false;
+  }
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations: iters, hash: "SHA-256" },
+    key,
+    expected.length * 8,
+  );
+  const computed = new Uint8Array(bits);
+  if (computed.length !== expected.length) return false;
+  // Constant-time compare.
+  let result = 0;
+  for (let i = 0; i < computed.length; i++) result |= computed[i] ^ expected[i];
+  return result === 0;
+}
+
 // ─────────────────────────────────────────────────────────────
 // PUBLIC MUTATIONS / QUERIES
 // ─────────────────────────────────────────────────────────────
@@ -172,6 +254,97 @@ export const signOut = mutation({
       .unique();
     if (session) await ctx.db.delete(session._id);
     return { ok: true };
+  },
+});
+
+// ─── PASSWORD AUTH ─────────────────────────────────────────
+
+/**
+ * Set or change the current user's password. Requires an active
+ * session — i.e. the user must have already signed in (via magic
+ * link, post-purchase auto-claim, or an existing session).
+ */
+export const setPassword = mutation({
+  args: { sessionToken: v.string(), password: v.string() },
+  handler: async (ctx, args) => {
+    const { user } = await requireSession(ctx, args.sessionToken);
+    const passwordHash = await hashPassword(args.password);
+    await ctx.db.patch(user._id, {
+      passwordHash,
+      passwordSetAt: Date.now(),
+    });
+    return { ok: true };
+  },
+});
+
+/**
+ * Email + password sign-in. Returns a fresh session token on success.
+ * Wrong email or wrong password returns the same generic error so
+ * we don't leak which emails exist.
+ */
+export const signInWithPassword = mutation({
+  args: { email: v.string(), password: v.string() },
+  handler: async (ctx, args) => {
+    const email = normalizeEmail(args.email);
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+
+    const generic = "That email and password don't match an account.";
+    if (!user || !user.passwordHash) {
+      throw new Error(generic);
+    }
+    const ok = await verifyPassword(args.password, user.passwordHash);
+    if (!ok) throw new Error(generic);
+
+    const now = Date.now();
+    const sessionToken = generateToken(48);
+    await ctx.db.insert("sessions", {
+      userId: user._id,
+      sessionToken,
+      expiresAt: now + SESSION_LIFETIME_MS,
+      createdAt: now,
+    });
+    await ctx.db.patch(user._id, { lastSignInAt: now });
+    return { sessionToken };
+  },
+});
+
+/**
+ * "I already paid but never finished setting up my account" recovery
+ * flow. Looks for a paid-but-unactivated license matching the email,
+ * mints a 15-minute auth token, and returns it so the frontend can
+ * redirect to /auth.html?token=… for the bootstrap form.
+ *
+ * Stays a no-op when no matching license is found, so a casual probe
+ * with a random email reveals nothing about who has paid.
+ */
+export const claimUnactivatedLicense = mutation({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const email = normalizeEmail(args.email);
+    const license = await ctx.db
+      .query("licenses")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .filter((q) => q.eq(q.field("status"), "paid"))
+      .first();
+
+    if (!license) {
+      // Don't leak whether the email exists. Frontend tells the user
+      // to use Sign In or contact support either way.
+      return { ok: false as const, reason: "no_unactivated_license" as const };
+    }
+
+    const token = generateToken(24);
+    const now = Date.now();
+    await ctx.db.insert("authTokens", {
+      email,
+      token,
+      expiresAt: now + TOKEN_LIFETIME_MS,
+      createdAt: now,
+    });
+    return { ok: true as const, token };
   },
 });
 
