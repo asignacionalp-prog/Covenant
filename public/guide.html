@@ -102,6 +102,122 @@
   .mock-sidebar .sb-i.active{background:rgba(201,162,39,.12);border-left:2px solid var(--gold);color:var(--gold-pale);padding-left:calc(.5rem - 2px);}
   .mock-sidebar .canvas{padding:1rem;background:rgba(244,237,217,.02);border-radius:5px;border:1px dashed var(--border);min-height:8rem;display:flex;align-items:center;justify-content:center;color:var(--text3);font-style:italic;font-size:.82rem;}
 
+  /* ── Screenshot mockups (HTML/CSS recreations) ─── */
+  /* Override the .shot box style when it contains a .ss-mock —
+     we don't want the dashed border around an actual mockup. */
+  .shot:has(.ss-mock){border:1px solid var(--border);background:none;}
+  .ss-mock{
+    background:var(--paper);
+    color:var(--text);
+    font-family:'Cardo',Georgia,serif;
+    border-radius:6px 6px 0 0;
+    overflow:hidden;
+    position:relative;
+  }
+  .ss-mock .topbar{
+    height:1.6rem;background:rgba(0,0,0,.3);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;padding:0 .8rem;gap:.4rem;font-size:.7rem;color:var(--text3);
+  }
+  .ss-mock .topbar::before{
+    content:'● ● ●';color:var(--text3);letter-spacing:.15em;opacity:.4;font-size:.55rem;
+  }
+  .ss-mock .url{margin-left:.8rem;font-family:monospace;font-size:.65rem;color:var(--text2);background:rgba(244,237,217,.04);padding:.15rem .5rem;border-radius:3px;}
+  .ss-mock .body{padding:1.4rem 1.6rem;min-height:14rem;background:linear-gradient(135deg,rgba(201,162,39,.025) 0%,transparent 35%,transparent 65%,rgba(124,45,45,.02) 100%);}
+  .ss-mock h1{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.7rem;letter-spacing:-.01em;line-height:1.1;color:var(--text);margin-bottom:.4rem;}
+  .ss-mock h1 em{font-style:normal;color:var(--gold);}
+  .ss-mock h2{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.25rem;color:var(--text);margin-bottom:.3rem;}
+  .ss-mock p{font-size:.78rem;color:var(--text2);line-height:1.5;}
+  .ss-mock .label{font-family:'DM Sans',sans-serif;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);margin-bottom:.25rem;display:block;}
+  .ss-mock .input{padding:.4rem .55rem;background:rgba(244,237,217,.04);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:.72rem;}
+  .ss-mock .btn{display:inline-block;padding:.5rem 1rem;background:var(--gold);color:#0E1830;border:none;border-radius:4px;font-family:'DM Sans',sans-serif;font-size:.65rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;}
+  .ss-mock .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2);}
+
+  /* Sidebar variant for app-screen mockups */
+  .ss-mock.app{display:grid;grid-template-columns:11rem 1fr;padding:0;}
+  .ss-mock.app .sidebar{background:rgba(0,0,0,.25);padding:.7rem .55rem;border-right:1px solid var(--border);font-size:.62rem;}
+  .ss-mock.app .sb-brand{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:.95rem;color:var(--text);margin:.25rem .35rem .85rem;}
+  .ss-mock.app .sb-brand .cross{color:var(--gold);}
+  .ss-mock.app .sb-h{color:var(--gold);font-family:'DM Sans',sans-serif;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;padding:.5rem .35rem .15rem;}
+  .ss-mock.app .sb-i{padding:.2rem .35rem;color:var(--text2);}
+  .ss-mock.app .sb-i.active{background:linear-gradient(90deg,rgba(201,162,39,.14),transparent);border-left:2px solid var(--gold);color:var(--gold-pale);padding-left:calc(.35rem - 2px);}
+  .ss-mock.app .ni{color:var(--gold);opacity:.6;display:inline-block;width:.8rem;}
+  .ss-mock.app .canvas{padding:1.2rem 1.4rem;min-height:14rem;}
+  .ss-mock.app .page-hdr h2{font-size:1.4rem;margin-bottom:.1rem;font-style:normal;}
+  .ss-mock.app .page-hdr p{font-size:.7rem;color:var(--text2);font-style:italic;}
+  .ss-mock.app .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-top:.7rem;}
+  .ss-mock.app .stat-card{padding:.5rem .55rem;background:rgba(244,237,217,.03);border:1px solid var(--border);border-left:2px solid var(--gold);border-radius:3px;}
+  .ss-mock.app .stat-card.coral{border-left-color:var(--coral);}
+  .ss-mock.app .stat-card.teal{border-left-color:var(--teal);}
+  .ss-mock.app .stat-card.blue{border-left-color:var(--blue);}
+  .ss-mock.app .stat-card .lbl{font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);}
+  .ss-mock.app .stat-card .val{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:.95rem;color:var(--text);margin-top:.15rem;}
+  .ss-mock.app .stat-card.coral .val{color:#e8a8b3;}
+  .ss-mock.app .stat-card.teal .val{color:#a8d4b3;}
+  .ss-mock.app .stat-card.gold .val{color:var(--gold);}
+  .ss-mock.app .sync-ind{margin-top:1.4rem;padding:.4rem .55rem;background:rgba(201,162,39,.06);border:1px solid rgba(201,162,39,.2);border-radius:3px;font-size:.55rem;color:var(--text2);}
+  .ss-mock.app .sync-ind strong{color:var(--gold-pale);}
+
+  /* Modal-style mockup */
+  .ss-mock.modal{padding:1.2rem 1.4rem;}
+  .ss-mock.modal h2{font-size:1.1rem;margin-bottom:.5rem;}
+  .ss-mock.modal .row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:.5rem 0;}
+  .ss-mock.modal .field{margin:.4rem 0;}
+  .ss-mock.modal .field .input{width:100%;display:block;}
+  .ss-mock.modal .actions{display:flex;gap:.4rem;margin-top:.8rem;justify-content:flex-end;}
+
+  /* Calendar grid mockup (attendance-style) */
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:.5rem;}
+  .cal .d{aspect-ratio:1;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:.55rem;color:var(--text2);background:rgba(244,237,217,.04);}
+  .cal .d.h{background:rgba(244,237,217,.02);color:var(--text3);font-weight:500;}
+  .cal .d.present{background:rgba(47,107,63,.4);color:#a8d4b3;}
+  .cal .d.absent{background:rgba(124,45,45,.45);color:#e8a8b3;}
+  .cal .d.half{background:rgba(201,162,39,.3);color:var(--gold-pale);}
+  .cal .d.weekend{background:rgba(244,237,217,.02);color:var(--text3);opacity:.4;}
+  .cal .d.dim{opacity:.25;}
+  .cal-legend{display:flex;gap:.6rem;font-size:.55rem;color:var(--text2);margin-top:.4rem;}
+  .cal-legend span::before{content:'■';margin-right:.2rem;}
+  .cal-legend .pp::before{color:#a8d4b3;}
+  .cal-legend .aa::before{color:#e8a8b3;}
+  .cal-legend .hh::before{color:var(--gold-pale);}
+
+  /* Pool cards (obligations) */
+  .pool-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-top:.6rem;}
+  .pool{padding:.6rem .7rem;background:rgba(244,237,217,.03);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:3px;}
+  .pool.tithe{border-left-color:var(--blue);}
+  .pool.cp{border-left-color:var(--teal);}
+  .pool.pt{border-left-color:#7C5DAD;}
+  .pool .lbl{font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text2);}
+  .pool .val{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1rem;color:var(--gold);margin:.1rem 0;}
+  .pool.tithe .val{color:#9ab8d4;}
+  .pool.cp .val{color:#a8d4b3;}
+  .pool.pt .val{color:#c9b3e0;}
+  .pool .sub{font-size:.55rem;color:var(--text3);font-style:italic;}
+
+  /* Generic mock table */
+  .mtbl{width:100%;font-size:.62rem;border-collapse:collapse;margin-top:.5rem;}
+  .mtbl th,.mtbl td{padding:.3rem .4rem;border-bottom:1px solid var(--border);text-align:left;}
+  .mtbl th{font-family:'DM Sans',sans-serif;font-weight:500;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);background:rgba(244,237,217,.03);}
+  .mtbl td{color:var(--text2);}
+  .mtbl td.r,.mtbl th.r{text-align:right;font-variant-numeric:tabular-nums;}
+  .mtbl tr.tot td{font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-weight:600;border-top:1px solid var(--gold);background:rgba(201,162,39,.04);}
+  .mtbl .arrow{font-size:.45rem;color:var(--gold);margin-left:.15rem;}
+
+  /* Form group — used in Settings, modals */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.5rem;}
+  .form-grid.single{grid-template-columns:1fr;}
+  .form-card{background:rgba(244,237,217,.02);border:1px solid var(--border);border-radius:4px;padding:.7rem .8rem;}
+  .form-card.gold{border-color:var(--gold);}
+
+  /* Annotation chip on mockups */
+  .ss-mock .chip{
+    position:absolute;background:var(--gold);color:#0E1830;
+    font-family:'DM Sans',sans-serif;font-weight:500;font-size:.55rem;
+    letter-spacing:.06em;text-transform:uppercase;
+    padding:.15rem .4rem;border-radius:2px;
+    box-shadow:0 2px 6px rgba(0,0,0,.4);
+  }
+  .ss-mock .chip.tl{top:.5rem;right:.5rem;}
+
   /* ── Quick ref card ─────────────────────────────── */
   .qref{margin:2rem 0;padding:1.5rem;background:rgba(201,162,39,.04);border:1px solid var(--gold);border-radius:8px;}
   .qref h3{margin-top:0;color:var(--gold);}
@@ -180,12 +296,26 @@
       <p>Open it. You'll see the landing page with a <strong>Buy access</strong> button.</p>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 01</span>
-          <span class="desc">Covenant landing page — dark navy background with the "Faithful books for the faithful work" hero, a ₱1,000 price tag in italic gold, and a gold "Buy access" CTA button. Four feature tiles below.</span>
+        <div class="ss-mock">
+          <div class="topbar"><span class="url">covenant.asignacionalp.workers.dev</span></div>
+          <div class="body" style="padding:2rem 1.8rem;">
+            <div style="font-family:'DM Sans',sans-serif;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);margin-bottom:1.6rem;"><span style="color:var(--gold);font-size:.95rem;">✝</span> &nbsp;<span style="color:var(--text);font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:.95rem;text-transform:none;letter-spacing:0;">Covenant</span> &nbsp;Ministry Accounting &amp; HRIS</div>
+            <h1>Faithful books for the <em>faithful</em> work.</h1>
+            <p style="max-width:28rem;margin-bottom:1.4rem;">A modern accounting and HRIS platform for ministry CEOs running a service business with partners.</p>
+            <div style="display:flex;align-items:baseline;gap:.7rem;margin-bottom:1rem;">
+              <span style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:2rem;">₱1,000</span>
+              <span class="label">one-time · per CEO</span>
+            </div>
+            <span class="btn">Buy access</span>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-top:1.6rem;">
+              <div style="padding:.55rem .65rem;background:rgba(244,237,217,.03);border:1px solid var(--border);border-radius:3px;font-size:.55rem;color:var(--text2);">Built for the work</div>
+              <div style="padding:.55rem .65rem;background:rgba(244,237,217,.03);border:1px solid var(--border);border-radius:3px;font-size:.55rem;color:var(--text2);">Obligations, automatic</div>
+              <div style="padding:.55rem .65rem;background:rgba(244,237,217,.03);border:1px solid var(--border);border-radius:3px;font-size:.55rem;color:var(--text2);">QBO-style reports</div>
+              <div style="padding:.55rem .65rem;background:rgba(244,237,217,.03);border:1px solid var(--border);border-radius:3px;font-size:.55rem;color:var(--text2);">Your data, your way</div>
+            </div>
+          </div>
         </div>
-        <div class="caption">guide-images/01-landing.png</div>
+        <div class="caption">The landing page — what testers see first when they click your link</div>
       </div>
 
       <h3>Pay with a test card</h3>
@@ -201,23 +331,52 @@
       </div>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 02</span>
-          <span class="desc">PayMongo's hosted checkout page showing the ₱1,000 line item ("Covenant — Ministry Accounting &amp; HRIS"), payment method picker (Card / GCash / Maya / GrabPay), and card details form filled in with the test card.</span>
+        <div class="ss-mock" style="background:#fff;color:#1A1410;">
+          <div class="topbar" style="background:#f5f5f5;color:#666;"><span class="url" style="background:#fff;color:#888;">checkout.paymongo.com</span></div>
+          <div class="body" style="background:#fff;color:#1A1410;display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;padding:1.8rem 2rem;">
+            <div>
+              <div style="color:#888;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.5rem;">Pay TrueVine Home Office</div>
+              <div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:#1A1410;font-size:1.6rem;font-weight:500;margin-bottom:1rem;">₱1,000.00</div>
+              <div style="padding:.7rem .8rem;background:#fafafa;border:1px solid #e5e5e5;border-radius:4px;font-size:.7rem;">
+                <div style="color:#1A1410;font-weight:500;">Covenant — Ministry Accounting &amp; HRIS</div>
+                <div style="color:#888;font-size:.62rem;margin-top:.2rem;">Lifetime access for one CEO. One-time payment.</div>
+              </div>
+            </div>
+            <div>
+              <div style="color:#888;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:.5rem;">Payment method</div>
+              <div style="display:flex;gap:.3rem;margin-bottom:.7rem;flex-wrap:wrap;">
+                <span style="padding:.25rem .5rem;background:#1976d2;color:#fff;border-radius:3px;font-size:.55rem;">Card</span>
+                <span style="padding:.25rem .5rem;background:#f5f5f5;color:#666;border-radius:3px;font-size:.55rem;">GCash</span>
+                <span style="padding:.25rem .5rem;background:#f5f5f5;color:#666;border-radius:3px;font-size:.55rem;">Maya</span>
+                <span style="padding:.25rem .5rem;background:#f5f5f5;color:#666;border-radius:3px;font-size:.55rem;">GrabPay</span>
+              </div>
+              <div style="padding:.45rem .55rem;background:#fafafa;border:1px solid #e5e5e5;border-radius:3px;font-family:monospace;font-size:.7rem;color:#1A1410;margin-bottom:.4rem;">4343 4343 4343 4345</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-bottom:.6rem;">
+                <div style="padding:.45rem .55rem;background:#fafafa;border:1px solid #e5e5e5;border-radius:3px;font-family:monospace;font-size:.7rem;color:#1A1410;">12 / 30</div>
+                <div style="padding:.45rem .55rem;background:#fafafa;border:1px solid #e5e5e5;border-radius:3px;font-family:monospace;font-size:.7rem;color:#1A1410;">123</div>
+              </div>
+              <span style="display:inline-block;padding:.55rem 1.1rem;background:#1976d2;color:#fff;border-radius:3px;font-family:'DM Sans',sans-serif;font-size:.65rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;">Pay ₱1,000</span>
+            </div>
+          </div>
         </div>
-        <div class="caption">guide-images/02-paymongo.png</div>
+        <div class="caption">PayMongo's hosted checkout — fill in the test card and click Pay</div>
       </div>
 
       <p>After paying, you're redirected to a <strong>"Payment received"</strong> page. It sets up your access automatically (no email round-trip needed) and within a few seconds sends you to a setup screen.</p>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 03</span>
-          <span class="desc">Buy-success page — green checkmark, italic Cormorant heading "Payment received." with the word "received" in gold, brief subtitle "Setting up your access…" and a spinning gold loader.</span>
+        <div class="ss-mock">
+          <div class="topbar"><span class="url">covenant.asignacionalp.workers.dev/buy-success.html</span></div>
+          <div class="body" style="display:flex;align-items:center;justify-content:center;text-align:center;min-height:14rem;padding:2.4rem 2rem;">
+            <div style="max-width:24rem;">
+              <div style="width:3rem;height:3rem;border-radius:50%;background:rgba(47,107,63,.18);color:var(--teal);display:inline-flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:1rem;">✓</div>
+              <h1 style="font-size:1.8rem;">Payment <em>received</em>.</h1>
+              <p>Setting up your access… <span style="display:inline-block;width:.7rem;height:.7rem;border:1.5px solid rgba(201,162,39,.3);border-top-color:var(--gold);border-radius:50%;vertical-align:middle;margin-left:.3rem;"></span></p>
+              <div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.75rem;margin-top:1.4rem;">"She has done a beautiful thing to me." <span style="display:block;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);font-style:normal;font-family:'DM Sans',sans-serif;margin-top:.2rem;">Mark 14:6</span></div>
+            </div>
+          </div>
         </div>
-        <div class="caption">guide-images/03-buy-success.png</div>
+        <div class="caption">After payment — automatic redirect to setup happens within seconds</div>
       </div>
 
       <div class="callout warn"><strong><span class="ico">⚠</span>Closed the page early?</strong>
@@ -243,12 +402,29 @@
       <p>Click <strong>Create my workspace</strong>. You'll land on the dashboard with an empty workspace.</p>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 04</span>
-          <span class="desc">The bootstrap form on /auth.html — "Welcome to Covenant" italic heading, "SET UP YOUR ORGANIZATION" subtitle, info box explaining first-time setup, then form fields for Organization name, First/Last name, and Password (twice). Gold "Create my workspace" button at the bottom.</span>
+        <div class="ss-mock">
+          <div class="topbar"><span class="url">covenant.asignacionalp.workers.dev/auth.html</span></div>
+          <div class="body" style="display:flex;align-items:center;justify-content:center;padding:1.4rem;">
+            <div style="max-width:22rem;width:100%;padding:1.4rem 1.6rem;background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:6px;">
+              <div style="text-align:center;margin-bottom:.8rem;font-family:'DM Sans',sans-serif;font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);"><span style="color:var(--gold);font-size:.85rem;">✝</span> <span style="color:var(--text);font-family:'Cormorant Garamond',serif;font-style:italic;font-size:.85rem;text-transform:none;letter-spacing:0;">Covenant</span></div>
+              <h2 style="text-align:center;font-size:1.3rem;">Welcome to Covenant</h2>
+              <div class="label" style="text-align:center;margin-bottom:.7rem;">SET UP YOUR ORGANIZATION</div>
+              <div style="background:rgba(244,237,217,.04);border-left:2px solid var(--gold);padding:.5rem .65rem;font-size:.62rem;color:var(--text2);font-style:italic;line-height:1.5;margin-bottom:.7rem;">Tell us a bit about you and your ministry — you can change everything later.</div>
+              <div class="label">Organization name</div>
+              <div class="input" style="margin-bottom:.5rem;">TrueVine Home Office</div>
+              <div class="row" style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-bottom:.5rem;">
+                <div><div class="label">First name</div><div class="input">Al</div></div>
+                <div><div class="label">Last name</div><div class="input">Asignacion</div></div>
+              </div>
+              <div class="label">Choose a password</div>
+              <div class="input" style="margin-bottom:.4rem;font-family:monospace;letter-spacing:.2em;">●●●●●●●●●●</div>
+              <div class="label">Confirm password</div>
+              <div class="input" style="margin-bottom:.7rem;font-family:monospace;letter-spacing:.2em;">●●●●●●●●●●</div>
+              <span class="btn" style="width:100%;text-align:center;padding:.6rem;display:block;">Create my workspace</span>
+            </div>
+          </div>
         </div>
-        <div class="caption">guide-images/04-bootstrap.png</div>
+        <div class="caption">First-time setup form — runs once after payment</div>
       </div>
 
       <div class="callout warn"><strong><span class="ico">⚠</span>Important:</strong> Write down your password somewhere safe. Password recovery is limited during beta — if you forget it, message me directly.</div>
@@ -308,12 +484,41 @@
       </table>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 05</span>
-          <span class="desc">The full /app.html dashboard view — sidebar on the left with all sections grouped, main area showing four stat cards (Total received / Total salaries / Obligations owed / Total remitted) at the top, then a "Devotion this month" card below. Bottom-left of sidebar shows the gold "✓ Synced" indicator.</span>
+        <div class="ss-mock app">
+          <div class="sidebar">
+            <div class="sb-brand"><span class="cross">✝</span> Covenant</div>
+            <div class="sb-h">Overview</div>
+            <div class="sb-i active"><span class="ni">▦</span> Dashboard</div>
+            <div class="sb-h">People</div>
+            <div class="sb-i"><span class="ni">◭</span> Businesses</div>
+            <div class="sb-i"><span class="ni">◉</span> Partners</div>
+            <div class="sb-i"><span class="ni">◷</span> Attendance</div>
+            <div class="sb-i"><span class="ni">✝</span> Devotion</div>
+            <div class="sb-h">Finance</div>
+            <div class="sb-i"><span class="ni">↓</span> Payments</div>
+            <div class="sb-i"><span class="ni">⎙</span> Invoices</div>
+            <div class="sb-i"><span class="ni">↑</span> Salaries</div>
+            <div class="sb-i"><span class="ni">✦</span> Obligations</div>
+            <div class="sb-i"><span class="ni">◎</span> Remittance</div>
+            <div class="sb-h">Reports</div>
+            <div class="sb-i"><span class="ni">▥</span> Reports</div>
+            <div class="sync-ind"><strong>✓ Synced</strong> 12s ago</div>
+          </div>
+          <div class="canvas">
+            <div class="page-hdr">
+              <h2 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;">Dashboard</h2>
+              <p>May 2026</p>
+            </div>
+            <div style="background:rgba(201,162,39,.04);border-left:2px solid var(--gold);padding:.55rem .75rem;border-radius:3px;margin-top:.7rem;font-style:italic;font-size:.7rem;color:var(--text2);">"Bring the whole tithe into the storehouse." <span style="font-style:normal;color:var(--gold);">— Malachi 3:10</span></div>
+            <div class="stat-grid">
+              <div class="stat-card blue"><div class="lbl">Total received</div><div class="val">₱1,234,567</div></div>
+              <div class="stat-card teal"><div class="lbl">Total salaries</div><div class="val">₱812,440</div></div>
+              <div class="stat-card coral"><div class="lbl">Obligations owed</div><div class="val">₱42,210</div></div>
+              <div class="stat-card gold"><div class="lbl">Total remitted</div><div class="val">₱150,000</div></div>
+            </div>
+          </div>
         </div>
-        <div class="caption">guide-images/05-dashboard.png</div>
+        <div class="caption">App dashboard — sidebar navigation, stat cards, sync indicator at the bottom-left</div>
       </div>
     </section>
 
@@ -336,12 +541,34 @@
       <p>Click <strong>Save</strong>. The values flow into every report and computation.</p>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 06</span>
-          <span class="desc">Settings page top — "Your Data" card with auto-sync info-box, "Sign-in &amp; security" card with password fields, and the org config form (TIN, address, tithe %, CP %, logo upload).</span>
+        <div class="ss-mock app">
+          <div class="sidebar">
+            <div class="sb-brand"><span class="cross">✝</span> Covenant</div>
+            <div class="sb-h">Overview</div>
+            <div class="sb-i"><span class="ni">▦</span> Dashboard</div>
+            <div class="sb-h">System</div>
+            <div class="sb-i"><span class="ni">◑</span> Users</div>
+            <div class="sb-i active"><span class="ni">⚙</span> Settings</div>
+            <div class="sb-i"><span class="ni">?</span> Beta guide</div>
+          </div>
+          <div class="canvas">
+            <div class="page-hdr"><h2 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;">Settings</h2></div>
+            <div class="form-card gold" style="margin-top:.7rem;">
+              <div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.85rem;font-weight:500;margin-bottom:.4rem;">Your Data</div>
+              <div style="background:rgba(47,107,63,.08);border-left:2px solid var(--teal);padding:.4rem .55rem;font-size:.6rem;color:var(--text2);font-style:italic;line-height:1.4;margin-bottom:.4rem;"><strong style="color:var(--text);">Auto-saved to Convex.</strong> Every change pushed to the cloud within seconds.</div>
+              <span class="btn" style="font-size:.6rem;padding:.35rem .7rem;">⬇ Export my data (JSON)</span>
+            </div>
+            <div class="form-card" style="margin-top:.5rem;">
+              <div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.85rem;font-weight:500;margin-bottom:.4rem;">Sign-in &amp; security</div>
+              <div class="form-grid">
+                <div><div class="label">New password</div><div class="input" style="font-family:monospace;letter-spacing:.2em;">●●●●●●●●●●</div></div>
+                <div><div class="label">Confirm</div><div class="input" style="font-family:monospace;letter-spacing:.2em;">●●●●●●●●●●</div></div>
+              </div>
+              <span class="btn" style="font-size:.6rem;padding:.35rem .7rem;background:#1F2E50;color:var(--text);margin-top:.4rem;display:inline-block;">Save password</span>
+            </div>
+          </div>
         </div>
-        <div class="caption">guide-images/06-settings.png</div>
+        <div class="caption">Settings page — Your Data, Sign-in &amp; security, and org config cards</div>
       </div>
 
       <div class="callout tip"><strong><span class="ico">💡</span>Changing rates later:</strong> If you change the tithe rate from 10% to 12%, click the <strong>Recompute</strong> button on the Obligations page and all unremitted obligations recompute. Already-remitted ones keep their original amounts (audit trail preserved).</div>
@@ -368,12 +595,31 @@
       <p>You can have multiple businesses. Income, partners, and obligations are tracked per business.</p>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 07</span>
-          <span class="desc">Add Business modal — form fields for name, type (radio: Service/Product), industry, description, start date, status, logo upload. Gold "Save" button at bottom.</span>
+        <div class="ss-mock modal" style="padding:1.4rem 1.6rem;max-width:32rem;margin:0 auto;">
+          <h2>Add business</h2>
+          <p style="font-size:.7rem;color:var(--text2);margin-bottom:.7rem;">A revenue stream you own.</p>
+          <div class="field"><div class="label">Name</div><div class="input">TrueVine Home Office</div></div>
+          <div class="row">
+            <div class="field"><div class="label">Type</div>
+              <div style="display:flex;gap:.4rem;">
+                <span style="padding:.3rem .6rem;background:var(--gold);color:#0E1830;border-radius:3px;font-size:.62rem;font-weight:500;">Service</span>
+                <span style="padding:.3rem .6rem;background:rgba(244,237,217,.04);border:1px solid var(--border);color:var(--text2);border-radius:3px;font-size:.62rem;">Product</span>
+              </div>
+            </div>
+            <div class="field"><div class="label">Status</div><div class="input">Active</div></div>
+          </div>
+          <div class="field"><div class="label">Industry</div><div class="input">Accounting &amp; Bookkeeping</div></div>
+          <div class="field"><div class="label">Description</div><div class="input" style="height:2.2rem;color:var(--text3);">Bookkeeping &amp; accounting services for small businesses…</div></div>
+          <div class="row">
+            <div class="field"><div class="label">Start date</div><div class="input">2024-09-01</div></div>
+            <div class="field"><div class="label">Logo</div><div class="input" style="color:var(--text3);">📎 truevine-logo.png</div></div>
+          </div>
+          <div class="actions">
+            <span class="btn btn-ghost">Cancel</span>
+            <span class="btn">Save</span>
+          </div>
         </div>
-        <div class="caption">guide-images/07-add-business.png</div>
+        <div class="caption">Add Business modal — opens from Businesses → + Add business</div>
       </div>
 
       <h3>Partners</h3>
@@ -387,12 +633,36 @@
       </ul>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 08</span>
-          <span class="desc">Partner form view — multi-section layout with personal info (name, contact, DOB), work info (role, status), pay configuration (salary, hourly rate, hours/day), tithe checkbox, and government deduction rates table.</span>
+        <div class="ss-mock modal" style="padding:1.4rem 1.6rem;">
+          <h2>Add partner</h2>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.6rem;">
+            <div>
+              <div class="label" style="color:var(--gold);margin-bottom:.4rem;">Personal info</div>
+              <div class="row">
+                <div class="field"><div class="label">First name</div><div class="input">Ma. Nicole</div></div>
+                <div class="field"><div class="label">Last name</div><div class="input">Bulaon</div></div>
+              </div>
+              <div class="field"><div class="label">Contact</div><div class="input">09163949376</div></div>
+              <div class="field"><div class="label">Email</div><div class="input">bulaonmanicole@gmail.com</div></div>
+              <div class="field"><div class="label">Address</div><div class="input" style="color:var(--text3);font-size:.65rem;">1909 Nazareth St., Caloocan…</div></div>
+            </div>
+            <div>
+              <div class="label" style="color:var(--gold);margin-bottom:.4rem;">Work &amp; pay</div>
+              <div class="field"><div class="label">Role</div><div class="input">Bookkeeper</div></div>
+              <div class="row">
+                <div class="field"><div class="label">Salary (₱/mo)</div><div class="input">3,300.00</div></div>
+                <div class="field"><div class="label">Hours/day</div><div class="input">4</div></div>
+              </div>
+              <div class="field"><div class="label">Hourly rate</div><div class="input">37.50</div></div>
+              <div class="field" style="display:flex;align-items:center;gap:.4rem;background:rgba(201,162,39,.04);border:1px solid rgba(201,162,39,.25);border-radius:3px;padding:.3rem .55rem;font-size:.7rem;">
+                <span style="display:inline-block;width:.7rem;height:.7rem;background:var(--gold);border-radius:1px;color:#0E1830;text-align:center;font-size:.55rem;line-height:.7rem;font-weight:bold;">✓</span>
+                Enrolled in partner-tithe (10%)
+              </div>
+            </div>
+          </div>
+          <div class="actions"><span class="btn btn-ghost">Cancel</span><span class="btn">Save partner</span></div>
         </div>
-        <div class="caption">guide-images/08-add-partner.png</div>
+        <div class="caption">Partner form — long but most fields are optional. Required: name, role, salary, hourly rate</div>
       </div>
 
       <h3>Clients</h3>
@@ -405,12 +675,31 @@
       </ul>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 09</span>
-          <span class="desc">Add Client modal — form with name, business dropdown, type radio buttons, currency select, partner assignment dropdown, dates, and the gold migration checkbox at the bottom with its explanatory italic note.</span>
+        <div class="ss-mock modal" style="padding:1.4rem 1.6rem;max-width:32rem;margin:0 auto;">
+          <h2>Add client</h2>
+          <div class="field"><div class="label">Client name</div><div class="input">SRG Inc. (Universal Staffing Solutions)</div></div>
+          <div class="row">
+            <div class="field"><div class="label">Business</div><div class="input">TrueVine Home Office</div></div>
+            <div class="field"><div class="label">Type</div><div class="input">Full-time</div></div>
+          </div>
+          <div class="row">
+            <div class="field"><div class="label">Currency</div><div class="input">PHP</div></div>
+            <div class="field"><div class="label">Assigned partner</div><div class="input" style="color:var(--text3);">— None —</div></div>
+          </div>
+          <div class="field"><div class="label">Position</div><div class="input">Bookkeeper</div></div>
+          <div class="row">
+            <div class="field"><div class="label">Start date</div><div class="input">2024-09-13</div></div>
+            <div class="field"><div class="label">Status</div><div class="input">Active</div></div>
+          </div>
+          <div style="margin-top:.7rem;padding:.55rem .7rem;background:rgba(201,162,39,.06);border:1px solid rgba(201,162,39,.25);border-left:2px solid var(--gold);border-radius:3px;display:flex;gap:.5rem;align-items:flex-start;">
+            <span style="display:inline-block;width:.75rem;height:.75rem;background:var(--gold);border-radius:1px;color:#0E1830;text-align:center;font-size:.55rem;line-height:.75rem;font-weight:bold;flex-shrink:0;margin-top:.1rem;">✓</span>
+            <div style="font-size:.62rem;line-height:1.4;color:var(--text2);">
+              <strong style="color:var(--gold);font-style:italic;font-family:'Cormorant Garamond',serif;font-size:.75rem;">⚜ Migrated client</strong> — already gave firstfruits before adopting Covenant
+            </div>
+          </div>
+          <div class="actions"><span class="btn btn-ghost">Cancel</span><span class="btn">Save</span></div>
         </div>
-        <div class="caption">guide-images/09-add-client.png</div>
+        <div class="caption">Add Client modal — note the migrated-client checkbox for clients you billed before Covenant</div>
       </div>
     </section>
 
@@ -433,12 +722,40 @@
       <p>For Present days, click into the partner row to set <strong>late minutes</strong>, <strong>undertime minutes</strong>, or <strong>overtime minutes</strong>.</p>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 10</span>
-          <span class="desc">Attendance calendar view — list of partners as rows, each with a 7-column calendar (Su-Sa) for the current month. Days are color-coded: green for present, red for absent, gray for no-work weekends. A streak badge appears on the right of each partner row.</span>
+        <div class="ss-mock app">
+          <div class="sidebar">
+            <div class="sb-brand"><span class="cross">✝</span> Covenant</div>
+            <div class="sb-h">People</div>
+            <div class="sb-i"><span class="ni">◭</span> Businesses</div>
+            <div class="sb-i"><span class="ni">◉</span> Partners</div>
+            <div class="sb-i active"><span class="ni">◷</span> Attendance</div>
+            <div class="sb-i"><span class="ni">✝</span> Devotion</div>
+            <div class="sb-i"><span class="ni">⛪</span> Sunday service</div>
+            <div class="sb-i"><span class="ni">✦</span> Church activities</div>
+            <div class="sb-i"><span class="ni">◈</span> Clients</div>
+          </div>
+          <div class="canvas">
+            <div class="page-hdr">
+              <h2 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;">Attendance</h2>
+              <p>May 2026 · click any day to cycle through statuses</p>
+            </div>
+            <div style="margin-top:.6rem;padding:.6rem;background:rgba(0,0,0,.15);border-radius:4px;border:1px solid var(--border);">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem;">
+                <div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--text);font-size:.85rem;">Ma. Nicole Bulaon <span style="font-size:.55rem;color:var(--text2);font-style:normal;letter-spacing:.06em;">· Bookkeeper · 18/22 days · 81%</span></div>
+                <span style="background:rgba(47,107,63,.3);color:#a8d4b3;padding:.15rem .4rem;border-radius:2px;font-size:.55rem;">5-day streak</span>
+              </div>
+              <div class="cal">
+                <div class="d h">Su</div><div class="d h">Mo</div><div class="d h">Tu</div><div class="d h">We</div><div class="d h">Th</div><div class="d h">Fr</div><div class="d h">Sa</div>
+                <div class="d weekend"></div><div class="d weekend"></div><div class="d weekend"></div><div class="d weekend"></div><div class="d present">1</div><div class="d present">2</div><div class="d weekend">3</div>
+                <div class="d weekend">4</div><div class="d present">5</div><div class="d half">6</div><div class="d present">7</div><div class="d present">8</div><div class="d absent">9</div><div class="d weekend">10</div>
+                <div class="d weekend">11</div><div class="d present">12</div><div class="d present">13</div><div class="d present">14</div><div class="d present">15</div><div class="d present">16</div><div class="d weekend">17</div>
+                <div class="d weekend">18</div><div class="d present">19</div><div class="d present">20</div><div class="d dim">21</div><div class="d dim">22</div><div class="d dim">23</div><div class="d weekend dim">24</div>
+              </div>
+              <div class="cal-legend"><span class="pp">Present</span><span class="aa">Absent</span><span class="hh">Half</span></div>
+            </div>
+          </div>
         </div>
-        <div class="caption">guide-images/10-attendance.png</div>
+        <div class="caption">Attendance grid — one row per partner, click any day to cycle present/absent/half/leave</div>
       </div>
 
       <div class="callout"><strong>How attendance affects pay:</strong> Late + undertime minutes reduce gross pay (computed against the partner's hourly rate). Absent days = no pay for that day. Half-days = half pay.</div>
@@ -453,12 +770,38 @@
       <p>Each shows team rate, individual rate, and current streak per partner.</p>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 11</span>
-          <span class="desc">Sunday Service tracker view — partner list with calendars where only Sunday columns are clickable (other days dimmed at 32% opacity). Shows team rate stat at top and streak badges per partner.</span>
+        <div class="ss-mock app">
+          <div class="sidebar">
+            <div class="sb-brand"><span class="cross">✝</span> Covenant</div>
+            <div class="sb-h">People</div>
+            <div class="sb-i"><span class="ni">◷</span> Attendance</div>
+            <div class="sb-i"><span class="ni">✝</span> Devotion</div>
+            <div class="sb-i active"><span class="ni">⛪</span> Sunday service</div>
+            <div class="sb-i"><span class="ni">✦</span> Church activities</div>
+          </div>
+          <div class="canvas">
+            <div class="page-hdr">
+              <h2 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;">Sunday service</h2>
+              <p>Weekly attendance — only Sundays loggable</p>
+            </div>
+            <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-top:.5rem;">
+              <div class="stat-card teal"><div class="lbl">Team rate</div><div class="val">85%</div></div>
+              <div class="stat-card blue"><div class="lbl">Sundays in month</div><div class="val">4</div></div>
+              <div class="stat-card gold"><div class="lbl">Partners</div><div class="val">16</div></div>
+            </div>
+            <div style="margin-top:.6rem;padding:.6rem;background:rgba(0,0,0,.15);border-radius:4px;border:1px solid var(--border);">
+              <div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--text);font-size:.85rem;margin-bottom:.4rem;">Ma. Nicole Bulaon <span style="font-size:.55rem;color:var(--text2);font-style:normal;letter-spacing:.06em;">· 4/4 Sundays (100%)</span></div>
+              <div class="cal">
+                <div class="d h">Su</div><div class="d h">Mo</div><div class="d h">Tu</div><div class="d h">We</div><div class="d h">Th</div><div class="d h">Fr</div><div class="d h">Sa</div>
+                <div class="d weekend dim"></div><div class="d dim"></div><div class="d dim"></div><div class="d dim"></div><div class="d dim">1</div><div class="d dim">2</div><div class="d dim">3</div>
+                <div class="d present">4</div><div class="d dim">5</div><div class="d dim">6</div><div class="d dim">7</div><div class="d dim">8</div><div class="d dim">9</div><div class="d dim">10</div>
+                <div class="d present">11</div><div class="d dim">12</div><div class="d dim">13</div><div class="d dim">14</div><div class="d dim">15</div><div class="d dim">16</div><div class="d dim">17</div>
+                <div class="d present">18</div><div class="d dim">19</div><div class="d dim">20</div><div class="d dim">21</div><div class="d dim">22</div><div class="d dim">23</div><div class="d dim">24</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="caption">guide-images/11-sunday-service.png</div>
+        <div class="caption">Sunday service — weekday cells dim, only Sundays clickable</div>
       </div>
     </section>
 
@@ -479,12 +822,26 @@
       </ul>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 12</span>
-          <span class="desc">Record Payment modal — client dropdown, amount + currency, exchange rate field (visible because USD is selected), date picker, period (YYYY-MM) input, note text field. Gold Save button.</span>
+        <div class="ss-mock modal" style="padding:1.4rem 1.6rem;max-width:32rem;margin:0 auto;">
+          <h2>Record payment</h2>
+          <p style="font-size:.7rem;color:var(--text2);margin-bottom:.7rem;">A payment your client just paid you.</p>
+          <div class="field"><div class="label">Client</div><div class="input">SRG Inc.</div></div>
+          <div class="row">
+            <div class="field"><div class="label">Amount</div><div class="input">1,000.00</div></div>
+            <div class="field"><div class="label">Currency</div><div class="input">USD</div></div>
+          </div>
+          <div class="field" style="background:rgba(201,162,39,.04);border-left:2px solid var(--gold);padding:.4rem .55rem;border-radius:0 3px 3px 0;">
+            <div class="label" style="color:var(--gold);">Exchange rate (PHP)</div>
+            <div class="input" style="background:transparent;border:none;padding:.1rem 0;">61.00 <span style="color:var(--text2);font-size:.6rem;font-style:italic;">→ ₱61,000.00</span></div>
+          </div>
+          <div class="row">
+            <div class="field"><div class="label">Date</div><div class="input">2026-05-08</div></div>
+            <div class="field"><div class="label">Period</div><div class="input">2026-05</div></div>
+          </div>
+          <div class="field"><div class="label">Note (optional)</div><div class="input" style="color:var(--text3);">Bi-weekly retainer</div></div>
+          <div class="actions"><span class="btn btn-ghost">Cancel</span><span class="btn">Save</span></div>
         </div>
-        <div class="caption">guide-images/12-record-payment.png</div>
+        <div class="caption">Record Payment — exchange rate field appears when currency isn't PHP</div>
       </div>
 
       <p>Save. Payment appears in the client's history. Obligations (firstfruit, tithe, Church Project) auto-recompute.</p>
@@ -510,12 +867,34 @@
       </ol>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 13</span>
-          <span class="desc">Payroll Run detail page — header showing frequency, period, paydate, status badge ("draft" amber). Below: a table of partner lines with columns for gross, attendance deduction, statutory deductions, tithe, net pay, and allocation buttons. Bottom: action bar with "Recompute draft", "To Review", "Post run" buttons.</span>
+        <div class="ss-mock app">
+          <div class="sidebar">
+            <div class="sb-brand"><span class="cross">✝</span> Covenant</div>
+            <div class="sb-h">Payroll</div>
+            <div class="sb-i active"><span class="ni">◈</span> Payroll runs</div>
+          </div>
+          <div class="canvas">
+            <div class="page-hdr">
+              <h2 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;">Run #4 <span style="font-style:normal;color:var(--text2);font-size:.7rem;letter-spacing:.04em;">· Semi-monthly · May 16 – May 31 · pays May 31</span></h2>
+              <p><span style="background:rgba(201,162,39,.2);color:var(--gold-pale);padding:.1rem .4rem;border-radius:2px;font-style:normal;">draft</span></p>
+            </div>
+            <table class="mtbl">
+              <thead><tr><th>Partner</th><th class="r">Gross</th><th class="r">Att.</th><th class="r">SSS/PH/PG</th><th class="r">Tithe</th><th class="r">Net</th></tr></thead>
+              <tbody>
+                <tr><td>Bulaon, Ma. Nicole</td><td class="r">3,300.00</td><td class="r" style="color:#e8a8b3;">−300.00</td><td class="r">—</td><td class="r" style="color:#e8a8b3;">−300.00</td><td class="r" style="color:#a8d4b3;">2,700.00</td></tr>
+                <tr><td>Cruz, Joshua</td><td class="r">7,500.00</td><td class="r">—</td><td class="r" style="color:#e8a8b3;">−375.00</td><td class="r" style="color:#e8a8b3;">−712.50</td><td class="r" style="color:#a8d4b3;">6,412.50</td></tr>
+                <tr><td>Reyes, Maria</td><td class="r">9,200.00</td><td class="r" style="color:#e8a8b3;">−180.00</td><td class="r" style="color:#e8a8b3;">−460.00</td><td class="r" style="color:#e8a8b3;">−856.00</td><td class="r" style="color:#a8d4b3;">7,704.00</td></tr>
+                <tr class="tot"><td>Total — 3 partners</td><td class="r">20,000.00</td><td class="r">−480.00</td><td class="r">−835.00</td><td class="r">−1,868.50</td><td class="r">16,816.50</td></tr>
+              </tbody>
+            </table>
+            <div style="display:flex;gap:.4rem;margin-top:.7rem;">
+              <span class="btn btn-ghost">Recompute draft</span>
+              <span class="btn btn-ghost">→ To review</span>
+              <span class="btn">Post run</span>
+            </div>
+          </div>
         </div>
-        <div class="caption">guide-images/13-payroll-run.png</div>
+        <div class="caption">Payroll Run detail — review, then Post when ready (becomes immutable)</div>
       </div>
 
       <div class="callout warn"><strong><span class="ico">⚠</span>Posted runs can't be edited.</strong> But you can <strong>reverse</strong> them: open the run → "Reverse this run" → creates a paired reversal (preserving audit trail). Then generate a new run with corrections.</div>
@@ -539,12 +918,38 @@
       <div class="callout"><strong>What's "net income"?</strong> For each client, in each period: <code>payments received – (gross salary – attendance deduction) × allocation %</code>. Labor cost is post-attendance, not gross — when a partner is late or absent, that wage savings stays inside the company and doesn't reduce client revenue.</div>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 14</span>
-          <span class="desc">Obligations page — four colored pool cards at top showing totals (Firstfruits gold, Tithes blue, Church Project teal, Partner Tithes purple). Below each: list of individual obligations with period, client/partner name, due amount, paid amount, balance, status badge.</span>
+        <div class="ss-mock app">
+          <div class="sidebar">
+            <div class="sb-brand"><span class="cross">✝</span> Covenant</div>
+            <div class="sb-h">Finance</div>
+            <div class="sb-i"><span class="ni">↓</span> Payments</div>
+            <div class="sb-i"><span class="ni">↑</span> Salaries</div>
+            <div class="sb-i active"><span class="ni">✦</span> Obligations</div>
+            <div class="sb-i"><span class="ni">⚜</span> Conviction firstfruits</div>
+            <div class="sb-i"><span class="ni">◎</span> Remittance</div>
+          </div>
+          <div class="canvas">
+            <div class="page-hdr">
+              <h2 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;">Obligations</h2>
+              <p>Firstfruits · Tithes · Church Project · Partner tithes</p>
+            </div>
+            <div class="pool-grid">
+              <div class="pool"><div class="lbl">Firstfruits</div><div class="val">₱34,580</div><div class="sub">First payments + January reset</div></div>
+              <div class="pool tithe"><div class="lbl">Tithes (10%)</div><div class="val">₱12,256</div><div class="sub">10% of net income</div></div>
+              <div class="pool cp"><div class="lbl">Church Project (10%)</div><div class="val">₱12,256</div><div class="sub">10% of net income</div></div>
+              <div class="pool pt"><div class="lbl">Partner Tithes</div><div class="val">₱1,868</div><div class="sub">Withheld from partners' pay</div></div>
+            </div>
+            <table class="mtbl" style="margin-top:.8rem;">
+              <thead><tr><th>Period</th><th>Client / Partner</th><th class="r">Due</th><th class="r">Paid</th><th class="r">Balance</th></tr></thead>
+              <tbody>
+                <tr><td>2026-04</td><td>Tithe — SRG Inc.</td><td class="r">2,567.60</td><td class="r" style="color:#a8d4b3;">2,567.60</td><td class="r" style="color:var(--text3);">—</td></tr>
+                <tr><td>2026-05</td><td>Tithe — DropTech</td><td class="r">1,840.00</td><td class="r" style="color:var(--text3);">—</td><td class="r" style="color:#e8a8b3;">1,840.00</td></tr>
+                <tr><td>2026-05</td><td>Partner tithe — Bulaon</td><td class="r">300.00</td><td class="r" style="color:var(--text3);">—</td><td class="r" style="color:#e8a8b3;">300.00</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div class="caption">guide-images/14-obligations.png</div>
+        <div class="caption">Obligations — four pools auto-computed from payments + salaries</div>
       </div>
 
       <h3>Conviction firstfruits</h3>
@@ -552,12 +957,37 @@
       <p>Sidebar → <strong>Conviction firstfruits</strong> → <strong>+ Add</strong>. Amount, period, date committed, optional note. Tracked as a separate line in your Firstfruits pool.</p>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 15</span>
-          <span class="desc">Conviction Firstfruits dedicated view — header with "+ Add conviction firstfruit" button, four stat cards (Committed / Remitted / Outstanding / Compliance %), then a sortable table with date, period, committed/remitted/balance amounts, status badges, and notes per entry.</span>
+        <div class="ss-mock app">
+          <div class="sidebar">
+            <div class="sb-brand"><span class="cross">✝</span> Covenant</div>
+            <div class="sb-h">Finance</div>
+            <div class="sb-i"><span class="ni">✦</span> Obligations</div>
+            <div class="sb-i active"><span class="ni">⚜</span> Conviction firstfruits</div>
+            <div class="sb-i"><span class="ni">◎</span> Remittance</div>
+          </div>
+          <div class="canvas">
+            <div class="page-hdr">
+              <h2 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;">⚜ Conviction firstfruits</h2>
+              <p>Firstfruits given out of personal conviction</p>
+            </div>
+            <div class="stat-grid" style="margin-top:.6rem;">
+              <div class="stat-card"><div class="lbl">Committed</div><div class="val">₱25,000</div></div>
+              <div class="stat-card teal"><div class="lbl">Remitted</div><div class="val">₱20,000</div></div>
+              <div class="stat-card coral"><div class="lbl">Outstanding</div><div class="val">₱5,000</div></div>
+              <div class="stat-card blue"><div class="lbl">Compliance</div><div class="val">80%</div></div>
+            </div>
+            <table class="mtbl" style="margin-top:.7rem;">
+              <thead><tr><th>Date<span class="arrow">⇅</span></th><th>Period</th><th class="r">Committed</th><th class="r">Remitted</th><th class="r">Balance</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>2026-03-12</td><td>2026-03</td><td class="r">10,000.00</td><td class="r" style="color:#a8d4b3;">10,000.00</td><td class="r" style="color:var(--text3);">—</td><td><span style="background:rgba(47,107,63,.3);color:#a8d4b3;padding:.1rem .3rem;border-radius:2px;font-size:.5rem;">REMITTED</span></td></tr>
+                <tr><td>2026-04-01</td><td>2026-04</td><td class="r">10,000.00</td><td class="r" style="color:#a8d4b3;">10,000.00</td><td class="r" style="color:var(--text3);">—</td><td><span style="background:rgba(47,107,63,.3);color:#a8d4b3;padding:.1rem .3rem;border-radius:2px;font-size:.5rem;">REMITTED</span></td></tr>
+                <tr><td>2026-05-05</td><td>2026-05</td><td class="r">5,000.00</td><td class="r" style="color:var(--text3);">—</td><td class="r" style="color:#e8a8b3;">5,000.00</td><td><span style="background:rgba(201,162,39,.25);color:var(--gold-pale);padding:.1rem .3rem;border-radius:2px;font-size:.5rem;">PENDING</span></td></tr>
+                <tr class="tot"><td colspan="2">Total</td><td class="r">25,000.00</td><td class="r">20,000.00</td><td class="r">5,000.00</td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div class="caption">guide-images/15-conviction.png</div>
+        <div class="caption">Conviction firstfruits — separate tracker so they don't muddle the auto-computed pool</div>
       </div>
     </section>
 
@@ -575,12 +1005,32 @@
       <p>Below the basics, allocate the cash across pools (Firstfruits / Tithes / Church Project / Partner Tithes). The system distributes within each pool to oldest unpaid obligations first (FIFO). Excess can become credit for next time.</p>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 16</span>
-          <span class="desc">Remittance log modal — top fields for cash amount, date, mode dropdown, remitted-by, reference. Middle: pool allocation grid with input boxes for each pool (Firstfruits / Tithes / Church Project / Partner Tithes) and a running "Unallocated" total. Bottom: gold "Treat excess as credit" checkbox with explanatory text.</span>
+        <div class="ss-mock modal" style="padding:1.4rem 1.6rem;max-width:34rem;margin:0 auto;">
+          <h2>Log remittance</h2>
+          <div class="row">
+            <div class="field"><div class="label">Cash amount (₱)</div><div class="input">150,000.00</div></div>
+            <div class="field"><div class="label">Date</div><div class="input">2026-05-08</div></div>
+          </div>
+          <div class="row">
+            <div class="field"><div class="label">Mode</div><div class="input">Bank transfer</div></div>
+            <div class="field"><div class="label">Remitted by</div><div class="input">Al Asignacion</div></div>
+          </div>
+          <div class="field"><div class="label">Reference / Receipt no.</div><div class="input">BPI-TXN-294817</div></div>
+          <div class="label" style="margin-top:.6rem;">Allocate to obligation pools</div>
+          <div style="background:rgba(0,0,0,.15);border:1px solid var(--border);border-radius:3px;padding:.55rem .65rem;font-size:.65rem;">
+            <div style="display:flex;justify-content:space-between;padding:.2rem 0;border-bottom:1px dotted var(--border);"><span>Firstfruits pool</span><span style="color:var(--gold);">₱100,000.00</span></div>
+            <div style="display:flex;justify-content:space-between;padding:.2rem 0;border-bottom:1px dotted var(--border);"><span style="color:#9ab8d4;">Tithes pool</span><span style="color:#9ab8d4;">₱25,000.00</span></div>
+            <div style="display:flex;justify-content:space-between;padding:.2rem 0;border-bottom:1px dotted var(--border);"><span style="color:#a8d4b3;">Church Project pool</span><span style="color:#a8d4b3;">₱25,000.00</span></div>
+            <div style="display:flex;justify-content:space-between;padding:.2rem 0;"><span style="color:#c9b3e0;">Partner Tithes pool</span><span style="color:var(--text3);">—</span></div>
+            <div style="display:flex;justify-content:space-between;margin-top:.4rem;padding-top:.3rem;border-top:1px solid var(--border);font-weight:500;"><span>Unallocated</span><span style="color:#a8d4b3;">₱0.00</span></div>
+          </div>
+          <div style="margin-top:.5rem;padding:.45rem .6rem;background:rgba(201,162,39,.06);border:1px solid rgba(201,162,39,.25);border-left:2px solid var(--gold);border-radius:3px;display:flex;gap:.4rem;align-items:flex-start;font-size:.62rem;">
+            <span style="display:inline-block;width:.7rem;height:.7rem;border:1px solid var(--gold);border-radius:1px;flex-shrink:0;margin-top:.15rem;"></span>
+            <span><strong style="color:var(--text);font-family:'Cormorant Garamond',serif;font-style:italic;">Treat excess as credit</strong> <span style="color:var(--text2);font-style:italic;">— don't auto-apply to next period (tithe &amp; CP only)</span></span>
+          </div>
+          <div class="actions"><span class="btn btn-ghost">Cancel</span><span class="btn">Save</span></div>
         </div>
-        <div class="caption">guide-images/16-remittance.png</div>
+        <div class="caption">Log Remittance modal — allocate to pools, FIFO within each pool unless you check "treat excess as credit"</div>
       </div>
     </section>
 
@@ -608,12 +1058,36 @@
       </ul>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 17</span>
-          <span class="desc">P&amp;L report view — stat cards across the top (Total income / Total salaries / Remitted obligations / Net P&amp;L), then a sortable table with columns Period / Income / Salaries (red) / Obligations (red) / Net (color-coded). Total row at bottom in italic gold. Clicking a period row expands a 3-column breakdown of payments / salaries / remittances for that month.</span>
+        <div class="ss-mock app">
+          <div class="sidebar">
+            <div class="sb-brand"><span class="cross">✝</span> Covenant</div>
+            <div class="sb-h">Reports</div>
+            <div class="sb-i active"><span class="ni">▥</span> Reports</div>
+          </div>
+          <div class="canvas">
+            <div class="page-hdr">
+              <h2 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;">∑ P&amp;L Report</h2>
+              <p>Profit &amp; loss per period</p>
+            </div>
+            <div class="stat-grid" style="margin-top:.6rem;">
+              <div class="stat-card blue"><div class="lbl">Total income</div><div class="val">₱1,234,567</div></div>
+              <div class="stat-card coral"><div class="lbl">Salaries</div><div class="val">₱812,440</div></div>
+              <div class="stat-card"><div class="lbl">Obligations</div><div class="val">₱150,000</div></div>
+              <div class="stat-card teal"><div class="lbl">Net P&amp;L</div><div class="val">₱272,127</div></div>
+            </div>
+            <div style="font-size:.55rem;color:var(--text2);font-style:italic;margin-top:.5rem;">Click any column header to sort · click any row to see breakdown</div>
+            <table class="mtbl" style="margin-top:.3rem;">
+              <thead><tr><th>Period<span class="arrow">▲</span></th><th class="r">Income</th><th class="r">Salaries</th><th class="r">Obligations</th><th class="r">Net</th></tr></thead>
+              <tbody>
+                <tr><td>Mar 2026</td><td class="r">410,200</td><td class="r" style="color:#e8a8b3;">−268,440</td><td class="r" style="color:#e8a8b3;">−45,000</td><td class="r" style="color:#a8d4b3;">96,760</td></tr>
+                <tr><td>Apr 2026</td><td class="r">418,180</td><td class="r" style="color:#e8a8b3;">−272,000</td><td class="r" style="color:#e8a8b3;">−55,000</td><td class="r" style="color:#a8d4b3;">91,180</td></tr>
+                <tr><td>May 2026</td><td class="r">406,187</td><td class="r" style="color:#e8a8b3;">−272,000</td><td class="r" style="color:#e8a8b3;">−50,000</td><td class="r" style="color:#a8d4b3;">84,187</td></tr>
+                <tr class="tot"><td>Total</td><td class="r">1,234,567</td><td class="r">−812,440</td><td class="r">−150,000</td><td class="r">272,127</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div class="caption">guide-images/17-pnl.png</div>
+        <div class="caption">P&amp;L report — sortable headers (▲ = ascending), italic gold total at the bottom</div>
       </div>
 
       <p>Export everything you need to send to your accountant via <strong>Reports → Export ministry report</strong> — produces a JSON snapshot.</p>
@@ -634,12 +1108,47 @@
       <p>You can also <strong>Cancel</strong> at any time.</p>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 18</span>
-          <span class="desc">Invoice detail page — invoice number header, status badge (Sent), client info on the left, business info on the right, dates row, line items table with descriptions and amounts, totals box at the bottom right, then a payments section showing any recorded payments with dates and amounts.</span>
+        <div class="ss-mock app">
+          <div class="sidebar">
+            <div class="sb-brand"><span class="cross">✝</span> Covenant</div>
+            <div class="sb-h">Finance</div>
+            <div class="sb-i active"><span class="ni">⎙</span> Invoices</div>
+          </div>
+          <div class="canvas">
+            <div class="page-hdr" style="display:flex;justify-content:space-between;align-items:flex-end;">
+              <div>
+                <h2 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;">Invoice #INV-2026-04</h2>
+                <p>Issued May 1 · Due May 31</p>
+              </div>
+              <span style="background:rgba(30,58,95,.4);color:#9ab8d4;padding:.15rem .5rem;border-radius:2px;font-size:.55rem;font-family:'DM Sans',sans-serif;letter-spacing:.06em;">SENT</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin-top:.7rem;font-size:.65rem;">
+              <div>
+                <div class="label">Bill to</div>
+                <div style="color:var(--text);font-weight:500;">SRG Inc.</div>
+                <div style="color:var(--text2);">Universal Staffing Solutions</div>
+              </div>
+              <div>
+                <div class="label">From</div>
+                <div style="color:var(--text);font-weight:500;">TrueVine Home Office</div>
+                <div style="color:var(--text2);">Caloocan City · TIN —</div>
+              </div>
+            </div>
+            <table class="mtbl" style="margin-top:.7rem;">
+              <thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead>
+              <tbody>
+                <tr><td>Bookkeeping services — April 2026</td><td class="r">1</td><td class="r">22,095.00</td><td class="r">22,095.00</td></tr>
+              </tbody>
+            </table>
+            <div style="display:flex;justify-content:flex-end;margin-top:.5rem;font-size:.7rem;">
+              <div style="background:rgba(244,237,217,.04);border:1px solid var(--border);border-radius:3px;padding:.5rem .7rem;min-width:10rem;">
+                <div style="display:flex;justify-content:space-between;color:var(--text2);"><span>Subtotal</span><span>22,095.00</span></div>
+                <div style="display:flex;justify-content:space-between;color:var(--gold);font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:.95rem;margin-top:.2rem;border-top:1px solid var(--border);padding-top:.2rem;"><span>Total (PHP)</span><span>22,095.00</span></div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="caption">guide-images/18-invoice.png</div>
+        <div class="caption">Invoice detail — line items, totals, status. Multiple partial payments allowed.</div>
       </div>
 
       <h3>Recording invoice payments</h3>
@@ -681,12 +1190,32 @@
       <div class="callout tip"><strong><span class="ico">💡</span>Already have a JSON backup?</strong> Use the <a href="/import.html">data import wizard at /import.html</a> instead. It loads everything in one shot.</div>
 
       <div class="shot">
-        <div class="ph">
-          <span class="ico">⬚</span>
-          <span class="label">Screenshot 19</span>
-          <span class="desc">Import wizard — drag-and-drop file zone with dashed border and gold ⬆ icon, instructions below, then once a file is dropped: a 14-tile preview grid showing counts (Businesses 1, Partners 16, Clients 16, Payments 163, Salaries 116, Attendance 2400, etc.) with "Import everything" button at the bottom.</span>
+        <div class="ss-mock">
+          <div class="topbar"><span class="url">covenant.asignacionalp.workers.dev/import.html</span></div>
+          <div class="body" style="padding:1.6rem 1.8rem;">
+            <div style="font-family:'DM Sans',sans-serif;font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem;"><span style="color:var(--gold);font-size:.85rem;">✝</span> &nbsp;Covenant &nbsp;/&nbsp; Data import</div>
+            <h1 style="font-size:1.4rem;">Bring your <em>existing</em> records in.</h1>
+            <p style="margin-bottom:1rem;max-width:30rem;">Upload a covenant-backup-vN.json file. We'll load every business, partner, client, payment, salary, attendance entry, obligation, and remittance into your live workspace.</p>
+            <div style="border:1.5px dashed var(--border2);border-radius:5px;padding:1rem 1.2rem;text-align:center;background:rgba(244,237,217,.02);margin-bottom:.8rem;">
+              <div style="color:var(--gold);font-size:1.4rem;margin-bottom:.3rem;">⬆</div>
+              <div style="font-size:.7rem;color:var(--text);"><strong>Drop your JSON here</strong> or click to browse</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:.3rem;">
+              <div style="padding:.45rem;background:rgba(244,237,217,.04);border:1px solid var(--border);border-radius:2px;text-align:center;"><div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.85rem;font-weight:500;">1</div><div style="font-size:.45rem;color:var(--text2);letter-spacing:.06em;text-transform:uppercase;">Businesses</div></div>
+              <div style="padding:.45rem;background:rgba(244,237,217,.04);border:1px solid var(--border);border-radius:2px;text-align:center;"><div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.85rem;font-weight:500;">16</div><div style="font-size:.45rem;color:var(--text2);letter-spacing:.06em;text-transform:uppercase;">Partners</div></div>
+              <div style="padding:.45rem;background:rgba(244,237,217,.04);border:1px solid var(--border);border-radius:2px;text-align:center;"><div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.85rem;font-weight:500;">16</div><div style="font-size:.45rem;color:var(--text2);letter-spacing:.06em;text-transform:uppercase;">Clients</div></div>
+              <div style="padding:.45rem;background:rgba(244,237,217,.04);border:1px solid var(--border);border-radius:2px;text-align:center;"><div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.85rem;font-weight:500;">163</div><div style="font-size:.45rem;color:var(--text2);letter-spacing:.06em;text-transform:uppercase;">Payments</div></div>
+              <div style="padding:.45rem;background:rgba(244,237,217,.04);border:1px solid var(--border);border-radius:2px;text-align:center;"><div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.85rem;font-weight:500;">116</div><div style="font-size:.45rem;color:var(--text2);letter-spacing:.06em;text-transform:uppercase;">Salaries</div></div>
+              <div style="padding:.45rem;background:rgba(244,237,217,.04);border:1px solid var(--border);border-radius:2px;text-align:center;"><div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.85rem;font-weight:500;">2.4k</div><div style="font-size:.45rem;color:var(--text2);letter-spacing:.06em;text-transform:uppercase;">Attendance</div></div>
+              <div style="padding:.45rem;background:rgba(244,237,217,.04);border:1px solid var(--border);border-radius:2px;text-align:center;"><div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.85rem;font-weight:500;">226</div><div style="font-size:.45rem;color:var(--text2);letter-spacing:.06em;text-transform:uppercase;">Obligations</div></div>
+            </div>
+            <div style="margin-top:.7rem;display:flex;gap:.4rem;">
+              <span class="btn">Import everything</span>
+              <span class="btn btn-ghost">Pick a different file</span>
+            </div>
+          </div>
         </div>
-        <div class="caption">guide-images/19-import.png</div>
+        <div class="caption">Import wizard — drop a JSON, see counts, click Import everything</div>
       </div>
     </section>
 
