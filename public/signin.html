@@ -103,6 +103,14 @@
   const client = new ConvexClient("https://standing-quail-556.convex.cloud");
   const SESSION_KEY = "cov_session";
 
+  // If the visitor already has a session, skip the form and go
+  // straight into the app. The bridge in /app.html will validate
+  // and bounce back here if the session has expired.
+  const existingSession = localStorage.getItem(SESSION_KEY);
+  if (existingSession) {
+    location.replace("/app.html");
+  }
+
   // ── Toggle for the magic-link UI. Off until email is reliable. ──
   const enableMagicLink = false;
   if (enableMagicLink) {
