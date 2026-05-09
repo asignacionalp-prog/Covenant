@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Beta Tester Guide — Covenant</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Cardo:ital,wght@0,400;0,700&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0E1830;--paper:#1A2842;--paper-2:#1F2E50;
+    --text:#F4EDD9;--text2:#C9A78D;--text3:#8C7853;
+    --gold:#C9A227;--gold-bright:#E0B83A;--gold-pale:#F0D879;
+    --border:#3A4A6E;--border2:#5A6E94;
+    --teal:#2F6B3F;--coral:#A14B5F;--burgundy:#7C2D2D;
+    --blue:#1E3A5F;
+  }
+  html,body{
+    font-family:'Cardo',Georgia,serif;
+    background:var(--bg);color:var(--text);
+    line-height:1.7;font-size:16px;
+    background-image:
+      radial-gradient(circle at 15% 20%,rgba(201,162,39,.04) 0%,transparent 40%),
+      radial-gradient(circle at 85% 70%,rgba(124,45,45,.03) 0%,transparent 40%);
+  }
+  body{min-height:100vh;}
+  a{color:var(--gold);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  code{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.88em;background:rgba(244,237,217,.05);padding:1px 6px;border-radius:3px;border:1px solid var(--border);color:var(--gold-pale);}
+  pre{background:rgba(0,0,0,.3);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:6px;padding:14px 18px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.5;margin:1rem 0;}
+  pre code{background:none;border:none;padding:0;color:var(--text);}
+
+  /* ── Layout ─────────────────────────────────────── */
+  .wrap{max-width:1280px;margin:0 auto;padding:0 1.5rem;}
+  .hero{padding:5rem 0 3rem;border-bottom:1px solid var(--border);margin-bottom:3rem;}
+  .brand{display:flex;align-items:baseline;gap:.5rem;margin-bottom:2.5rem;font-family:'DM Sans',sans-serif;font-size:.78rem;letter-spacing:.22em;text-transform:uppercase;color:var(--text2);}
+  .brand .cross{color:var(--gold);font-size:1.5rem;}
+  .brand h1{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.4rem;letter-spacing:0;text-transform:none;color:var(--text);}
+  .brand .sep{color:var(--border);}
+  h1.title{font-family:'Cormorant Garamond',serif;font-weight:500;font-style:italic;font-size:clamp(2.6rem,6vw,4.6rem);line-height:1.05;letter-spacing:-.015em;margin-bottom:1.2rem;}
+  h1.title em{font-style:normal;color:var(--gold);}
+  .hero p.lede{font-size:1.1rem;color:var(--text2);max-width:48rem;line-height:1.6;}
+
+  /* ── Two-col layout ─────────────────────────────── */
+  .layout{display:grid;grid-template-columns:240px 1fr;gap:3rem;align-items:start;padding-bottom:5rem;}
+  @media (max-width:880px){.layout{grid-template-columns:1fr;}aside.toc{position:relative;top:0;}}
+
+  /* ── Sticky TOC ─────────────────────────────────── */
+  aside.toc{position:sticky;top:1.5rem;font-family:'DM Sans',sans-serif;font-size:.85rem;line-height:1.7;align-self:start;}
+  aside.toc h3{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.1rem;color:var(--gold);margin-bottom:.8rem;letter-spacing:.04em;}
+  aside.toc ol{list-style:none;counter-reset:t;}
+  aside.toc li{counter-increment:t;margin-bottom:.3rem;padding-left:1.6rem;position:relative;}
+  aside.toc li::before{content:counter(t);position:absolute;left:0;top:.05rem;font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.95rem;width:1.3rem;text-align:right;}
+  aside.toc a{color:var(--text2);transition:color .15s;}
+  aside.toc a:hover{color:var(--gold);text-decoration:none;}
+
+  /* ── Main content ───────────────────────────────── */
+  main{min-width:0;}
+  section.step{margin-bottom:5rem;scroll-margin-top:1rem;}
+  section.step h2{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:2.4rem;line-height:1.1;letter-spacing:-.01em;margin-bottom:.4rem;}
+  section.step h2 .num{display:inline-block;font-style:normal;color:var(--gold);font-size:.7em;letter-spacing:.06em;font-family:'DM Sans',sans-serif;font-weight:500;text-transform:uppercase;margin-right:.6rem;vertical-align:middle;}
+  section.step .step-sub{color:var(--text2);font-size:1.02rem;margin-bottom:1.6rem;font-style:italic;}
+  h3{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.55rem;color:var(--gold);margin:2rem 0 .8rem;letter-spacing:-.005em;}
+  h4{font-family:'DM Sans',sans-serif;font-weight:500;font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);margin:1.5rem 0 .6rem;}
+  p{margin:.7rem 0;}
+  p strong{color:var(--text);font-weight:500;}
+  em{color:var(--text2);}
+  ul,ol{margin:.7rem 0 .7rem 1.4rem;}
+  li{margin:.35rem 0;}
+  ul li::marker{color:var(--gold);}
+
+  /* ── Tables ─────────────────────────────────────── */
+  table{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.92rem;}
+  th,td{padding:.6rem .8rem;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;}
+  th{background:rgba(244,237,217,.04);font-family:'DM Sans',sans-serif;font-weight:500;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);}
+  tr:hover td{background:rgba(244,237,217,.02);}
+
+  /* ── Callout boxes ──────────────────────────────── */
+  .callout{padding:1rem 1.2rem;border-radius:5px;margin:1.4rem 0;border-left:3px solid var(--gold);background:rgba(201,162,39,.06);font-size:.95rem;line-height:1.55;}
+  .callout strong{color:var(--text);}
+  .callout.warn{border-left-color:var(--coral);background:rgba(124,45,45,.08);}
+  .callout.tip{border-left-color:var(--teal);background:rgba(47,107,63,.08);}
+  .callout.note{border-left-color:var(--border2);background:rgba(244,237,217,.03);}
+  .callout .ico{display:inline-block;margin-right:.4rem;font-style:normal;}
+
+  /* ── Screenshot placeholder ────────────────────── */
+  .shot{margin:1.6rem 0;border:1px dashed var(--border2);border-radius:8px;background:rgba(244,237,217,.02);overflow:hidden;}
+  .shot .ph{padding:3rem 1.5rem;text-align:center;font-family:'Cardo',serif;font-style:italic;color:var(--text2);background:linear-gradient(135deg,rgba(201,162,39,.03),rgba(30,40,66,.05));}
+  .shot .ph .ico{font-size:1.8rem;color:var(--gold);display:block;margin-bottom:.6rem;}
+  .shot .ph .label{font-family:'DM Sans',sans-serif;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:.3rem;display:block;}
+  .shot .ph .desc{font-size:.95rem;line-height:1.5;max-width:36rem;margin:0 auto;}
+  .shot img{display:block;width:100%;height:auto;}
+  .shot .caption{font-family:'Cardo',serif;font-style:italic;font-size:.85rem;color:var(--text2);text-align:center;padding:.7rem 1rem;background:rgba(0,0,0,.15);border-top:1px solid var(--border);}
+
+  /* ── Mock UI (CSS illustrations) ───────────────── */
+  .mock{margin:1.4rem 0;border:1px solid var(--border);border-radius:8px;background:rgba(0,0,0,.18);padding:1.2rem;font-family:'DM Sans',sans-serif;font-size:.85rem;line-height:1.5;color:var(--text2);}
+  .mock .caption{font-family:'Cardo',serif;font-style:italic;color:var(--text3);font-size:.78rem;text-align:center;margin-top:.8rem;}
+  .mock-sidebar{display:grid;grid-template-columns:200px 1fr;gap:1rem;}
+  .mock-sidebar .sb{background:var(--paper);padding:.8rem;border-radius:5px;border:1px solid var(--border);}
+  .mock-sidebar .sb-h{font-family:'DM Sans',sans-serif;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);padding:.4rem .2rem .2rem;}
+  .mock-sidebar .sb-i{padding:.3rem .5rem;color:var(--text2);font-size:.78rem;}
+  .mock-sidebar .sb-i.active{background:rgba(201,162,39,.12);border-left:2px solid var(--gold);color:var(--gold-pale);padding-left:calc(.5rem - 2px);}
+  .mock-sidebar .canvas{padding:1rem;background:rgba(244,237,217,.02);border-radius:5px;border:1px dashed var(--border);min-height:8rem;display:flex;align-items:center;justify-content:center;color:var(--text3);font-style:italic;font-size:.82rem;}
+
+  /* ── Quick ref card ─────────────────────────────── */
+  .qref{margin:2rem 0;padding:1.5rem;background:rgba(201,162,39,.04);border:1px solid var(--gold);border-radius:8px;}
+  .qref h3{margin-top:0;color:var(--gold);}
+  .qref dl{display:grid;grid-template-columns:auto 1fr;gap:.4rem 1.4rem;font-family:'DM Sans',sans-serif;font-size:.88rem;}
+  .qref dt{color:var(--text2);letter-spacing:.06em;text-transform:uppercase;font-size:.72rem;padding-top:.2rem;}
+  .qref dd{color:var(--text);}
+  .qref dd code{font-size:.85rem;}
+
+  /* ── Footer ─────────────────────────────────────── */
+  footer{margin-top:5rem;padding:2rem 0 3rem;border-top:1px solid var(--border);text-align:center;color:var(--text3);font-size:.85rem;font-style:italic;}
+  footer a{color:var(--gold);}
+
+  /* ── Print ──────────────────────────────────────── */
+  @media print{
+    body{background:#fff;color:#1A1410;}
+    aside.toc{display:none;}
+    .layout{grid-template-columns:1fr;}
+    .shot,.mock,.callout{break-inside:avoid;page-break-inside:avoid;}
+    h2{break-after:avoid;}
+    a{color:#1A1410;text-decoration:underline;}
+    .hero{border-color:#1A1410;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="brand">
+      <span class="cross">✝</span>
+      <h1>Covenant</h1>
+      <span class="sep">/</span>
+      <span>Beta Tester Guide</span>
+    </div>
+    <h1 class="title">Welcome to the <em>beta</em>.</h1>
+    <p class="lede">A walkthrough from sign-up to closing your first month. About fifteen minutes of reading. The app is fully online; your data lives in your private workspace and is auto-saved to the cloud as you work. Things will probably break. That's why you're here.</p>
+  </header>
+
+  <div class="layout">
+
+    <!-- TOC -->
+    <aside class="toc">
+      <h3>Contents</h3>
+      <ol>
+        <li><a href="#access">Getting access</a></li>
+        <li><a href="#first">First sign-in</a></li>
+        <li><a href="#tour">The app at a glance</a></li>
+        <li><a href="#org">Set up your organization</a></li>
+        <li><a href="#entities">Businesses · partners · clients</a></li>
+        <li><a href="#daily">Daily workflow</a></li>
+        <li><a href="#payments">Recording payments</a></li>
+        <li><a href="#payroll">Salaries &amp; payroll</a></li>
+        <li><a href="#obligations">Obligations</a></li>
+        <li><a href="#remit">Logging remittances</a></li>
+        <li><a href="#reports">Reports</a></li>
+        <li><a href="#invoices">Invoicing</a></li>
+        <li><a href="#settings">Settings &amp; export</a></li>
+        <li><a href="#trouble">Troubleshooting</a></li>
+        <li><a href="#feedback">Giving feedback</a></li>
+        <li><a href="#qref">Quick reference</a></li>
+      </ol>
+    </aside>
+
+    <main>
+
+    <!-- ============================================ -->
+    <section class="step" id="access">
+      <h2><span class="num">Step 01</span>Getting access</h2>
+      <p class="step-sub">Click a link, pay with a test card, set up your account.</p>
+
+      <p>You'll receive a link from me that looks like this:</p>
+      <pre><code>https://covenant.asignacionalp.workers.dev</code></pre>
+
+      <p>Open it. You'll see the landing page with a <strong>Buy access</strong> button.</p>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 01</span>
+          <span class="desc">Covenant landing page — dark navy background with the "Faithful books for the faithful work" hero, a ₱1,000 price tag in italic gold, and a gold "Buy access" CTA button. Four feature tiles below.</span>
+        </div>
+        <div class="caption">guide-images/01-landing.png</div>
+      </div>
+
+      <h3>Pay with a test card</h3>
+      <p>Click <strong>Buy access</strong>, enter your real email (this becomes your account), then continue to PayMongo's checkout.</p>
+
+      <div class="callout"><strong>Use this test card during beta:</strong>
+        <ul style="margin-top:.4rem;">
+          <li><strong>Card number:</strong> <code>4343 4343 4343 4345</code></li>
+          <li><strong>Expiry:</strong> any future date (e.g. <code>12/30</code>)</li>
+          <li><strong>CVC:</strong> any 3 digits (e.g. <code>123</code>)</li>
+        </ul>
+        No real money is charged. PayMongo accepts the test card and treats it as a successful payment.
+      </div>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 02</span>
+          <span class="desc">PayMongo's hosted checkout page showing the ₱1,000 line item ("Covenant — Ministry Accounting &amp; HRIS"), payment method picker (Card / GCash / Maya / GrabPay), and card details form filled in with the test card.</span>
+        </div>
+        <div class="caption">guide-images/02-paymongo.png</div>
+      </div>
+
+      <p>After paying, you're redirected to a <strong>"Payment received"</strong> page. It sets up your access automatically (no email round-trip needed) and within a few seconds sends you to a setup screen.</p>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 03</span>
+          <span class="desc">Buy-success page — green checkmark, italic Cormorant heading "Payment received." with the word "received" in gold, brief subtitle "Setting up your access…" and a spinning gold loader.</span>
+        </div>
+        <div class="caption">guide-images/03-buy-success.png</div>
+      </div>
+
+      <div class="callout warn"><strong><span class="ico">⚠</span>Closed the page early?</strong>
+        Go to <a href="/signin.html">/signin.html</a> and click <strong>"Already paid but never set up your account?"</strong> at the bottom. Enter the email you paid with — you'll be sent back to the setup screen.
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="first">
+      <h2><span class="num">Step 02</span>First sign-in</h2>
+      <p class="step-sub">Set up your organization, your name, and a password.</p>
+
+      <p>On the setup screen, fill in:</p>
+
+      <table>
+        <tr><th>Field</th><th>What to put</th></tr>
+        <tr><td><strong>Organization name</strong></td><td>Your business or ministry name (e.g. <em>"TrueVine Home Office"</em>)</td></tr>
+        <tr><td><strong>First name / Last name</strong></td><td>Your real name</td></tr>
+        <tr><td><strong>Choose a password</strong></td><td>At least 8 characters. <strong>Memorize this.</strong> It's how you sign back in.</td></tr>
+        <tr><td><strong>Confirm password</strong></td><td>Same again</td></tr>
+      </table>
+
+      <p>Click <strong>Create my workspace</strong>. You'll land on the dashboard with an empty workspace.</p>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 04</span>
+          <span class="desc">The bootstrap form on /auth.html — "Welcome to Covenant" italic heading, "SET UP YOUR ORGANIZATION" subtitle, info box explaining first-time setup, then form fields for Organization name, First/Last name, and Password (twice). Gold "Create my workspace" button at the bottom.</span>
+        </div>
+        <div class="caption">guide-images/04-bootstrap.png</div>
+      </div>
+
+      <div class="callout warn"><strong><span class="ico">⚠</span>Important:</strong> Write down your password somewhere safe. Password recovery is limited during beta — if you forget it, message me directly.</div>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="tour">
+      <h2><span class="num">Step 03</span>The app at a glance</h2>
+      <p class="step-sub">A tour of where things live.</p>
+
+      <p>After signing in, you'll see a sidebar on the left and your workspace on the right. The sidebar groups every feature under intuitive headings. The bottom-left corner shows a live <strong>sync indicator</strong> — your changes are pushed to the cloud automatically within a few seconds of every edit.</p>
+
+      <div class="mock">
+        <div class="mock-sidebar">
+          <div class="sb">
+            <div class="sb-h">Overview</div>
+            <div class="sb-i active">▦ Dashboard</div>
+            <div class="sb-h">People</div>
+            <div class="sb-i">◭ Businesses</div>
+            <div class="sb-i">◉ Partners</div>
+            <div class="sb-i">◷ Attendance</div>
+            <div class="sb-i">✝ Devotion</div>
+            <div class="sb-i">⛪ Sunday service</div>
+            <div class="sb-i">✦ Church activities</div>
+            <div class="sb-i">◈ Clients</div>
+            <div class="sb-h">Finance</div>
+            <div class="sb-i">↓ Payments</div>
+            <div class="sb-i">⎙ Invoices</div>
+            <div class="sb-i">↑ Salaries</div>
+            <div class="sb-i">✦ Obligations</div>
+            <div class="sb-i">⚜ Conviction firstfruits</div>
+            <div class="sb-i">◎ Remittance</div>
+            <div class="sb-h">Reports</div>
+            <div class="sb-i">▥ Reports</div>
+          </div>
+          <div class="canvas">main workspace area renders here</div>
+        </div>
+        <div class="caption">Sidebar layout — the canvas on the right changes based on which item is selected.</div>
+      </div>
+
+      <h3>Sidebar sections at a glance</h3>
+      <table>
+        <tr><th>Section</th><th>What's there</th></tr>
+        <tr><td><strong>Dashboard</strong></td><td>Quick stats (received, salaries, obligations owed, remitted) + verse of the day</td></tr>
+        <tr><td><strong>Businesses</strong></td><td>Revenue streams you own — Service or Product</td></tr>
+        <tr><td><strong>Partners</strong></td><td>Your team — bookkeepers, virtual assistants, etc.</td></tr>
+        <tr><td><strong>Attendance</strong></td><td>Daily time logs (Present / Absent / Half / Leave + late/UT minutes)</td></tr>
+        <tr><td><strong>Devotion · Sunday service · Church activities</strong></td><td>Three separate trackers, each its own calendar grid</td></tr>
+        <tr><td><strong>Clients</strong></td><td>Who your business serves</td></tr>
+        <tr><td><strong>Payroll runs</strong></td><td>Generate, review, post payroll for a period</td></tr>
+        <tr><td><strong>Payments / Invoices / Salaries</strong></td><td>The money flow: client payments in, invoices issued, salaries out</td></tr>
+        <tr><td><strong>Obligations</strong></td><td>Auto-computed firstfruits, tithes, Church Project, partner tithes</td></tr>
+        <tr><td><strong>Conviction firstfruits</strong></td><td>Firstfruits given beyond what's auto-computed</td></tr>
+        <tr><td><strong>Remittance</strong></td><td>When you actually paid out obligations</td></tr>
+        <tr><td><strong>Reports</strong></td><td>Sortable, drill-down financial &amp; people reports</td></tr>
+        <tr><td><strong>Settings</strong></td><td>Org config, tithe rates, password, data export</td></tr>
+      </table>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 05</span>
+          <span class="desc">The full /app.html dashboard view — sidebar on the left with all sections grouped, main area showing four stat cards (Total received / Total salaries / Obligations owed / Total remitted) at the top, then a "Devotion this month" card below. Bottom-left of sidebar shows the gold "✓ Synced" indicator.</span>
+        </div>
+        <div class="caption">guide-images/05-dashboard.png</div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="org">
+      <h2><span class="num">Step 04</span>Set up your organization</h2>
+      <p class="step-sub">Fill in your business details. You can change everything later.</p>
+
+      <p>Click <strong>Settings</strong> in the sidebar. Fill in:</p>
+      <ul>
+        <li><strong>Organization name</strong> (you set this at sign-up; can edit)</li>
+        <li><strong>TIN</strong> — your Tax Identification Number (Philippines BIR)</li>
+        <li><strong>Address</strong></li>
+        <li><strong>Nature of work</strong> — e.g. <em>"Accounting &amp; Bookkeeping Services"</em></li>
+        <li><strong>Tithe rate</strong> — typically <code>10</code> (10%)</li>
+        <li><strong>Church Project (CP) rate</strong> — typically <code>10</code></li>
+        <li><strong>Logo</strong> — upload a PNG/JPG. Shows on payslips, invoices, reports.</li>
+      </ul>
+
+      <p>Click <strong>Save</strong>. The values flow into every report and computation.</p>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 06</span>
+          <span class="desc">Settings page top — "Your Data" card with auto-sync info-box, "Sign-in &amp; security" card with password fields, and the org config form (TIN, address, tithe %, CP %, logo upload).</span>
+        </div>
+        <div class="caption">guide-images/06-settings.png</div>
+      </div>
+
+      <div class="callout tip"><strong><span class="ico">💡</span>Changing rates later:</strong> If you change the tithe rate from 10% to 12%, click the <strong>Recompute</strong> button on the Obligations page and all unremitted obligations recompute. Already-remitted ones keep their original amounts (audit trail preserved).</div>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="entities">
+      <h2><span class="num">Step 05</span>Businesses · partners · clients</h2>
+      <p class="step-sub">The three core entities that everything else hangs off.</p>
+
+      <p>Covenant's data model:</p>
+      <pre><code>You (CEO)
+  └─ Businesses (revenue streams you own)
+       ├─ Clients (who pays your business)
+       └─ Partners (people who do the work)</code></pre>
+
+      <h3>Businesses</h3>
+      <p>Sidebar → <strong>Businesses</strong> → <strong>+ Add business</strong>.</p>
+      <ul>
+        <li><strong>Name</strong> — e.g. <em>"TrueVine Home Office"</em></li>
+        <li><strong>Type</strong> — Service (you sell hours/skills) or Product (you sell goods)</li>
+        <li><strong>Industry</strong>, <strong>Description</strong>, <strong>Start date</strong>, <strong>Logo</strong></li>
+      </ul>
+      <p>You can have multiple businesses. Income, partners, and obligations are tracked per business.</p>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 07</span>
+          <span class="desc">Add Business modal — form fields for name, type (radio: Service/Product), industry, description, start date, status, logo upload. Gold "Save" button at bottom.</span>
+        </div>
+        <div class="caption">guide-images/07-add-business.png</div>
+      </div>
+
+      <h3>Partners</h3>
+      <p>Sidebar → <strong>Partners</strong> → <strong>+ Add partner</strong>.</p>
+      <p>Partner forms are long because they hold government IDs and pay configuration. Key fields:</p>
+      <ul>
+        <li><strong>Personal info</strong>: name, contact, DOB, address</li>
+        <li><strong>Government IDs</strong>: SSS, TIN, PhilHealth, Pag-Ibig (optional but needed for statutory deductions)</li>
+        <li><strong>Pay</strong>: monthly salary + currency, hours per day (typically 8), hourly rate (auto-computed or override)</li>
+        <li><strong>Tithe</strong>: tick if enrolled in partner-tithing, set their tithe percent (typically 10)</li>
+      </ul>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 08</span>
+          <span class="desc">Partner form view — multi-section layout with personal info (name, contact, DOB), work info (role, status), pay configuration (salary, hourly rate, hours/day), tithe checkbox, and government deduction rates table.</span>
+        </div>
+        <div class="caption">guide-images/08-add-partner.png</div>
+      </div>
+
+      <h3>Clients</h3>
+      <p>Sidebar → <strong>Clients</strong> → <strong>+ Add client</strong>.</p>
+      <ul>
+        <li><strong>Name</strong>, <strong>Business</strong> (which of yours serves them), <strong>Position</strong>, <strong>Type</strong> (Full-time / Part-time / Gig), <strong>Currency</strong></li>
+        <li><strong>Assigned partner</strong> (optional)</li>
+        <li><strong>Start date</strong>, <strong>Status</strong></li>
+        <li><strong>⚜ Migrated client</strong> checkbox — only tick if you started working with them BEFORE adopting Covenant AND already gave firstfruits on past payments. Skips auto-firstfruit on their first Covenant payment.</li>
+      </ul>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 09</span>
+          <span class="desc">Add Client modal — form with name, business dropdown, type radio buttons, currency select, partner assignment dropdown, dates, and the gold migration checkbox at the bottom with its explanatory italic note.</span>
+        </div>
+        <div class="caption">guide-images/09-add-client.png</div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="daily">
+      <h2><span class="num">Step 06</span>Daily workflow</h2>
+      <p class="step-sub">Attendance, devotion, Sunday service, church activities.</p>
+
+      <h3>Attendance</h3>
+      <p>Sidebar → <strong>Attendance</strong>. Every active partner gets a row with the current month laid out as a calendar grid.</p>
+      <p><strong>Click any day</strong> to cycle through statuses:</p>
+      <ul>
+        <li><code>·</code> empty — not logged</li>
+        <li><strong>Present</strong> (green) — they showed up</li>
+        <li><strong>Absent</strong> (red) — they didn't show up</li>
+        <li><strong>Half-day</strong> (orange)</li>
+        <li><strong>Leave</strong> (blue) — paid leave / approved absence</li>
+        <li><strong>No work</strong> (gray) — weekend or holiday</li>
+      </ul>
+      <p>For Present days, click into the partner row to set <strong>late minutes</strong>, <strong>undertime minutes</strong>, or <strong>overtime minutes</strong>.</p>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 10</span>
+          <span class="desc">Attendance calendar view — list of partners as rows, each with a 7-column calendar (Su-Sa) for the current month. Days are color-coded: green for present, red for absent, gray for no-work weekends. A streak badge appears on the right of each partner row.</span>
+        </div>
+        <div class="caption">guide-images/10-attendance.png</div>
+      </div>
+
+      <div class="callout"><strong>How attendance affects pay:</strong> Late + undertime minutes reduce gross pay (computed against the partner's hourly rate). Absent days = no pay for that day. Half-days = half pay.</div>
+
+      <h3>Devotion · Sunday service · Church activities</h3>
+      <p>Three separate trackers, same calendar UX, different data:</p>
+      <ul>
+        <li><strong>Devotion</strong> — daily Bible devotion, any day</li>
+        <li><strong>Sunday service</strong> — only Sundays are clickable, other days dimmed</li>
+        <li><strong>Church activities</strong> — outreach, prayer meetings, ministries (any day)</li>
+      </ul>
+      <p>Each shows team rate, individual rate, and current streak per partner.</p>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 11</span>
+          <span class="desc">Sunday Service tracker view — partner list with calendars where only Sunday columns are clickable (other days dimmed at 32% opacity). Shows team rate stat at top and streak badges per partner.</span>
+        </div>
+        <div class="caption">guide-images/11-sunday-service.png</div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="payments">
+      <h2><span class="num">Step 07</span>Recording client payments</h2>
+      <p class="step-sub">Whenever a client actually pays you.</p>
+
+      <p>Sidebar → <strong>Payments</strong> → <strong>+ Record payment</strong>.</p>
+      <ul>
+        <li><strong>Client</strong> — pick from your clients list</li>
+        <li><strong>Amount</strong> — what they paid</li>
+        <li><strong>Currency</strong> — PHP, USD, AUD, etc.</li>
+        <li><strong>Exchange rate</strong> — only required for non-PHP. PHP equivalent = <code>amount × rate</code>. Example: $1000 USD at rate <code>61</code> → ₱61,000</li>
+        <li><strong>Date</strong> — when the payment landed in your bank</li>
+        <li><strong>Period</strong> — <code>YYYY-MM</code> — which monthly period this is for</li>
+        <li><strong>Note</strong> (optional)</li>
+      </ul>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 12</span>
+          <span class="desc">Record Payment modal — client dropdown, amount + currency, exchange rate field (visible because USD is selected), date picker, period (YYYY-MM) input, note text field. Gold Save button.</span>
+        </div>
+        <div class="caption">guide-images/12-record-payment.png</div>
+      </div>
+
+      <p>Save. Payment appears in the client's history. Obligations (firstfruit, tithe, Church Project) auto-recompute.</p>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="payroll">
+      <h2><span class="num">Step 08</span>Salaries &amp; payroll</h2>
+      <p class="step-sub">Two ways to pay partners. Pick the right one.</p>
+
+      <h3>Option A — Manual salary entry</h3>
+      <p>Sidebar → <strong>Salaries</strong> → <strong>+ Record salary</strong>. Fields: partner, amount, currency, period, date, optional client allocation.</p>
+      <div class="callout note"><strong>Manual entries don't apply attendance deductions.</strong> The amount you type is what's recorded. Use this for one-off payments — bonuses, advances, settlements, mid-month corrections.</div>
+
+      <h3>Option B — Payroll runs (the proper way)</h3>
+      <p>Sidebar → <strong>Payroll runs</strong> → <strong>+ New run</strong>. Five steps:</p>
+      <ol>
+        <li>Pick <strong>frequency</strong> (monthly / semi-monthly / bi-weekly / weekly)</li>
+        <li>Pick <strong>start date / end date / pay date</strong></li>
+        <li>Click <strong>Generate</strong> → the system pulls every active partner, computes gross pay (hourly rate × hours worked, minus late/UT/absent), statutory deductions (SSS / PhilHealth / Pag-Ibig), tithe withholding (if enrolled), and net pay.</li>
+        <li><strong>Review</strong> the lines. Add custom additions (bonus, holiday pay) or other deductions (loans, advances, penalties) per partner.</li>
+        <li><strong>Allocate</strong> each partner's salary across the clients they worked on. Click <strong>Post run</strong> when ready.</li>
+      </ol>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 13</span>
+          <span class="desc">Payroll Run detail page — header showing frequency, period, paydate, status badge ("draft" amber). Below: a table of partner lines with columns for gross, attendance deduction, statutory deductions, tithe, net pay, and allocation buttons. Bottom: action bar with "Recompute draft", "To Review", "Post run" buttons.</span>
+        </div>
+        <div class="caption">guide-images/13-payroll-run.png</div>
+      </div>
+
+      <div class="callout warn"><strong><span class="ico">⚠</span>Posted runs can't be edited.</strong> But you can <strong>reverse</strong> them: open the run → "Reverse this run" → creates a paired reversal (preserving audit trail). Then generate a new run with corrections.</div>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="obligations">
+      <h2><span class="num">Step 09</span>Obligations</h2>
+      <p class="step-sub">The core of Covenant — auto-computed from your payments and salaries.</p>
+
+      <p>Sidebar → <strong>Obligations</strong>. Four pools:</p>
+
+      <table>
+        <tr><th>Pool</th><th>What it is</th><th>How it's computed</th></tr>
+        <tr><td><strong>Firstfruits</strong></td><td>First income from each NEW client/business + January reset</td><td>100% of net income for the firstfruit period</td></tr>
+        <tr><td><strong>Tithes</strong></td><td>10% of net income (after firstfruit)</td><td><code>tithe rate × net income</code> per period per client</td></tr>
+        <tr><td><strong>Church Project</strong></td><td>10% of net income (after firstfruit)</td><td><code>CP rate × net income</code> per period per client</td></tr>
+        <tr><td><strong>Partner Tithes</strong></td><td>Tithe withheld from each partner's pay</td><td><code>partner's tithe % × their net pay</code></td></tr>
+      </table>
+
+      <div class="callout"><strong>What's "net income"?</strong> For each client, in each period: <code>payments received – (gross salary – attendance deduction) × allocation %</code>. Labor cost is post-attendance, not gross — when a partner is late or absent, that wage savings stays inside the company and doesn't reduce client revenue.</div>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 14</span>
+          <span class="desc">Obligations page — four colored pool cards at top showing totals (Firstfruits gold, Tithes blue, Church Project teal, Partner Tithes purple). Below each: list of individual obligations with period, client/partner name, due amount, paid amount, balance, status badge.</span>
+        </div>
+        <div class="caption">guide-images/14-obligations.png</div>
+      </div>
+
+      <h3>Conviction firstfruits</h3>
+      <p>Firstfruits you commit to give <em>beyond</em> what the system computes — out of personal conviction (a windfall, sermon-stirred decision, thanksgiving gift).</p>
+      <p>Sidebar → <strong>Conviction firstfruits</strong> → <strong>+ Add</strong>. Amount, period, date committed, optional note. Tracked as a separate line in your Firstfruits pool.</p>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 15</span>
+          <span class="desc">Conviction Firstfruits dedicated view — header with "+ Add conviction firstfruit" button, four stat cards (Committed / Remitted / Outstanding / Compliance %), then a sortable table with date, period, committed/remitted/balance amounts, status badges, and notes per entry.</span>
+        </div>
+        <div class="caption">guide-images/15-conviction.png</div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="remit">
+      <h2><span class="num">Step 10</span>Logging remittances</h2>
+      <p class="step-sub">When you actually pay out your obligations.</p>
+
+      <p>Sidebar → <strong>Remittance</strong> → <strong>+ Log remittance</strong>.</p>
+      <ul>
+        <li><strong>Cash amount (PHP)</strong>, <strong>Date</strong>, <strong>Mode</strong> (Cash / Bank transfer / GCash / Maya / Check), <strong>Remitted by</strong>, <strong>Reference</strong> (receipt or transaction number)</li>
+      </ul>
+
+      <h3>Allocating to pools</h3>
+      <p>Below the basics, allocate the cash across pools (Firstfruits / Tithes / Church Project / Partner Tithes). The system distributes within each pool to oldest unpaid obligations first (FIFO). Excess can become credit for next time.</p>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 16</span>
+          <span class="desc">Remittance log modal — top fields for cash amount, date, mode dropdown, remitted-by, reference. Middle: pool allocation grid with input boxes for each pool (Firstfruits / Tithes / Church Project / Partner Tithes) and a running "Unallocated" total. Bottom: gold "Treat excess as credit" checkbox with explanatory text.</span>
+        </div>
+        <div class="caption">guide-images/16-remittance.png</div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="reports">
+      <h2><span class="num">Step 11</span>Reports</h2>
+      <p class="step-sub">Sortable, drill-down, totals at the bottom.</p>
+
+      <p>Sidebar → <strong>Reports</strong>. Reports are grouped:</p>
+      <table>
+        <tr><th>Group</th><th>Reports</th></tr>
+        <tr><td><strong>Financial</strong></td><td>Revenue · Salary · P&amp;L · Cashflow · Obligations · Remittance</td></tr>
+        <tr><td><strong>Invoices</strong></td><td>Outstanding receivables · Aging · Per-client history</td></tr>
+        <tr><td><strong>Clients</strong></td><td>Revenue ranking · Status · Net income per client</td></tr>
+        <tr><td><strong>Partners</strong></td><td>Attendance summary · Devotion · Earnings</td></tr>
+        <tr><td><strong>Payroll</strong></td><td>Posted-run summary · Government deductions · Other deductions</td></tr>
+        <tr><td><strong>Compliance</strong></td><td>Year-end summary · Monthly close pack</td></tr>
+      </table>
+
+      <p>Every report has the same QBO-style controls:</p>
+      <ul>
+        <li><strong>Sortable</strong> — click any column header to sort (asc → desc → reset). Active sort shows ▲ or ▼ in gold.</li>
+        <li><strong>Drill-down</strong> — click any row (or any cell on pivot reports) to expand and see the underlying records.</li>
+        <li><strong>Total at the bottom</strong> — italic gold, always visible.</li>
+      </ul>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 17</span>
+          <span class="desc">P&amp;L report view — stat cards across the top (Total income / Total salaries / Remitted obligations / Net P&amp;L), then a sortable table with columns Period / Income / Salaries (red) / Obligations (red) / Net (color-coded). Total row at bottom in italic gold. Clicking a period row expands a 3-column breakdown of payments / salaries / remittances for that month.</span>
+        </div>
+        <div class="caption">guide-images/17-pnl.png</div>
+      </div>
+
+      <p>Export everything you need to send to your accountant via <strong>Reports → Export ministry report</strong> — produces a JSON snapshot.</p>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="invoices">
+      <h2><span class="num">Step 12</span>Invoicing</h2>
+      <p class="step-sub">Bill your clients, track payments, handle FX variance.</p>
+
+      <p>Sidebar → <strong>Invoices</strong> → <strong>+ New invoice</strong>. Fields: client, issue date, due date, currency + exchange rate, line items (description, quantity, unit price), notes, terms.</p>
+
+      <h3>Invoice lifecycle</h3>
+      <pre><code>Draft → Sent → Paid
+            ↓
+            Overdue (auto-flagged after due date)</code></pre>
+
+      <p>You can also <strong>Cancel</strong> at any time.</p>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 18</span>
+          <span class="desc">Invoice detail page — invoice number header, status badge (Sent), client info on the left, business info on the right, dates row, line items table with descriptions and amounts, totals box at the bottom right, then a payments section showing any recorded payments with dates and amounts.</span>
+        </div>
+        <div class="caption">guide-images/18-invoice.png</div>
+      </div>
+
+      <h3>Recording invoice payments</h3>
+      <p>Open the invoice → <strong>+ Record payment</strong> → enter amount, currency, exchange rate, date. Multiple payments per invoice are allowed (partial payments). When the total paid matches the invoice total, status auto-flips to <strong>Paid</strong>.</p>
+
+      <h3>FX variance</h3>
+      <div class="callout"><strong>Scenario:</strong> You billed at exchange rate <code>61</code> but the client paid at rate <code>60</code>. Here's the right move:
+        <ol style="margin-top:.4rem;">
+          <li>Record the payment using the <strong>actual rate received</strong> (<code>60</code>)</li>
+          <li>Invoice marks paid (USD amount matches)</li>
+          <li>The ₱1,000 PHP difference is a <strong>realized FX loss</strong></li>
+          <li>Log it as an <strong>Expense</strong> entry with category "FX loss" or "Exchange rate variance", amount ₱1,000, dated same as payment</li>
+        </ol>
+        Your books then correctly show: income at booking rate ₱61,000, FX loss ₱1,000, net ₱60,000 hitting the bank. Audit trail preserved on both sides.
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="settings">
+      <h2><span class="num">Step 13</span>Settings &amp; data export</h2>
+      <p class="step-sub">Take your data with you — anytime, no questions asked.</p>
+
+      <p>Sidebar → <strong>Settings</strong>.</p>
+
+      <h3>Your Data</h3>
+      <p>Click <strong>⬇ Export my data (JSON)</strong> any time to download a portable backup of your entire workspace. Save it to Google Drive / Dropbox / a USB key. Useful for year-end archive, sending to your accountant, or migrating off Covenant later. <strong>Your data is yours; we never lock you in.</strong></p>
+
+      <h3>Sign-in &amp; security</h3>
+      <p>Set or change your password here. Use at least 8 characters. After changing, your existing session keeps working — but next time you sign in, use the new password.</p>
+
+      <h3>Migration &amp; Bulk Import</h3>
+      <p>If you have prior data in spreadsheets:</p>
+      <ul>
+        <li><strong>Time entries (attendance)</strong> — CSV import</li>
+        <li><strong>Client payments</strong> — CSV import</li>
+      </ul>
+      <p>Download the CSV templates first, fill them in, upload. Both are non-destructive — they add to existing data.</p>
+
+      <div class="callout tip"><strong><span class="ico">💡</span>Already have a JSON backup?</strong> Use the <a href="/import.html">data import wizard at /import.html</a> instead. It loads everything in one shot.</div>
+
+      <div class="shot">
+        <div class="ph">
+          <span class="ico">⬚</span>
+          <span class="label">Screenshot 19</span>
+          <span class="desc">Import wizard — drag-and-drop file zone with dashed border and gold ⬆ icon, instructions below, then once a file is dropped: a 14-tile preview grid showing counts (Businesses 1, Partners 16, Clients 16, Payments 163, Salaries 116, Attendance 2400, etc.) with "Import everything" button at the bottom.</span>
+        </div>
+        <div class="caption">guide-images/19-import.png</div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="trouble">
+      <h2><span class="num">Step 14</span>Troubleshooting</h2>
+      <p class="step-sub">When something goes sideways.</p>
+
+      <h3>"I can't sign in"</h3>
+      <ol>
+        <li>Make sure you're typing the email you paid with</li>
+        <li>Try <strong>"Already paid but never set up your account?"</strong> on the sign-in page — works if you stopped before finishing setup</li>
+        <li>Forgot password? <strong>Email me directly</strong> during beta — I'll reset it for you. Self-service reset comes with v1.1 once email delivery is fixed.</li>
+      </ol>
+
+      <h3>"The sidebar shows ⚠ Sync failed"</h3>
+      <p>Your changes haven't reached the cloud. Possible causes:</p>
+      <ul>
+        <li>Internet dropped briefly → click the sidebar indicator to retry</li>
+        <li>Browser tab is rate-limited (rare) → reload (Ctrl+R)</li>
+        <li>Server-side issue → message me</li>
+      </ul>
+      <p>Your local edits are <strong>not lost</strong> — they stay in the page until sync succeeds.</p>
+
+      <h3>"The page is blank or stuck on loading"</h3>
+      <ol>
+        <li>Hard-refresh: <strong>Ctrl+Shift+R</strong> (Cmd+Shift+R on Mac)</li>
+        <li>Check browser console (F12 → Console) for red errors — paste them to me</li>
+        <li>Try in incognito/private window — rules out cached state</li>
+        <li>Check your internet connection</li>
+      </ol>
+
+      <h3>"I see other people's data"</h3>
+      <div class="callout warn"><strong><span class="ico">⚠</span>That should be impossible.</strong> Multi-tenancy is enforced server-side. If you genuinely think it's happening, <strong>stop and message me immediately.</strong></div>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="feedback">
+      <h2><span class="num">Step 15</span>How to give feedback</h2>
+      <p class="step-sub">What I want to hear from you.</p>
+
+      <table>
+        <tr><th>Type</th><th>What to send</th></tr>
+        <tr><td><strong>Bugs</strong></td><td>What you did → what you expected → what actually happened. Screenshots if visual. Browser console errors if technical.</td></tr>
+        <tr><td><strong>Confusing UX</strong></td><td>Where you got stuck or had to think too hard. Even if it "worked" eventually.</td></tr>
+        <tr><td><strong>Missing features</strong></td><td>What you wanted to do but couldn't. Be specific.</td></tr>
+        <tr><td><strong>Performance</strong></td><td>Anything that felt slow or unresponsive. Tell me what view + how many records.</td></tr>
+        <tr><td><strong>Praise / "this is nice"</strong></td><td>Also welcome. Helps me know what NOT to break.</td></tr>
+      </table>
+
+      <p><strong>Send to:</strong> <a href="mailto:asignacionalp@gmail.com">asignacionalp@gmail.com</a> — subject line <code>[Covenant Beta]</code>, freeform body.</p>
+    </section>
+
+    <!-- ============================================ -->
+    <section class="step" id="qref">
+      <h2><span class="num">Step 16</span>Quick reference</h2>
+      <p class="step-sub">Print this. Stick it on your monitor.</p>
+
+      <div class="qref">
+        <h3>Covenant cheatsheet</h3>
+        <dl>
+          <dt>Sign in</dt><dd><code>covenant.asignacionalp.workers.dev/signin.html</code></dd>
+          <dt>App</dt><dd><code>covenant.asignacionalp.workers.dev/app.html</code></dd>
+          <dt>Import JSON</dt><dd><code>covenant.asignacionalp.workers.dev/import.html</code></dd>
+          <dt>Daily</dt><dd>Attendance · Devotion · Sunday service · Church activities</dd>
+          <dt>Weekly</dt><dd>Payments (when client pays you)</dd>
+          <dt>Per cycle</dt><dd>Payroll runs → Generate → Review → Post</dd>
+          <dt>Monthly</dt><dd>Recompute Obligations → Log Remittance → Run Monthly Close report</dd>
+          <dt>Support</dt><dd><a href="mailto:asignacionalp@gmail.com">asignacionalp@gmail.com</a> &middot; subject <code>[Covenant Beta]</code></dd>
+        </dl>
+      </div>
+
+      <p style="margin-top:2rem;font-style:italic;color:var(--text2);font-size:1.05rem;line-height:1.7;">Thank you for testing. Honestly. Your bug reports and "this confused me" feedback over the next few weeks shape what Covenant becomes for everyone after.</p>
+      <p style="font-style:italic;color:var(--gold);margin-top:.4rem;">— Al</p>
+    </section>
+
+    </main>
+  </div>
+
+  <footer>
+    <p>"Bring the whole tithe into the storehouse, that there may be food in my house." — Malachi 3:10</p>
+    <p style="margin-top:.6rem;">© Covenant · TrueVine Home Office · Beta v1</p>
+  </footer>
+
+</div>
+
+</body>
+</html>
