@@ -112,7 +112,10 @@
   }
 
   // ── Toggle for the magic-link UI. Off until email is reliable. ──
-  const enableMagicLink = false;
+  // Temporarily ON while password auth is shaking out — Resend can
+  // still deliver to YOUR (signup) inbox even on the free tier, so
+  // the dev/admin can always get back in this way.
+  const enableMagicLink = true;
   if (enableMagicLink) {
     document.getElementById("magic-link-row").style.display = "";
   }
