@@ -112,10 +112,12 @@
   }
 
   // ── Toggle for the magic-link UI. Off until email is reliable. ──
-  // Temporarily ON while password auth is shaking out — Resend can
-  // still deliver to YOUR (signup) inbox even on the free tier, so
-  // the dev/admin can always get back in this way.
-  const enableMagicLink = true;
+  // Password auth is the customer-facing path; magic link is hidden
+  // so customers don't request links that won't reach their inboxes.
+  // Re-enable by setting `enableMagicLink = true` once a verified
+  // sending domain is connected to Resend (or a paid email tier
+  // that delivers to anyone).
+  const enableMagicLink = false;
   if (enableMagicLink) {
     document.getElementById("magic-link-row").style.display = "";
   }
