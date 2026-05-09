@@ -312,6 +312,35 @@ export const signInWithPassword = mutation({
 });
 
 /**
+ * TEMPORARY ESCAPE HATCH — sets the passwordHash for a single
+ * hard-coded admin email. Used once to unblock the developer
+ * (Al) after the regular setPassword flow misbehaved. Remove
+ * this function as soon as Al has signed in successfully via
+ * email + password.
+ *
+ * Hard-coded to asignacionalp@gmail.com so that even though this
+ * mutation is technically callable by anyone, it can't be used
+ * to take over arbitrary accounts.
+ */
+export const devSetAdminPassword = mutation({
+  args: { password: v.string() },
+  handler: async (ctx, args) => {
+    const ADMIN_EMAIL = "asignacionalp@gmail.com";
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", ADMIN_EMAIL))
+      .unique();
+    if (!user) throw new Error("Admin user not found.");
+    const passwordHash = await hashPassword(args.password);
+    await ctx.db.patch(user._id, {
+      passwordHash,
+      passwordSetAt: Date.now(),
+    });
+    return { ok: true, userId: user._id };
+  },
+});
+
+/**
  * "I already paid but never finished setting up my account" recovery
  * flow. Looks for a paid-but-unactivated license matching the email,
  * mints a 15-minute auth token, and returns it so the frontend can
