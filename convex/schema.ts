@@ -184,6 +184,13 @@ export default defineSchema({
     })),
     photo: v.optional(v.string()),
     notes: v.optional(v.string()),
+    /** YYYY-MM-DD when the partner was deactivated. Recorded so we
+     *  can filter dropdowns by date (don't show a partner deactivated
+     *  before the new record's date). Optional — pre-feature partners
+     *  may have `st: "inactive"` with no recorded date. */
+    deactivatedAt: v.optional(v.string()),
+    /** Free-text reason a partner was deactivated. For HR/audit. */
+    deactivationReason: v.optional(v.string()),
   })
     .index("by_org", ["orgId"])
     .index("by_org_legacyId", ["orgId", "legacyId"]),

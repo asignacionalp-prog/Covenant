@@ -168,6 +168,8 @@ export const importPartners = mutation({
           : undefined,
         photo: p.photo,
         notes: p.notes,
+        deactivatedAt: typeof p.deactivatedAt === "string" ? p.deactivatedAt : undefined,
+        deactivationReason: typeof p.deactivationReason === "string" ? p.deactivationReason : undefined,
       });
       count++;
     }

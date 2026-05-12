@@ -2509,6 +2509,34 @@ body{
 
 <!-- Batch tithe edit modal end -->
 
+<!-- Partner deactivation modal -->
+<div id="modal-deactivate-partner" class="modal-overlay">
+  <div class="modal">
+    <h3>Deactivate <span id="deact-name">partner</span></h3>
+    <div class="info-box" style="background:rgba(201,162,39,.06);border-left-color:var(--gold);font-size:13px;line-height:1.5;">
+      Recording when and why so the deactivation is auditable. After this, they won't appear in dropdowns for records dated AFTER the deactivation date, but past records and historical views keep them visible.
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Date deactivated</label><input type="date" id="deact-dt"/></div>
+      <div class="fr"><label>Reason</label><select id="deact-reason-preset" onchange="onDeactReasonPresetChange()">
+        <option value="">— pick or type below —</option>
+        <option>Resigned</option>
+        <option>Performance / let go</option>
+        <option>End of contract</option>
+        <option>Maternity / extended leave</option>
+        <option>Health / personal</option>
+        <option>Moved on to another firm</option>
+        <option>Other</option>
+      </select></div>
+    </div>
+    <div class="fr"><label>Notes</label><input type="text" id="deact-reason" placeholder="Optional — additional context for the records" maxlength="240"/></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-deactivate-partner')">Cancel</button>
+      <button class="btn btn-red" onclick="confirmDeactivatePartner()">Deactivate</button>
+    </div>
+  </div>
+</div>
+
 <!-- Conviction firstfruit modal -->
 <div id="modal-conviction-ff" class="modal-overlay">
   <div class="modal">
@@ -3090,7 +3118,10 @@ function renderPartners(){
     <td style="font-weight:500;">${p.cu} ${fmtN(p.hr)}/hr</td>
     <td>${p.eh||8}h</td>
     <td>${p.tc?`<span class="badge bdg-amber">${p.tp}% withheld</span>`:`<span class="badge bdg-gray">Exempt</span>`}</td>
-    <td><span class="badge ${p.st==='active'?'bdg-green':'bdg-gray'}">${p.st}</span></td>
+    <td>${p.st==='active'
+      ? `<span class="badge bdg-green">active</span>`
+      : `<span class="badge bdg-gray" title="${p.deactivationReason ? p.deactivationReason.replace(/"/g,'&quot;') : 'No reason recorded'}">inactive${p.deactivatedAt ? ` · ${p.deactivatedAt}` : ''}</span>${p.deactivationReason ? `<div style="font-size:10px;color:var(--text2);font-style:italic;margin-top:2px;max-width:14rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.deactivationReason.replace(/"/g,'&quot;')}">${p.deactivationReason}</div>` : ''}`
+    }</td>
     <td style="display:flex;gap:6px;flex-wrap:wrap;">${actBtns}</td>
   </tr>`;}).join('')||'<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text2);">No partners yet.</td></tr>';
 }
@@ -3107,15 +3138,85 @@ function countPartnerRefs(pid) {
   };
 }
 
+/**
+ * Returns true if the partner was active on the given date.
+ * - Currently-active partners: always true
+ * - Deactivated partners: true if they were deactivated on/after the date
+ *   (i.e. the date falls within or before their active period)
+ * - Legacy inactive partners with no recorded deactivation date: false
+ *   (we don't know when they left, so safest to exclude them from new
+ *   records — they remain visible in historical records they're tied to)
+ */
+function wasActiveOn(p, dateStr) {
+  if (!p) return false;
+  if (p.st === 'active') return true;
+  if (!p.deactivatedAt) return false;
+  if (!dateStr) return false;
+  return dateStr <= p.deactivatedAt;
+}
+
+/**
+ * Partners visible in a dropdown for a record dated `dateStr`.
+ * Defaults to today if no date is provided.
+ */
+function partnersActiveOn(dateStr) {
+  const d = dateStr || td();
+  return S.partners.filter(p => wasActiveOn(p, d));
+}
+
+// Stash for the deactivation modal — which partner is being deactivated.
+let __pendingDeactivatePid = null;
+
 function togglePartnerStatus(id) {
   const p = gP(id);
   if (!p) return;
   if (p.st === 'active') {
-    if (!confirm(`Deactivate ${p.fn} ${p.ln}?\n\n• They won't appear in active partner lists.\n• Existing salary, attendance, and payroll records are kept untouched.\n• Can be reactivated anytime.`)) return;
-    p.st = 'inactive';
+    // Open the deactivation modal — collect date + reason.
+    __pendingDeactivatePid = id;
+    document.getElementById('deact-name').textContent = `${p.fn} ${p.ln}`;
+    document.getElementById('deact-dt').value = td();
+    document.getElementById('deact-reason-preset').value = '';
+    document.getElementById('deact-reason').value = '';
+    openModal('modal-deactivate-partner');
   } else {
+    // Reactivating — just flip the flag, clear deactivation fields.
+    if (!confirm(`Reactivate ${p.fn} ${p.ln}?\n\nThey'll appear in dropdowns and active-partner lists again. Their previous deactivation date and reason will be cleared.`)) return;
     p.st = 'active';
+    delete p.deactivatedAt;
+    delete p.deactivationReason;
+    computeAll();
+    renderPartners();
   }
+}
+
+/**
+ * Mirror the preset reason dropdown into the free-text notes field so
+ * the CEO can either pick a quick reason or type something specific.
+ * The notes field is the source of truth on save.
+ */
+function onDeactReasonPresetChange() {
+  const preset = document.getElementById('deact-reason-preset').value;
+  if (preset && preset !== 'Other') {
+    document.getElementById('deact-reason').value = preset;
+  } else if (preset === 'Other') {
+    document.getElementById('deact-reason').value = '';
+    document.getElementById('deact-reason').focus();
+  }
+}
+
+function confirmDeactivatePartner() {
+  if (!__pendingDeactivatePid) return;
+  const p = gP(__pendingDeactivatePid);
+  if (!p) { closeModal('modal-deactivate-partner'); return; }
+  const dt = document.getElementById('deact-dt').value;
+  const reason = document.getElementById('deact-reason').value.trim();
+  if (!dt) { alert('Pick a deactivation date.'); return; }
+  if (!reason) { alert('Add a reason — even a short one. Helps audit later.'); return; }
+  p.st = 'inactive';
+  p.deactivatedAt = dt;
+  p.deactivationReason = reason;
+  __pendingDeactivatePid = null;
+  closeModal('modal-deactivate-partner');
   computeAll();
   renderPartners();
 }
@@ -4228,7 +4329,8 @@ function openAddClient(){
   document.getElementById('cl-modal-title').textContent='Add client';
   document.getElementById('cl-nm').value='';document.getElementById('cl-pos').value='';
   document.getElementById('cl-bid').innerHTML=bizOptions();
-  document.getElementById('cl-pt').innerHTML='<option value="">-- None --</option>'+S.partners.map(p=>`<option value="${p.id}">${p.fn} ${p.ln}</option>`).join('');
+  // NEW client — only show partners active today.
+  document.getElementById('cl-pt').innerHTML='<option value="">-- None --</option>'+partnersActiveOn(td()).map(p=>`<option value="${p.id}">${p.fn} ${p.ln}</option>`).join('');
   document.getElementById('cl-ty').value='full-time';document.getElementById('cl-cu').value='PHP';
   document.getElementById('cl-sd').value=td();
   document.getElementById('cl-migrated').checked=false;
@@ -4593,8 +4695,11 @@ function renderSalaries(){
     renderSalariesFlat(isCeo);
   }
 
-  // Repopulate dropdowns
-  document.getElementById('sal-pt').innerHTML='<option value="">-- Select partner --</option>'+S.partners.map(p=>`<option value="${p.id}">${p.fn} ${p.ln}</option>`).join('');
+  // Repopulate dropdowns. NEW salary defaults its date to today, so
+  // filter to partners active as of today — inactive ones whose
+  // deactivation date is before today are hidden, but anyone deactivated
+  // today or later is still selectable.
+  document.getElementById('sal-pt').innerHTML='<option value="">-- Select partner --</option>'+partnersActiveOn(td()).map(p=>`<option value="${p.id}">${p.fn} ${p.ln}</option>`).join('');
   document.getElementById('sal-cl').innerHTML='<option value="">-- General --</option>'+S.clients.map(c=>`<option value="${c.id}">${c.nm}</option>`).join('');
   document.getElementById('sal-dt').value=td();document.getElementById('sal-pe').value=nm();
   document.getElementById('sal-att-info').style.display='none';
@@ -11123,6 +11228,7 @@ function __wrapDirty(fnName) {
   'saveInvoicePayment','deleteInvoicePayment','deletePaymentFromList',
   'reverseRun','reverseAndRegenerate','togglePartnerStatus','deletePartner',
   'excludePartnerFromRun','includePartnerInRun',
+  'confirmDeactivatePartner',
   'openConvictionFirstfruit','saveConvictionFirstfruit','deleteConvictionFirstfruit',
   'setSalariesView','toggleSalaryGroup','toggleOblPool','toggleOblItem'
 ].forEach(__wrapDirty);

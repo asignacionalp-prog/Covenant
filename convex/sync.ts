@@ -200,6 +200,8 @@ export const syncPartners = mutation({
           : undefined,
         photo: str(p.photo),
         notes: str(p.notes),
+        deactivatedAt: str(p.deactivatedAt),
+        deactivationReason: str(p.deactivationReason),
       };
       const match = existingMap.get(legacyId);
       if (match) await ctx.db.patch(match._id, data);
