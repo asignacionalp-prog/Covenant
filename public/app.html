@@ -6182,17 +6182,19 @@ function recomputeDraft(runId){
   const run = S.runs.find(r => r.id === runId);
   if (!run) return;
   if (run.status !== 'draft') { alert('Only drafts can be recomputed.'); return; }
-  if (!confirm('Recompute this draft?\n\n• Pulls current hourly rates and attendance for the period\n• Adds any newly active partners that joined since last generation\n• Resets gross, regular pay, OT pay, late/absence deduction\n• PRESERVES: custom additions, custom deductions (loans, advances, etc.), client allocation, manual SSS/PhilHealth/Pag-IBIG overrides\n\nClick OK to recompute, Cancel to leave as-is.')) return;
+  if (!confirm('Recompute this draft?\n\n• Pulls current hourly rates and attendance for the period\n• Adds any newly active partners that joined since last generation\n• Resets gross, regular pay, OT pay, late/absence deduction\n• PRESERVES: custom additions, custom deductions (loans, advances, etc.), client allocation, manual SSS/PhilHealth/Pag-IBIG overrides, AND any partners you previously excluded from this run\n\nClick OK to recompute, Cancel to leave as-is.')) return;
 
   const pb = { start: run.start, end: run.end };
   const activeIds = new Set(S.partners.filter(p => p.st === 'active').map(p => p.id));
+  // Per-run excluded list — partners deliberately removed for this run only.
+  const excluded = new Set(run.excludedPids || []);
 
   // Track which partners already have a line
   const existingByPid = new Map();
   run.lines.forEach(l => existingByPid.set(l.pid, l));
 
-  // Build new lines for active partners
-  const newLines = S.partners.filter(p => p.st === 'active').map(p => {
+  // Build new lines for active partners (skip any deliberately excluded ones)
+  const newLines = S.partners.filter(p => p.st === 'active' && !excluded.has(p.id)).map(p => {
     const sd = pSalDetail(p, pb.start, pb.end);
     const attD = cAttDeduct(p.id, pb.start, pb.end);
     const expectedGross = (sd.gross || 0) + (attD || 0);
@@ -6238,6 +6240,64 @@ function recomputeDraft(runId){
   if (removedCount) summary += `Removed ${removedCount} inactive partner(s). `;
   if (!addedCount && !removedCount) summary += 'All ' + newLines.length + ' lines refreshed with current rates and attendance.';
   alert(summary);
+}
+
+/**
+ * Remove a single partner from a DRAFT run. The partner stays active
+ * globally; they just don't get paid in this specific run. The pid is
+ * tracked in `run.excludedPids` so recomputeDraft doesn't re-add them.
+ */
+function excludePartnerFromRun(runId, pid){
+  const run = S.runs.find(r => r.id === runId);
+  if (!run) return;
+  if (run.status !== 'draft') { alert('Only draft runs can be edited.'); return; }
+  const p = gP(pid);
+  const name = p ? `${p.fn} ${p.ln}` : 'this partner';
+  if (!confirm(`Remove ${name} from this payroll run?\n\n• Their line is deleted from this run only\n• They stay active and will be included in future runs\n• You can re-add them to this run anytime from the "Excluded from this run" section below\n\nClick OK to remove.`)) return;
+  run.excludedPids = run.excludedPids || [];
+  if (!run.excludedPids.includes(pid)) run.excludedPids.push(pid);
+  run.lines = run.lines.filter(l => l.pid !== pid);
+  renderPayrollDetail(runId);
+}
+
+/**
+ * Re-add a previously excluded partner. Generates a fresh line for
+ * them using the run's period bounds.
+ */
+function includePartnerInRun(runId, pid){
+  const run = S.runs.find(r => r.id === runId);
+  if (!run) return;
+  if (run.status !== 'draft') { alert('Only draft runs can be edited.'); return; }
+  const p = gP(pid);
+  if (!p) return;
+  // Clear the exclusion
+  run.excludedPids = (run.excludedPids || []).filter(id => id !== pid);
+  // Skip if a line somehow already exists
+  if (run.lines.some(l => l.pid === pid)) { renderPayrollDetail(runId); return; }
+  // Generate a fresh line — mirrors what generatePayrollRun does
+  const pb = { start: run.start, end: run.end };
+  const sd = pSalDetail(p, pb.start, pb.end);
+  const attD = cAttDeduct(p.id, pb.start, pb.end);
+  const expectedGross = (sd.gross || 0) + (attD || 0);
+  const line = {
+    pid: p.id,
+    baseGross: expectedGross,
+    gross: expectedGross,
+    regularPay: sd.regularPay,
+    otPay: sd.otPay,
+    regularMins: sd.detail.regular,
+    otMins: sd.detail.ot,
+    lateUTMins: sd.detail.lateUTMins,
+    absentMins: sd.detail.absentMins,
+    halfMins: sd.detail.halfMins,
+    attD,
+    sss: 0, ph: 0, pg: 0,
+    tithe: 0, additions: [], addTot: 0, others: [], otherTot: 0, net: 0,
+    allocation: defaultAllocationForPartner(p),
+  };
+  recalcLine(line, p);
+  run.lines.push(line);
+  renderPayrollDetail(runId);
 }
 
 function generatePayrollRun(){
@@ -6304,8 +6364,27 @@ function renderPayrollDetail(id){
     const odHtml=l.others&&l.others.length?`<div style="margin-top:4px;">${l.others.map((o,i)=>`<div class="od-row"><span class="od-type-tag">${tlbl(o.ty)}</span><span class="od-lbl">${o.lbl}</span><span class="od-amt">−${fmt(o.am)}</span>${isDraft?`<button onclick="removeOd(${run.id},${l.pid},${i})" style="font-size:11px;color:var(--text2);background:none;border:.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;padding:1px 6px;">✕</button>`:''}</div>`).join('')}</div>`:'';
     const adHtml=l.additions&&l.additions.length?`<div style="margin-top:4px;">${l.additions.map((a,i)=>`<div class="od-row" style="border-left-color:var(--teal,#2F6B3F);"><span class="od-type-tag" style="background:rgba(47,107,63,.15);color:var(--teal,#2F6B3F);">${albl(a.ty)}</span><span class="od-lbl">${a.lbl}</span><span class="od-amt" style="color:var(--teal,#2F6B3F);">+${fmt(a.am)}</span>${isDraft?`<button onclick="removeAdd(${run.id},${l.pid},${i})" style="font-size:11px;color:var(--text2);background:none;border:.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;padding:1px 6px;">✕</button>`:''}</div>`).join('')}</div>`:'';
     const addBtns=isDraft?`<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;"><button class="btn-link" onclick="openOd(${run.id},${l.pid})">+ Add deduction</button><button class="btn-link" style="color:var(--teal,#2F6B3F);" onclick="openAdd(${run.id},${l.pid})">+ Add additional</button></div>`:'';
-    return `<tr><td style="font-weight:500;">${p.fn} ${p.ln}<div style="font-size:10px;color:var(--text2);font-weight:400;">${p.ro}</div><div style="margin-top:6px;">${allocationChipHtml(l, isDraft)}</div>${adHtml}${odHtml}${addBtns}</td><td class="r">${fmt(l.gross)}${(l.addTot||0)>0?`<div style="font-size:10px;color:var(--text2);font-weight:400;">base ${fmt(l.baseGross||0)}</div>`:''}</td><td class="r" style="color:var(--teal,#2F6B3F);">${(l.addTot||0)>0?'+'+fmt(l.addTot):'—'}</td><td class="r" style="color:var(--coral);">${(l.attD||0)>0?'−'+fmt(l.attD):'—'}</td><td class="r">${isDraft?`<input class="edt-input" type="number" value="${l.sss||0}" step="0.01" onchange="updLine(${run.id},${l.pid},'sss',this.value)"/>`:`${(l.sss||0)>0?fmt(l.sss):'—'}`}</td><td class="r">${isDraft?`<input class="edt-input" type="number" value="${l.ph||0}" step="0.01" onchange="updLine(${run.id},${l.pid},'ph',this.value)"/>`:`${(l.ph||0)>0?fmt(l.ph):'—'}`}</td><td class="r">${isDraft?`<input class="edt-input" type="number" value="${l.pg||0}" step="0.01" onchange="updLine(${run.id},${l.pid},'pg',this.value)"/>`:`${(l.pg||0)>0?fmt(l.pg):'—'}`}</td><td class="r" style="color:var(--coral);">${(l.tithe||0)>0?'−'+fmt(l.tithe):'—'}</td><td class="r" style="color:var(--coral);">${(l.otherTot||0)>0?'−'+fmt(l.otherTot):'—'}</td><td class="r" style="color:var(--teal);font-weight:500;">${fmt(l.net)}</td><td><button class="btn btn-xs" onclick="viewPayslip(${run.id},${l.pid})">Payslip</button></td></tr>`;
+    const removeBtn = isDraft
+      ? `<button class="btn btn-xs btn-red" onclick="excludePartnerFromRun(${run.id},${l.pid})" title="Remove this partner from THIS run only (they stay active)" style="margin-left:4px;">✕</button>`
+      : '';
+    return `<tr><td style="font-weight:500;">${p.fn} ${p.ln}<div style="font-size:10px;color:var(--text2);font-weight:400;">${p.ro}</div><div style="margin-top:6px;">${allocationChipHtml(l, isDraft)}</div>${adHtml}${odHtml}${addBtns}</td><td class="r">${fmt(l.gross)}${(l.addTot||0)>0?`<div style="font-size:10px;color:var(--text2);font-weight:400;">base ${fmt(l.baseGross||0)}</div>`:''}</td><td class="r" style="color:var(--teal,#2F6B3F);">${(l.addTot||0)>0?'+'+fmt(l.addTot):'—'}</td><td class="r" style="color:var(--coral);">${(l.attD||0)>0?'−'+fmt(l.attD):'—'}</td><td class="r">${isDraft?`<input class="edt-input" type="number" value="${l.sss||0}" step="0.01" onchange="updLine(${run.id},${l.pid},'sss',this.value)"/>`:`${(l.sss||0)>0?fmt(l.sss):'—'}`}</td><td class="r">${isDraft?`<input class="edt-input" type="number" value="${l.ph||0}" step="0.01" onchange="updLine(${run.id},${l.pid},'ph',this.value)"/>`:`${(l.ph||0)>0?fmt(l.ph):'—'}`}</td><td class="r">${isDraft?`<input class="edt-input" type="number" value="${l.pg||0}" step="0.01" onchange="updLine(${run.id},${l.pid},'pg',this.value)"/>`:`${(l.pg||0)>0?fmt(l.pg):'—'}`}</td><td class="r" style="color:var(--coral);">${(l.tithe||0)>0?'−'+fmt(l.tithe):'—'}</td><td class="r" style="color:var(--coral);">${(l.otherTot||0)>0?'−'+fmt(l.otherTot):'—'}</td><td class="r" style="color:var(--teal);font-weight:500;">${fmt(l.net)}</td><td><button class="btn btn-xs" onclick="viewPayslip(${run.id},${l.pid})">Payslip</button>${removeBtn}</td></tr>`;
   }).join('');
+
+  // Build the "Excluded from this run" panel (draft only)
+  const excludedPids = run.excludedPids || [];
+  const excludedPanel = (isDraft && excludedPids.length > 0)
+    ? `<div class="card" style="margin-top:1rem;border-left:3px solid var(--gold);">
+         <div class="card-section-title" style="font-size:13px;letter-spacing:.04em;">Excluded from this run</div>
+         <p style="font-size:12px;color:var(--text2);font-style:italic;margin-bottom:8px;line-height:1.5;">These partners are <strong style="color:var(--text);font-style:normal;">active</strong> but were removed from this specific run. They'll be included in future runs as usual. Click Re-add to put them back into THIS run.</p>
+         <div style="display:flex;gap:6px;flex-wrap:wrap;">
+           ${excludedPids.map(pid => {
+             const p = gP(pid);
+             const label = p ? `${p.fn} ${p.ln}` : `Partner #${pid}`;
+             return `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;background:rgba(244,237,217,.04);border:.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;"><span>${label}</span><button class="btn-link" style="font-size:11px;color:var(--gold);" onclick="includePartnerInRun(${run.id},${pid})">↺ Re-add</button></div>`;
+           }).join('')}
+         </div>
+       </div>`
+    : '';
   document.getElementById('payroll-detail-content').innerHTML=`
     <div class="page-hdr"><div><div class="page-title"><span style="color:var(--text2);font-weight:400;font-size:18px;">Run #${run.id}</span> &nbsp;·&nbsp; ${fl(run.freq)} · ${run.label}</div><div class="page-sub">Pay date: ${run.paydate}${run.notes?' · '+run.notes:''}</div></div>${acts}</div>
     ${sf}
@@ -6324,7 +6403,8 @@ function renderPayrollDetail(id){
       <tfoot><tr style="background:var(--bg);"><td style="font-weight:500;padding:9px 12px;">Total</td><td class="r" style="font-weight:500;">${fmt(tG)}</td><td colspan="6"></td><td class="r" style="font-weight:500;color:var(--teal);">${fmt(tN)}</td><td></td></tr></tfoot>
       </table>
     </div>
-    ${isDraft?`<div class="info-box">Draft mode: edit SSS, PhilHealth, Pag-Ibig per partner. Add other deductions (loans, penalties, cash advances) per partner. Attendance deductions and tithe are auto-computed.</div>`:''}
+    ${isDraft?`<div class="info-box">Draft mode: edit SSS, PhilHealth, Pag-Ibig per partner. Add other deductions (loans, penalties, cash advances) per partner. Click the ✕ next to Payslip to remove a partner from THIS run only.</div>`:''}
+    ${excludedPanel}
   `;
 }
 function updLine(rid,pid,field,val){
@@ -11042,6 +11122,7 @@ function __wrapDirty(fnName) {
   'unmarkInvoicePaid','cancelInvoice','uncancelInvoice','deleteInvoice',
   'saveInvoicePayment','deleteInvoicePayment','deletePaymentFromList',
   'reverseRun','reverseAndRegenerate','togglePartnerStatus','deletePartner',
+  'excludePartnerFromRun','includePartnerInRun',
   'openConvictionFirstfruit','saveConvictionFirstfruit','deleteConvictionFirstfruit',
   'setSalariesView','toggleSalaryGroup','toggleOblPool','toggleOblItem'
 ].forEach(__wrapDirty);
