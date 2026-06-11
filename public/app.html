@@ -2047,7 +2047,7 @@ body{
       </div>
       <div class="stat-grid" id="remit-stats"></div>
       <div class="tbl-card">
-        <table><thead><tr><th>Date</th><th class="r">Amount (PHP)</th><th>Mode</th><th>By</th><th>Reference</th><th>Applied to</th></tr></thead>
+        <table><thead><tr><th>Date</th><th class="r">Amount (PHP)</th><th>Mode</th><th>By</th><th>Reference</th><th>Applied to</th><th></th></tr></thead>
         <tbody id="remit-tbody"></tbody></table>
       </div>
     </div>
@@ -2508,6 +2508,28 @@ body{
 </div>
 
 <!-- Batch tithe edit modal end -->
+
+<!-- Edit remittance log (metadata only) modal -->
+<div id="modal-edit-remittance" class="modal-overlay">
+  <div class="modal">
+    <h3>Edit remittance — metadata only</h3>
+    <div class="info-box" style="background:rgba(244,237,217,.04);border-left-color:var(--border2);font-size:13px;line-height:1.5;">
+      Fix the date, mode, reference, or who logged it. <strong>Amount and allocations are locked</strong> — to change those, delete this log and create a new one with the right numbers.
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Date</label><input type="date" id="er-dt"/></div>
+      <div class="fr"><label>Mode</label><select id="er-mo"><option>Cash</option><option>Bank transfer</option><option>GCash</option><option>Maya</option><option>Check</option></select></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>Remitted by</label><select id="er-by"></select></div>
+      <div class="fr"><label>Reference / Receipt no.</label><input id="er-rf" placeholder="Optional"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-edit-remittance')">Cancel</button>
+      <button class="btn btn-dark" onclick="saveRemittanceMetadata()">Save</button>
+    </div>
+  </div>
+</div>
 
 <!-- Partner deactivation modal -->
 <div id="modal-deactivate-partner" class="modal-overlay">
@@ -5735,13 +5757,148 @@ function renderRemittance(){
 
   poolEl.innerHTML=(poolHtml?`<div style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600;margin:1rem 0 .75rem;">Obligation pools</div>${poolHtml}`:'')+creditLedgerHtml+(poolHtml||creditLedgerHtml?`<div style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600;margin:1.5rem 0 .75rem;">Remittance log</div>`:'');
 
+  const isCeo = S.cu?.role === 'ceo';
   document.getElementById('remit-tbody').innerHTML=S.logs.slice().reverse().map(l=>{
     const poolSummary=l.poolAl?l.poolAl.map(p=>`${p.label} ${fmt(p.am)}${p.excess>0.01?` <span style="color:var(--gold);">(+${fmt(p.excess)} credit)</span>`:''}`).join(', '):
       (l.al||[]).map(a=>{const o=S.obls.find(x=>x.id===a.oi);return o?o.lb+' '+fmt(a.am):''}).filter(Boolean).join(', ')||'—';
     const creditNote=l.creditUsed>0?`<div style="font-size:12px;color:var(--gold);font-style:italic;">Used ${fmt(l.creditUsed)} credit</div>`:'';
     const earnedNote=l.creditEarned>0?`<div style="font-size:12px;color:var(--gold);font-style:italic;">Earned ${fmt(l.creditEarned)} credit</div>`:'';
-    return `<tr><td>${l.dt}</td><td class="r" style="font-weight:500;">${fmt(l.am)}</td><td>${l.mo}</td><td>${l.by}</td><td style="font-size:13px;color:var(--text2);">${l.rf}</td><td style="font-size:13px;color:var(--text2);">${poolSummary}${creditNote}${earnedNote}</td></tr>`;
-  }).join('')||'<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text2);">No remittances logged yet.</td></tr>';
+    const acts = isCeo
+      ? `<div style="display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap;">
+           <button class="btn btn-xs" onclick="openEditRemittance(${l.id})" title="Edit metadata (date, mode, reference, by)">Edit</button>
+           <button class="btn btn-xs btn-red" onclick="deleteRemittance(${l.id})" title="Delete and roll back obligation balances">Delete</button>
+         </div>`
+      : '';
+    return `<tr><td>${l.dt}</td><td class="r" style="font-weight:500;">${fmt(l.am)}</td><td>${l.mo}</td><td>${l.by}</td><td style="font-size:13px;color:var(--text2);">${l.rf}</td><td style="font-size:13px;color:var(--text2);">${poolSummary}${creditNote}${earnedNote}</td><td>${acts}</td></tr>`;
+  }).join('')||'<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text2);">No remittances logged yet.</td></tr>';
+}
+
+/**
+ * Open the edit-metadata modal for a remittance log. Only date, mode,
+ * reference, and "by" (who recorded it) can be changed. Amount and
+ * obligation allocations stay locked — to change those, delete the
+ * log and create a new one (clean paired audit trail).
+ */
+function openEditRemittance(id){
+  if (S.cu?.role !== 'ceo') { alert('Only the CEO can edit remittance logs.'); return; }
+  const l = S.logs.find(x => x.id === id);
+  if (!l) return;
+  S.editLogId = id;
+  document.getElementById('er-dt').value = l.dt;
+  document.getElementById('er-mo').value = l.mo;
+  document.getElementById('er-rf').value = l.rf === '—' ? '' : (l.rf || '');
+  document.getElementById('er-by').innerHTML = S.users.map(u =>
+    `<option value="${u.id}">${u.fn} ${u.ln}</option>`).join('');
+  // Best-effort: match the existing "by" name back to a user id
+  const matchUser = S.users.find(u => `${u.fn} ${u.ln}` === l.by);
+  if (matchUser) document.getElementById('er-by').value = matchUser.id;
+  openModal('modal-edit-remittance');
+}
+
+function saveRemittanceMetadata(){
+  const id = S.editLogId;
+  if (id == null) { closeModal('modal-edit-remittance'); return; }
+  const l = S.logs.find(x => x.id === id);
+  if (!l) { S.editLogId = null; closeModal('modal-edit-remittance'); return; }
+  const dt = document.getElementById('er-dt').value;
+  const mo = document.getElementById('er-mo').value;
+  const rf = document.getElementById('er-rf').value.trim() || '—';
+  const byUserId = parseInt(document.getElementById('er-by').value);
+  const byUser = S.users.find(u => u.id === byUserId);
+  if (!dt) { alert('Date is required.'); return; }
+  l.dt = dt;
+  l.mo = mo;
+  l.rf = rf;
+  if (byUser) l.by = byUser.fn + ' ' + byUser.ln;
+  S.editLogId = null;
+  closeModal('modal-edit-remittance');
+  renderRemittance();
+  renderDashboard();
+}
+
+/**
+ * Delete a remittance log with full obligation-balance rollback.
+ *
+ * Safety guards (refuses to delete if any apply):
+ *   - the log has creditEarned > 0 AND any of those credits have
+ *     already been applied to other obligations
+ *   - the log has creditUsed > 0 (those credits came from earlier
+ *     logs; rolling them back without restoring the source credits'
+ *     applied[] state is error-prone)
+ *
+ * What the rollback does on success:
+ *   - For each allocation in l.al (excluding viaCredit ones, which
+ *     came from spent credit), add the amount back to the matching
+ *     obligation's bal
+ *   - For unspent credits created by this log, remove them from
+ *     S.credits
+ *   - Delete the log itself from S.logs
+ *
+ * If amount or allocations are wrong, the workflow is: delete this
+ * log → re-log with the correct numbers. Paired entries are cleaner
+ * for audit than partial edits.
+ */
+function deleteRemittance(id){
+  if (S.cu?.role !== 'ceo') { alert('Only the CEO can delete remittance logs.'); return; }
+  const l = S.logs.find(x => x.id === id);
+  if (!l) return;
+
+  // Guard 1 — credit used. Restoring the source credits' applied[]
+  // entries cleanly is non-trivial; refuse rather than half-do it.
+  if ((l.creditUsed || 0) > 0.01) {
+    alert(`This remittance used ${fmt(l.creditUsed)} of accumulated credit. Deleting it would leave the credit ledger inconsistent.\n\nWorkaround: first delete any LATER remittances that consumed credit, then this one. If you only need to fix metadata (date / mode / reference / by), use the Edit button instead.`);
+    return;
+  }
+
+  // Guard 2 — credit earned that's already been spent.
+  if ((l.creditEarned || 0) > 0.01) {
+    const orphanedCredits = S.credits.filter(c => c.sourceLogId === l.id);
+    const anySpent = orphanedCredits.some(c => Array.isArray(c.applied) && c.applied.length > 0);
+    if (anySpent) {
+      alert(`This remittance generated ${fmt(l.creditEarned)} of credit, and some of that credit has already been applied to later obligations. Deleting it would orphan those applications.\n\nWorkaround: first delete any LATER remittances that consumed the credit from this one (look for 'Used credit' on later rows). If you only need to fix metadata, use Edit.`);
+      return;
+    }
+  }
+
+  // Build a clear preview of what will roll back
+  const oblEffects = [];
+  (l.al || []).forEach(a => {
+    if (a.viaCredit) return; // came from credit pool, not this log's cash
+    const o = S.obls.find(x => x.id === a.oi);
+    if (o) oblEffects.push(`• ${o.lb} — restore ${fmt(a.am)} (balance ${fmt(o.bal)} → ${fmt(o.bal + a.am)})`);
+  });
+  const creditsToRemove = S.credits.filter(c => c.sourceLogId === l.id);
+  const summary =
+    `Delete remittance log of ${fmt(l.am)} dated ${l.dt}?\n\n` +
+    (oblEffects.length ? `Obligation balances that will be restored:\n${oblEffects.join('\n')}\n\n` : '') +
+    (creditsToRemove.length ? `Unspent credits that will be removed: ${creditsToRemove.length}\n\n` : '') +
+    `This cannot be undone. Click OK to delete.`;
+  if (!confirm(summary)) return;
+
+  // Roll back obligation balances (only the "cash" allocations)
+  (l.al || []).forEach(a => {
+    if (a.viaCredit) return;
+    const o = S.obls.find(x => x.id === a.oi);
+    if (!o) return;
+    o.bal = Math.min(o.tot, (o.bal || 0) + (a.am || 0));
+    // Also remove this log's entry from o.logs[] if it's tracked there
+    if (Array.isArray(o.logs)) {
+      o.logs = o.logs.filter(lg => lg.logId !== l.id);
+    }
+  });
+
+  // Remove credits this log created
+  if (creditsToRemove.length) {
+    S.credits = S.credits.filter(c => c.sourceLogId !== l.id);
+  }
+
+  // Finally, delete the log itself
+  S.logs = S.logs.filter(x => x.id !== id);
+
+  computeAll();
+  renderRemittance();
+  renderDashboard();
+  alert('Remittance deleted. Obligation balances restored.');
 }
 
 function toggleBreakdown(id){const el=document.getElementById(id);if(el)el.style.display=el.style.display==='none'?'block':'none';}
@@ -11229,6 +11386,7 @@ function __wrapDirty(fnName) {
   'reverseRun','reverseAndRegenerate','togglePartnerStatus','deletePartner',
   'excludePartnerFromRun','includePartnerInRun',
   'confirmDeactivatePartner',
+  'saveRemittanceMetadata','deleteRemittance',
   'openConvictionFirstfruit','saveConvictionFirstfruit','deleteConvictionFirstfruit',
   'setSalariesView','toggleSalaryGroup','toggleOblPool','toggleOblItem'
 ].forEach(__wrapDirty);
