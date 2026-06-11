@@ -5640,7 +5640,7 @@ function getCreditBalance(){
 }
 
 // Apply credit amount FIFO across oldest unpaid tithe/CP obligations
-function applyCreditToObligations(amount, dt){
+function applyCreditToObligations(amount, dt, sourceLogId){
   if(amount <= 0) return [];
   const eligibleObls = S.obls
     .filter(o => (o.ty === 'tithe' || o.ty === 'church') && o.bal > 0.01)
@@ -5654,7 +5654,9 @@ function applyCreditToObligations(amount, dt){
     rem -= apply;
     applied.push({oblId: o.id, oblLabel: o.lb, amount: apply, date: dt});
   }
-  // Now subtract from credit entries (FIFO across credit ledger)
+  // Now subtract from credit entries (FIFO across credit ledger).
+  // Stamp sourceLogId on the application record so the rollback in
+  // deleteRemittance can find the right entries to undo precisely.
   let toDeduct = amount - rem;
   const credits = (S.credits || []).slice().sort((a,b) => (a.dt || '').localeCompare(b.dt || ''));
   for(const c of credits){
@@ -5663,7 +5665,7 @@ function applyCreditToObligations(amount, dt){
     if(cBal <= 0.01) continue;
     const draw = Math.min(cBal, toDeduct);
     c.applied = c.applied || [];
-    c.applied.push({date: dt, am: draw, oblIds: applied.map(a => a.oblId)});
+    c.applied.push({date: dt, am: draw, oblIds: applied.map(a => a.oblId), sourceLogId: sourceLogId || null});
     toDeduct -= draw;
   }
   return applied;
@@ -5838,67 +5840,138 @@ function saveRemittanceMetadata(){
  * log → re-log with the correct numbers. Paired entries are cleaner
  * for audit than partial edits.
  */
+/**
+ * Roll back the credit applications drawn by `log`. Returns the
+ * total amount actually rolled back so the caller can warn if it
+ * doesn't match `log.creditUsed` exactly.
+ *
+ * Strategy in order of confidence:
+ *   1. Match by sourceLogId — applied entries created after the
+ *      sourceLogId field was added know exactly which log they
+ *      belong to. Always trustworthy.
+ *   2. Heuristic: same date + at least one shared oblId. Used for
+ *      legacy logs whose credit applications pre-date the
+ *      sourceLogId stamp. We stop once the running total covers
+ *      log.creditUsed.
+ */
+function rollbackCreditUsageForLog(log) {
+  const target = log.creditUsed || 0;
+  if (target <= 0.01) return 0;
+  const targetDate = log.dt;
+  const viaCreditOblIds = new Set((log.al || []).filter(a => a.viaCredit).map(a => a.oi));
+  let rolledBack = 0;
+
+  // Pass 1 — precise sourceLogId match.
+  (S.credits || []).forEach(c => {
+    if (!Array.isArray(c.applied)) return;
+    const kept = [];
+    c.applied.forEach(ap => {
+      if (ap.sourceLogId === log.id) {
+        rolledBack += ap.am || 0;
+      } else {
+        kept.push(ap);
+      }
+    });
+    c.applied = kept;
+  });
+
+  // Pass 2 — heuristic for legacy applications (no sourceLogId).
+  // Only run if we still owe rollback amount.
+  if (rolledBack < target - 0.01) {
+    (S.credits || []).forEach(c => {
+      if (!Array.isArray(c.applied)) return;
+      if (rolledBack >= target - 0.01) return;
+      const kept = [];
+      c.applied.forEach(ap => {
+        if (ap.sourceLogId) { kept.push(ap); return; }    // already had real id, leave alone
+        const dateMatches = ap.date === targetDate;
+        const oblsOverlap = Array.isArray(ap.oblIds) && ap.oblIds.some(id => viaCreditOblIds.has(id));
+        if (dateMatches && oblsOverlap && rolledBack < target - 0.01) {
+          rolledBack += ap.am || 0;
+        } else {
+          kept.push(ap);
+        }
+      });
+      c.applied = kept;
+    });
+  }
+
+  return rolledBack;
+}
+
 function deleteRemittance(id){
   if (S.cu?.role !== 'ceo') { alert('Only the CEO can delete remittance logs.'); return; }
   const l = S.logs.find(x => x.id === id);
   if (!l) return;
 
-  // Guard 1 — credit used. Restoring the source credits' applied[]
-  // entries cleanly is non-trivial; refuse rather than half-do it.
-  if ((l.creditUsed || 0) > 0.01) {
-    alert(`This remittance used ${fmt(l.creditUsed)} of accumulated credit. Deleting it would leave the credit ledger inconsistent.\n\nWorkaround: first delete any LATER remittances that consumed credit, then this one. If you only need to fix metadata (date / mode / reference / by), use the Edit button instead.`);
-    return;
-  }
-
-  // Guard 2 — credit earned that's already been spent.
+  // Only hard guard: credit this log GENERATED has already been
+  // spent by later logs. Rolling back without un-spending those
+  // would leave the ledger inconsistent.
   if ((l.creditEarned || 0) > 0.01) {
-    const orphanedCredits = S.credits.filter(c => c.sourceLogId === l.id);
-    const anySpent = orphanedCredits.some(c => Array.isArray(c.applied) && c.applied.length > 0);
+    const ourCredits = S.credits.filter(c => c.sourceLogId === l.id);
+    const anySpent = ourCredits.some(c => Array.isArray(c.applied) && c.applied.length > 0);
     if (anySpent) {
-      alert(`This remittance generated ${fmt(l.creditEarned)} of credit, and some of that credit has already been applied to later obligations. Deleting it would orphan those applications.\n\nWorkaround: first delete any LATER remittances that consumed the credit from this one (look for 'Used credit' on later rows). If you only need to fix metadata, use Edit.`);
+      alert(`This remittance generated ${fmt(l.creditEarned)} of credit, and some of it has already been spent by a LATER remittance. Deleting it now would orphan those later applications.\n\nWorkaround: first delete the later remittance(s) that consumed credit (look for "Used credit" notes on rows dated AFTER ${l.dt}), then come back here.\n\nIf you only need to fix metadata, use Edit instead.`);
       return;
     }
   }
 
-  // Build a clear preview of what will roll back
+  // Build a clear preview of what will roll back.
   const oblEffects = [];
+  const seenObls = new Set();
   (l.al || []).forEach(a => {
-    if (a.viaCredit) return; // came from credit pool, not this log's cash
+    if (seenObls.has(a.oi)) return;
+    seenObls.add(a.oi);
     const o = S.obls.find(x => x.id === a.oi);
-    if (o) oblEffects.push(`• ${o.lb} — restore ${fmt(a.am)} (balance ${fmt(o.bal)} → ${fmt(o.bal + a.am)})`);
+    if (!o) return;
+    const totalForThisObl = (l.al || []).filter(x => x.oi === a.oi).reduce((s, x) => s + (x.am || 0), 0);
+    oblEffects.push(`• ${o.lb} — restore ${fmt(totalForThisObl)} (bal ${fmt(o.bal)} → ${fmt(Math.min(o.tot, o.bal + totalForThisObl))})`);
   });
   const creditsToRemove = S.credits.filter(c => c.sourceLogId === l.id);
   const summary =
     `Delete remittance log of ${fmt(l.am)} dated ${l.dt}?\n\n` +
     (oblEffects.length ? `Obligation balances that will be restored:\n${oblEffects.join('\n')}\n\n` : '') +
+    ((l.creditUsed || 0) > 0.01 ? `Credit pool will be refunded: ${fmt(l.creditUsed)}\n\n` : '') +
     (creditsToRemove.length ? `Unspent credits that will be removed: ${creditsToRemove.length}\n\n` : '') +
     `This cannot be undone. Click OK to delete.`;
   if (!confirm(summary)) return;
 
-  // Roll back obligation balances (only the "cash" allocations)
+  // 1. Restore obligation balances — cash AND viaCredit allocations.
   (l.al || []).forEach(a => {
-    if (a.viaCredit) return;
     const o = S.obls.find(x => x.id === a.oi);
     if (!o) return;
     o.bal = Math.min(o.tot, (o.bal || 0) + (a.am || 0));
-    // Also remove this log's entry from o.logs[] if it's tracked there
     if (Array.isArray(o.logs)) {
       o.logs = o.logs.filter(lg => lg.logId !== l.id);
     }
   });
 
-  // Remove credits this log created
+  // 2. Roll back credit pool usage if this log drew on credit.
+  let rolledBack = 0;
+  if ((l.creditUsed || 0) > 0.01) {
+    rolledBack = rollbackCreditUsageForLog(l);
+  }
+
+  // 3. Remove credits this log GENERATED (guard above blocked the
+  //    case where any of them had been spent).
   if (creditsToRemove.length) {
     S.credits = S.credits.filter(c => c.sourceLogId !== l.id);
   }
 
-  // Finally, delete the log itself
+  // 4. Finally, delete the log itself.
   S.logs = S.logs.filter(x => x.id !== id);
 
   computeAll();
   renderRemittance();
   renderDashboard();
-  alert('Remittance deleted. Obligation balances restored.');
+
+  // If the rollback found less than expected (legacy log with
+  // ambiguous credit history), tell the user so they can verify.
+  if ((l.creditUsed || 0) > 0.01 && Math.abs(rolledBack - l.creditUsed) > 0.01) {
+    alert(`Remittance deleted and obligation balances restored.\n\nCredit rollback: matched ${fmt(rolledBack)} of ${fmt(l.creditUsed)} expected. The difference (${fmt(l.creditUsed - rolledBack)}) was either applied from older credit records this log didn't track, or had already been changed by hand.\n\nDouble-check your credit balance in the Remittance page header.`);
+  } else {
+    alert('Remittance deleted. Obligation balances and credit balance restored.');
+  }
 }
 
 function toggleBreakdown(id){const el=document.getElementById(id);if(el)el.style.display=el.style.display==='none'?'block':'none';}
@@ -5995,9 +6068,11 @@ function saveRemittance(){
 
   const entry={id:S.nid.l++,dt,am:tot,mo:document.getElementById('log-mo').value,by:bu?bu.fn+' '+bu.ln:'—',rf:document.getElementById('log-rf').value.trim()||'—',al:allApplied,poolAl,creditUsed:0,creditEarned:0};
 
-  // Apply credit FIRST (before excess goes to credit)
+  // Apply credit FIRST (before excess goes to credit). Pass the log's
+  // id so credit application records carry it through — that lets
+  // deleteRemittance roll back precisely instead of guessing.
   if(creditUse>0){
-    const creditApplied=applyCreditToObligations(creditUse,dt);
+    const creditApplied=applyCreditToObligations(creditUse,dt,entry.id);
     entry.creditUsed=creditUse;
     entry.creditApplications=creditApplied;
     // Mention which obligations got paid by credit
