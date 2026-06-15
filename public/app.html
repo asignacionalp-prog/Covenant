@@ -5355,7 +5355,12 @@ function renderOblBreakdown(o){
         if (line) totalStat += ((line.sss || 0) + (line.ph || 0) + (line.pg || 0)) * ((s.pc || 100) / 100);
       }
     });
-    const titheBase = Math.max(0, totalGross - totalAd - totalOd - totalStat);
+    // Tithe base = gross − attendance − statutory (no "other" deductions).
+    // Other deductions are voluntary uses of already-earned money; they're
+    // still listed below the tithe base as an informational note so the
+    // breakdown is honest about what came out of the partner's pay, but
+    // they don't reduce the base.
+    const titheBase = Math.max(0, totalGross - totalAd - totalStat);
     const reversalNote = hiddenCount > 0
       ? `<div style="font-size:10px;color:var(--text2);font-style:italic;margin-top:4px;">${hiddenCount} reversed-pair record${hiddenCount === 1 ? '' : 's'} hidden (net to zero)</div>`
       : '';
@@ -5366,8 +5371,8 @@ function renderOblBreakdown(o){
           <div>Gross pay (incl. additions, allocation-weighted)</div><div class="r">${fmt(totalGross)}</div>
           ${totalAd > 0 ? `<div style="color:var(--coral,#7C2D2D);">Less: attendance deductions</div><div class="r" style="color:var(--coral,#7C2D2D);">−${fmt(totalAd)}</div>` : ''}
           ${totalStat > 0 ? `<div style="color:var(--coral,#7C2D2D);">Less: SSS / PhilHealth / Pag-IBIG</div><div class="r" style="color:var(--coral,#7C2D2D);">−${fmt(totalStat)}</div>` : ''}
-          ${totalOd > 0 ? `<div style="color:var(--coral,#7C2D2D);">Less: other deductions (loans, advances)</div><div class="r" style="color:var(--coral,#7C2D2D);">−${fmt(totalOd)}</div>` : ''}
           <div style="border-top:.5px solid var(--border);padding-top:6px;font-weight:500;">Tithe base</div><div class="r" style="border-top:.5px solid var(--border);padding-top:6px;font-weight:500;">${fmt(titheBase)}</div>
+          ${totalOd > 0 ? `<div style="font-style:italic;color:var(--text2);grid-column:1/-1;font-size:11px;padding-top:6px;">Other deductions (loans, advances, penalties) of ${fmt(totalOd)} came out of net pay but do NOT reduce the tithe base — those are voluntary uses of money the partner earned.</div>` : ''}
           <div style="font-style:italic;">× ${tithePct}% (partner's tithe rate)</div><div class="r" style="font-style:italic;">× ${tithePct}%</div>
           <div style="font-weight:600;color:var(--purple,#4B3477);">Tithe due</div><div class="r" style="font-weight:600;color:var(--purple,#4B3477);">${fmt(o.tot)}</div>
         </div>
@@ -6300,20 +6305,21 @@ function allLinesAllocated(run){
 }
 
 function recalcLine(line,p){
-  // Tithe model: tithe is computed against NET-OF-DEDUCTIONS pay — what the partner
-  // actually receives. This matches how taxes work (tax authority taxes actual receipts,
-  // not phantom income from absent days) and matches the principle Covenant uses for
-  // company-level tithes (tithe on net income after partner salaries are deducted).
+  // Tithe model: tithe is computed against the partner's TAKE-HOME-EQUIVALENT
+  // EARNINGS — gross minus the deductions outside their control (attendance
+  // shortfalls + mandatory statutory contributions). "Other deductions"
+  // (loans, advances, penalties) are voluntary uses of money the partner
+  // actually earned, so they DON'T reduce the tithe base.
   //
   // Formula:
   //   gross         = baseGross + sum(additions)
-  //   tithe_base    = gross − attendance − statutory − other deductions
+  //   tithe_base    = gross − attendance − statutory          ← no other
   //   tithe         = tithe_base × tithe_pct (if partner.tc)
   //   net pay       = gross − attendance − statutory − tithe − other
   //
-  // Note: tithe is subtracted AFTER it's calculated, so it doesn't reduce its own base.
-  // "Other deductions" include loan repayments, advances, penalties — partner is still
-  // tithing on this money because they earned it before allocating to those uses.
+  // Note: tithe is subtracted AFTER it's calculated, so it doesn't reduce
+  // its own base. Other deductions still come out of net pay — they just
+  // don't get to lower how much tithe is due.
   if(line.baseGross===undefined)line.baseGross=line.gross||0;
   const addTot=(line.additions||[]).reduce((a,o)=>a+o.am,0);
   line.addTot=addTot;
@@ -6325,8 +6331,8 @@ function recalcLine(line,p){
   const sss=line.sss||0;
   const ph=line.ph||0;
   const pg=line.pg||0;
-  // Tithe base = what the partner actually earned/received before tithe itself
-  const titheBase = Math.max(0, gross - att - sss - ph - pg - otherTot);
+  // Tithe base = gross − attendance − statutory only.
+  const titheBase = Math.max(0, gross - att - sss - ph - pg);
   line.tithe = p.tc ? Math.round(titheBase * (p.tp/100) * 100) / 100 : 0;
   line.net = Math.max(0, gross - att - sss - ph - pg - line.tithe - otherTot);
 }
