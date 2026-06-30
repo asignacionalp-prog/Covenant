@@ -60,6 +60,605 @@ async function resolveRef<T extends "businesses" | "partners" | "clients">(
   return row?._id as Id<T> | undefined;
 }
 
+// ─────────────────────────────────────────────────────────────
+// PHASE 2c — DIFF MUTATIONS
+//
+// Each *Diff mutation takes only the rows that actually changed
+// since the last successful sync. The handler reads only those
+// specific rows (by legacyId or natural key) — not the full org
+// table — so I/O scales with edit volume, not data volume.
+//
+// Frontend tracks per-entity snapshots and computes diffs in
+// app.html's bridge. The original mutations (sync<Entity>) are
+// preserved below for backwards-compat but are no longer called.
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Generic upsert-by-legacyId helper for entity diff mutations.
+ * Reads only the specific rows mentioned in the diff.
+ */
+async function diffApplyByLegacyId<T extends "businesses" | "partners" | "clients" | "payments" | "salaries" | "obligations" | "remittanceLogs" | "payrollRuns" | "invoices" | "sales" | "expenses" | "convictionFirstfruits" | "applications">(
+  ctx: MutationCtx,
+  orgId: Id<"orgs">,
+  table: T,
+  upserts: { legacyId: number; data: any }[],
+  deletes: number[],
+): Promise<{ upserted: number; deleted: number }> {
+  let upserted = 0;
+  let deleted = 0;
+  for (const item of upserts) {
+    const existing = await ctx.db
+      .query(table)
+      .withIndex("by_org_legacyId" as any, (q: any) =>
+        q.eq("orgId", orgId).eq("legacyId", item.legacyId),
+      )
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, item.data);
+    } else {
+      await ctx.db.insert(table as any, item.data);
+    }
+    upserted++;
+  }
+  for (const legacyId of deletes) {
+    const existing = await ctx.db
+      .query(table)
+      .withIndex("by_org_legacyId" as any, (q: any) =>
+        q.eq("orgId", orgId).eq("legacyId", legacyId),
+      )
+      .first();
+    if (existing) {
+      await ctx.db.delete(existing._id);
+      deleted++;
+    }
+  }
+  return { upserted, deleted };
+}
+
+export const syncBusinessesDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = args.upserts
+      .filter((b: any) => typeof b.id === "number")
+      .map((b: any) => ({
+        legacyId: b.id,
+        data: {
+          orgId,
+          legacyId: b.id,
+          nm: b.nm ?? "Untitled",
+          type: str(b.type),
+          ownerId: num(b.ownerId),
+          industry: str(b.industry),
+          desc: str(b.desc),
+          sd: str(b.sd),
+          st: cleanStatus(b.st),
+          logo: str(b.logo),
+        },
+      }));
+    return diffApplyByLegacyId(ctx, orgId, "businesses", upserts, args.deletes);
+  },
+});
+
+export const syncPartnersDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = [];
+    for (const p of args.upserts) {
+      if (typeof p.id !== "number") continue;
+      const businessId = await resolveRef(ctx, orgId, "businesses", p.bid);
+      upserts.push({
+        legacyId: p.id,
+        data: {
+          orgId,
+          legacyId: p.id,
+          bid: num(p.bid),
+          businessId,
+          fn: str(p.fn) ?? "—",
+          ln: str(p.ln) ?? "—",
+          mn: str(p.mn),
+          ex: str(p.ex),
+          ct: str(p.ct),
+          dob: str(p.dob),
+          em: str(p.em),
+          gn: str(p.gn),
+          cs: str(p.cs),
+          pob: str(p.pob),
+          ad: str(p.ad),
+          sss: str(p.sss),
+          tin: str(p.tin),
+          pg: str(p.pg),
+          ph: str(p.ph),
+          ro: str(p.ro),
+          sd: str(p.sd),
+          st: cleanStatus(p.st),
+          sa: num(p.sa),
+          cu: str(p.cu),
+          eh: num(p.eh),
+          hr: num(p.hr),
+          tc: bool(p.tc),
+          tp: num(p.tp),
+          gd: p.gd ? { sss: num(p.gd.sss), ph: num(p.gd.ph), pg: num(p.gd.pg) } : undefined,
+          photo: str(p.photo),
+          notes: str(p.notes),
+          deactivatedAt: str(p.deactivatedAt),
+          deactivationReason: str(p.deactivationReason),
+        },
+      });
+    }
+    return diffApplyByLegacyId(ctx, orgId, "partners", upserts, args.deletes);
+  },
+});
+
+export const syncClientsDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = [];
+    for (const c of args.upserts) {
+      if (typeof c.id !== "number") continue;
+      const businessId = await resolveRef(ctx, orgId, "businesses", c.bid);
+      const partnerId = typeof c.pid === "number"
+        ? await resolveRef(ctx, orgId, "partners", c.pid)
+        : undefined;
+      upserts.push({
+        legacyId: c.id,
+        data: {
+          orgId,
+          legacyId: c.id,
+          bid: num(c.bid),
+          businessId,
+          nm: str(c.nm) ?? "Untitled",
+          ty: str(c.ty),
+          cu: str(c.cu),
+          pid: c.pid === null || typeof c.pid === "number" ? c.pid : undefined,
+          partnerId,
+          st: cleanStatus(c.st),
+          sd: str(c.sd),
+          pos: str(c.pos),
+          resp: Array.isArray(c.resp) ? c.resp : undefined,
+          creds: Array.isArray(c.creds) ? c.creds : undefined,
+          migrated: bool(c.migrated),
+        },
+      });
+    }
+    return diffApplyByLegacyId(ctx, orgId, "clients", upserts, args.deletes);
+  },
+});
+
+export const syncPaymentsDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = [];
+    for (const p of args.upserts) {
+      if (typeof p.id !== "number") continue;
+      const clientId = await resolveRef(ctx, orgId, "clients", p.ci);
+      upserts.push({
+        legacyId: p.id,
+        data: {
+          orgId,
+          legacyId: p.id,
+          ci: num(p.ci),
+          clientId,
+          am: num(p.am) ?? 0,
+          cu: str(p.cu) ?? "PHP",
+          rt: num(p.rt),
+          dt: str(p.dt),
+          pe: str(p.pe),
+          source: str(p.source),
+          note: str(p.note),
+          invoiceId: typeof p.invoiceId === "number" ? p.invoiceId : undefined,
+        },
+      });
+    }
+    return diffApplyByLegacyId(ctx, orgId, "payments", upserts, args.deletes);
+  },
+});
+
+export const syncSalariesDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = [];
+    for (const s of args.upserts) {
+      if (typeof s.id !== "number") continue;
+      const partnerId = await resolveRef(ctx, orgId, "partners", s.pid);
+      const clientId = await resolveRef(ctx, orgId, "clients", s.ci);
+      upserts.push({
+        legacyId: s.id,
+        data: {
+          orgId,
+          legacyId: s.id,
+          pid: num(s.pid),
+          partnerId,
+          ci: num(s.ci),
+          clientId,
+          pc: num(s.pc),
+          am: num(s.am) ?? 0,
+          cu: str(s.cu) ?? "PHP",
+          rt: num(s.rt),
+          dt: str(s.dt),
+          pe: str(s.pe),
+          ad: num(s.ad),
+          td: num(s.td),
+          od: num(s.od),
+          source: str(s.source),
+        },
+      });
+    }
+    return diffApplyByLegacyId(ctx, orgId, "salaries", upserts, args.deletes);
+  },
+});
+
+export const syncObligationsDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = [];
+    for (const o of args.upserts) {
+      if (typeof o.id !== "number") continue;
+      const clientId = await resolveRef(ctx, orgId, "clients", o.ci);
+      const businessId = await resolveRef(ctx, orgId, "businesses", o.bid);
+      const partnerId = await resolveRef(ctx, orgId, "partners", o.ptnId);
+      upserts.push({
+        legacyId: o.id,
+        data: {
+          orgId,
+          legacyId: o.id,
+          ty: str(o.ty) ?? "tithe",
+          lb: str(o.lb) ?? "",
+          pe: str(o.pe),
+          ci: num(o.ci),
+          clientId,
+          bid: num(o.bid),
+          businessId,
+          ptnId: num(o.ptnId),
+          partnerId,
+          tot: num(o.tot) ?? 0,
+          bal: num(o.bal) ?? 0,
+          key: str(o.key),
+          archived: bool(o.archived),
+          conviction: bool(o.conviction),
+          logs: Array.isArray(o.logs)
+            ? o.logs.map((l: any) => ({ logId: num(l.logId), am: num(l.am) ?? 0, dt: str(l.dt) }))
+            : undefined,
+        },
+      });
+    }
+    return diffApplyByLegacyId(ctx, orgId, "obligations", upserts, args.deletes);
+  },
+});
+
+export const syncRemittanceLogsDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = args.upserts
+      .filter((l: any) => typeof l.id === "number")
+      .map((l: any) => ({
+        legacyId: l.id,
+        data: {
+          orgId,
+          legacyId: l.id,
+          dt: str(l.dt) ?? "",
+          am: num(l.am) ?? 0,
+          mo: str(l.mo),
+          by: str(l.by),
+          rf: str(l.rf),
+          al: Array.isArray(l.al)
+            ? l.al.map((a: any) => ({ oi: num(a.oi) ?? 0, am: num(a.am) ?? 0 }))
+            : undefined,
+          poolAl: Array.isArray(l.poolAl)
+            ? l.poolAl.map((p: any) => ({
+                ty: str(p.ty) ?? "",
+                label: str(p.label),
+                am: num(p.am) ?? 0,
+                excess: num(p.excess),
+              }))
+            : undefined,
+          creditUsed: num(l.creditUsed),
+          creditEarned: num(l.creditEarned),
+        },
+      }));
+    return diffApplyByLegacyId(ctx, orgId, "remittanceLogs", upserts, args.deletes);
+  },
+});
+
+export const syncPayrollRunsDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = args.upserts
+      .filter((r: any) => typeof r.id === "number")
+      .map((r: any) => ({
+        legacyId: r.id,
+        data: {
+          orgId,
+          legacyId: r.id,
+          freq: str(r.freq) ?? "monthly",
+          label: str(r.label),
+          start: str(r.start),
+          end: str(r.end),
+          paydate: str(r.paydate),
+          notes: str(r.notes),
+          status: str(r.status) ?? "draft",
+          lines: Array.isArray(r.lines) ? r.lines : [],
+        },
+      }));
+    return diffApplyByLegacyId(ctx, orgId, "payrollRuns", upserts, args.deletes);
+  },
+});
+
+export const syncInvoicesDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = [];
+    for (const i of args.upserts) {
+      if (typeof i.id !== "number") continue;
+      const clientId = await resolveRef(ctx, orgId, "clients", i.ci);
+      const businessId = await resolveRef(ctx, orgId, "businesses", i.bid);
+      upserts.push({
+        legacyId: i.id,
+        data: {
+          orgId,
+          legacyId: i.id,
+          num: String(i.num ?? ""),
+          ci: num(i.ci),
+          clientId,
+          bid: num(i.bid),
+          businessId,
+          issueDt: str(i.issueDt),
+          dueDt: str(i.dueDt),
+          paidDt: str(i.paidDt),
+          cu: str(i.cu) ?? "PHP",
+          rt: num(i.rt),
+          items: Array.isArray(i.items) ? i.items : undefined,
+          notes: str(i.notes),
+          terms: str(i.terms),
+          status: str(i.status) ?? "draft",
+          payments: Array.isArray(i.payments) ? i.payments : undefined,
+        },
+      });
+    }
+    return diffApplyByLegacyId(ctx, orgId, "invoices", upserts, args.deletes);
+  },
+});
+
+export const syncSalesDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = [];
+    for (const s of args.upserts) {
+      if (typeof s.id !== "number") continue;
+      const businessId = await resolveRef(ctx, orgId, "businesses", s.bid);
+      upserts.push({
+        legacyId: s.id,
+        data: {
+          orgId,
+          legacyId: s.id,
+          bid: num(s.bid),
+          businessId,
+          am: num(s.am) ?? 0,
+          cu: str(s.cu) ?? "PHP",
+          rt: num(s.rt),
+          dt: str(s.dt),
+          pe: str(s.pe),
+          note: str(s.note),
+        },
+      });
+    }
+    return diffApplyByLegacyId(ctx, orgId, "sales", upserts, args.deletes);
+  },
+});
+
+export const syncExpensesDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = [];
+    for (const e of args.upserts) {
+      if (typeof e.id !== "number") continue;
+      const businessId = await resolveRef(ctx, orgId, "businesses", e.bid);
+      upserts.push({
+        legacyId: e.id,
+        data: {
+          orgId,
+          legacyId: e.id,
+          bid: num(e.bid),
+          businessId,
+          am: num(e.am) ?? 0,
+          cu: str(e.cu) ?? "PHP",
+          rt: num(e.rt),
+          dt: str(e.dt),
+          pe: str(e.pe),
+          cat: str(e.cat),
+          note: str(e.note),
+        },
+      });
+    }
+    return diffApplyByLegacyId(ctx, orgId, "expenses", upserts, args.deletes);
+  },
+});
+
+export const syncConvictionFirstfruitsDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = args.upserts
+      .filter((cf: any) => typeof cf.id === "number")
+      .map((cf: any) => ({
+        legacyId: cf.id,
+        data: {
+          orgId,
+          legacyId: cf.id,
+          amount: num(cf.amount) ?? 0,
+          pe: str(cf.pe) ?? "",
+          dt: str(cf.dt) ?? "",
+          note: str(cf.note),
+          loggedAt: str(cf.loggedAt),
+        },
+      }));
+    return diffApplyByLegacyId(ctx, orgId, "convictionFirstfruits", upserts, args.deletes);
+  },
+});
+
+export const syncApplicationsDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    const upserts = args.upserts
+      .filter((a: any) => typeof a.id === "number")
+      .map((a: any) => ({
+        legacyId: a.id,
+        data: {
+          orgId,
+          legacyId: a.id,
+          company: str(a.company),
+          position: str(a.position),
+          dateApplied: str(a.dateApplied),
+          status: str(a.status),
+          industry: str(a.industry),
+          source: str(a.source),
+          workSetup: str(a.workSetup),
+          location: str(a.location),
+          salary: str(a.salary),
+          url: str(a.url),
+          contactName: str(a.contactName),
+          contactEmail: str(a.contactEmail),
+          contactPhone: str(a.contactPhone),
+          nextAction: str(a.nextAction),
+          nextActionDue: str(a.nextActionDue),
+          jd: str(a.jd),
+          notes: str(a.notes),
+          rejectionReason: str(a.rejectionReason),
+          interviews: Array.isArray(a.interviews) ? a.interviews : undefined,
+          lastUpdated: str(a.lastUpdated),
+        },
+      }));
+    return diffApplyByLegacyId(ctx, orgId, "applications", upserts, args.deletes);
+  },
+});
+
+/**
+ * Attendance diff sync — uses natural key (partnerLegacyId, date)
+ * instead of legacyId since the table has no legacyId field.
+ */
+export const syncAttendanceDiff = mutation({
+  args: {
+    sessionToken: v.string(),
+    upserts: v.array(v.any()),
+    deletes: v.array(v.object({ partnerId: v.number(), date: v.string() })),
+  },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    let upserted = 0;
+    let deleted = 0;
+
+    for (const a of args.upserts) {
+      const partnerLegacyId = typeof a.partnerId === "number" ? a.partnerId : null;
+      const date = String(a.date ?? "");
+      if (!partnerLegacyId || !date) continue;
+      const partnerId = await resolveRef(ctx, orgId, "partners", partnerLegacyId);
+      const existing = await ctx.db
+        .query("attendance")
+        .withIndex("by_org_partner_date", (q) =>
+          q.eq("orgId", orgId).eq("partnerId", partnerId as any).eq("date", date),
+        )
+        .first();
+      const data = {
+        orgId,
+        partnerLegacyId,
+        partnerId,
+        date,
+        st: str(a.st),
+        lm: num(a.lm),
+        um: num(a.um),
+        om: num(a.om),
+        notes: str(a.notes),
+        dv: str(a.dv),
+        ss: str(a.ss),
+        ca: str(a.ca),
+      };
+      if (existing) await ctx.db.patch(existing._id, data);
+      else await ctx.db.insert("attendance", data);
+      upserted++;
+    }
+
+    for (const d of args.deletes) {
+      if (typeof d.partnerId !== "number" || !d.date) continue;
+      const partnerId = await resolveRef(ctx, orgId, "partners", d.partnerId);
+      const existing = await ctx.db
+        .query("attendance")
+        .withIndex("by_org_partner_date", (q) =>
+          q.eq("orgId", orgId).eq("partnerId", partnerId as any).eq("date", d.date),
+        )
+        .first();
+      if (existing) {
+        await ctx.db.delete(existing._id);
+        deleted++;
+      }
+    }
+
+    return { upserted, deleted };
+  },
+});
+
 // ─── 0. MEMBERS (team — CEO / admin / accountant) ───────────
 //
 // `S.users` in the app is synthesized from this table by data.listAll.

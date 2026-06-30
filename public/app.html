@@ -13008,33 +13008,99 @@ applyAnimation();
   let lastSaveAt = null;
   let lastError = null;
 
-  // Per-entity hash of what was last successfully synced. flushNow
-  // compares the current S.<entity> against this and skips the
-  // mutation if unchanged — saves a full table scan inside the
-  // mutation handler. Hashes are seeded right after hydrate so the
-  // first markDirty after page load doesn't sync everything when
-  // nothing has actually changed.
-  const __syncHashes = {};
+  // Phase 2c — per-row diff sync.
+  // Instead of sending full arrays on every sync (which forces the
+  // mutation handler to read the full table to compute deletes),
+  // we keep a snapshot of each entity from the last successful sync
+  // and ship only the rows that actually changed.
+  //
+  // For id-keyed entities, snapshot[entity] = { legacyId → rowJson }
+  // For attendance (natural key), snapshot.att = { "pid:date" → valJson }
+  // For cfg + users (no id key), we just track a single JSON hash
+  // and re-sync the whole object when it changes.
+  const __syncSnapshots = {};
+  const __syncHashes = {}; // for cfg + users
+
   function __h(value) {
     try { return JSON.stringify(value || []); } catch { return String(Date.now()); }
   }
+
+  function __snapshotArray(arr) {
+    const m = {};
+    (arr || []).forEach((row) => {
+      if (row && row.id != null) m[row.id] = JSON.stringify(row);
+    });
+    return m;
+  }
+
+  function __diffArray(current, snapshot) {
+    const upserts = [];
+    const deletes = [];
+    const currentIds = new Set();
+    (current || []).forEach((row) => {
+      if (!row || row.id == null) return;
+      currentIds.add(row.id);
+      const json = JSON.stringify(row);
+      if (snapshot[row.id] !== json) upserts.push(row);
+    });
+    Object.keys(snapshot || {}).forEach((idStr) => {
+      const id = parseInt(idStr, 10);
+      if (!currentIds.has(id)) deletes.push(id);
+    });
+    return { upserts, deletes, hasChanges: upserts.length > 0 || deletes.length > 0 };
+  }
+
+  function __snapshotAtt(att) {
+    const m = {};
+    Object.entries(att || {}).forEach(([key, val]) => {
+      m[key] = JSON.stringify(val);
+    });
+    return m;
+  }
+
+  function __diffAtt(currentAtt, snapshot) {
+    const upserts = [];
+    const deletes = [];
+    const currentKeys = new Set(Object.keys(currentAtt || {}));
+    Object.entries(currentAtt || {}).forEach(([key, val]) => {
+      const json = JSON.stringify(val);
+      if (snapshot[key] !== json) {
+        const [pid, ...rest] = key.split(':');
+        upserts.push({ partnerId: parseInt(pid, 10), date: rest.join(':'), ...val });
+      }
+    });
+    Object.keys(snapshot || {}).forEach((key) => {
+      if (!currentKeys.has(key)) {
+        const [pid, ...rest] = key.split(':');
+        const pidNum = parseInt(pid, 10);
+        if (Number.isFinite(pidNum) && rest.length) {
+          deletes.push({ partnerId: pidNum, date: rest.join(':') });
+        }
+      }
+    });
+    return { upserts, deletes, hasChanges: upserts.length > 0 || deletes.length > 0 };
+  }
+
   function __seedHashes() {
-    __syncHashes.cfg = __h(S.cfg);
-    __syncHashes.users = __h(S.users);
-    __syncHashes.businesses = __h(S.businesses);
-    __syncHashes.partners = __h(S.partners);
-    __syncHashes.clients = __h(S.clients);
-    __syncHashes.payments = __h(S.payments);
-    __syncHashes.salaries = __h(S.salaries);
-    __syncHashes.att = __h(S.att);
-    __syncHashes.obls = __h(S.obls);
-    __syncHashes.logs = __h(S.logs);
-    __syncHashes.runs = __h(S.runs);
-    __syncHashes.invoices = __h(S.invoices);
-    __syncHashes.sales = __h(S.sales);
-    __syncHashes.expenses = __h(S.expenses);
-    __syncHashes.convictionFirstfruits = __h(S.convictionFirstfruits);
-    __syncHashes.apps = __h(S.apps);
+    // id-keyed entities → snapshot maps
+    __syncSnapshots.businesses            = __snapshotArray(S.businesses);
+    __syncSnapshots.partners              = __snapshotArray(S.partners);
+    __syncSnapshots.clients               = __snapshotArray(S.clients);
+    __syncSnapshots.payments              = __snapshotArray(S.payments);
+    __syncSnapshots.salaries              = __snapshotArray(S.salaries);
+    __syncSnapshots.obls                  = __snapshotArray(S.obls);
+    __syncSnapshots.logs                  = __snapshotArray(S.logs);
+    __syncSnapshots.runs                  = __snapshotArray(S.runs);
+    __syncSnapshots.invoices              = __snapshotArray(S.invoices);
+    __syncSnapshots.sales                 = __snapshotArray(S.sales);
+    __syncSnapshots.expenses              = __snapshotArray(S.expenses);
+    __syncSnapshots.convictionFirstfruits = __snapshotArray(S.convictionFirstfruits);
+    __syncSnapshots.apps                  = __snapshotArray(S.apps);
+    // natural-key entity
+    __syncSnapshots.att                   = __snapshotAtt(S.att);
+    // bulk objects with no row id
+    __syncHashes.cfg                      = __h(S.cfg);
+    __syncHashes.users                    = __h(S.users);
   }
 
   // Mirror the original markDirty behaviour (sets __dirty + updates the
@@ -13110,14 +13176,31 @@ applyAnimation();
   }
 
   /**
-   * Run a sync mutation only if the entity's stringified data has
-   * changed since the last successful sync. Records the new hash
-   * only after the mutation succeeds, so a transient failure forces
-   * a retry on the next flush.
+   * Compute the diff between current S.<entity> and the last-synced
+   * snapshot, and send only the upserts + deletes to a *Diff
+   * mutation. Skips the call entirely if nothing changed. Updates
+   * the snapshot only after the mutation succeeds, so a transient
+   * failure leaves the next flush to retry the same diff.
    */
-  async function __syncIfChanged(entityKey, value, mutationName, payloadKey) {
+  async function __syncDiffEntity(entityKey, currentArr, mutationName) {
+    const diff = __diffArray(currentArr || [], __syncSnapshots[entityKey] || {});
+    if (!diff.hasChanges) return;
+    await client.mutation(mutationName, {
+      sessionToken,
+      upserts: diff.upserts,
+      deletes: diff.deletes,
+    });
+    __syncSnapshots[entityKey] = __snapshotArray(currentArr);
+  }
+
+  /**
+   * cfg + users have no row-level id key, so they fall back to
+   * whole-object hash-and-replace. cfg is just one row; members are
+   * upserted by email in syncMembers.
+   */
+  async function __syncWholeObject(entityKey, value, mutationName, payloadKey) {
     const newHash = __h(value);
-    if (__syncHashes[entityKey] === newHash) return;   // unchanged → skip
+    if (__syncHashes[entityKey] === newHash) return;
     const args = { sessionToken };
     args[payloadKey] = value || (payloadKey === 'cfg' ? {} : []);
     await client.mutation(mutationName, args);
@@ -13131,29 +13214,26 @@ applyAnimation();
     renderSyncIndicator('saving');
 
     try {
-      // Fire only the entity syncs that have actually changed since
-      // the last successful flush. Each call still runs in parallel,
-      // but unchanged entities are skipped entirely — saves a full
-      // table scan per entity inside the mutation handler.
+      // All diff mutations fire in parallel. Each one only sends the
+      // rows whose JSON changed since the last successful sync, and
+      // each mutation handler only touches those specific rows in
+      // the database. I/O scales with edit volume, not data volume.
       const tasks = [
-        __syncIfChanged('cfg',                   S.cfg,                   'sync:syncOrgConfig',              'cfg'),
-        __syncIfChanged('users',                 S.users,                 'sync:syncMembers',                'items'),
-        __syncIfChanged('businesses',            S.businesses,            'sync:syncBusinesses',             'items'),
-        __syncIfChanged('partners',              S.partners,              'sync:syncPartners',               'items'),
-        __syncIfChanged('clients',               S.clients,               'sync:syncClients',                'items'),
-        __syncIfChanged('payments',              S.payments,              'sync:syncPayments',               'items'),
-        __syncIfChanged('salaries',              S.salaries,              'sync:syncSalaries',               'items'),
-        __syncIfChanged('obls',                  S.obls,                  'sync:syncObligations',            'items'),
-        __syncIfChanged('logs',                  S.logs,                  'sync:syncRemittanceLogs',         'items'),
-        __syncIfChanged('runs',                  S.runs,                  'sync:syncPayrollRuns',            'items'),
-        __syncIfChanged('invoices',              S.invoices,              'sync:syncInvoices',               'items'),
-        __syncIfChanged('sales',                 S.sales,                 'sync:syncSales',                  'items'),
-        __syncIfChanged('expenses',              S.expenses,              'sync:syncExpenses',               'items'),
-        __syncIfChanged('convictionFirstfruits', S.convictionFirstfruits, 'sync:syncConvictionFirstfruits',  'items'),
-        __syncIfChanged('apps',                  S.apps,                  'sync:syncApplications',           'items'),
-        // Attendance is special — it's a keyed object that gets
-        // flattened + chunked. flushAttendance has its own internal
-        // hash check.
+        __syncWholeObject('cfg',   S.cfg,   'sync:syncOrgConfig', 'cfg'),
+        __syncWholeObject('users', S.users, 'sync:syncMembers',   'items'),
+        __syncDiffEntity('businesses',            S.businesses,            'sync:syncBusinessesDiff'),
+        __syncDiffEntity('partners',              S.partners,              'sync:syncPartnersDiff'),
+        __syncDiffEntity('clients',               S.clients,               'sync:syncClientsDiff'),
+        __syncDiffEntity('payments',              S.payments,              'sync:syncPaymentsDiff'),
+        __syncDiffEntity('salaries',              S.salaries,              'sync:syncSalariesDiff'),
+        __syncDiffEntity('obls',                  S.obls,                  'sync:syncObligationsDiff'),
+        __syncDiffEntity('logs',                  S.logs,                  'sync:syncRemittanceLogsDiff'),
+        __syncDiffEntity('runs',                  S.runs,                  'sync:syncPayrollRunsDiff'),
+        __syncDiffEntity('invoices',              S.invoices,              'sync:syncInvoicesDiff'),
+        __syncDiffEntity('sales',                 S.sales,                 'sync:syncSalesDiff'),
+        __syncDiffEntity('expenses',              S.expenses,              'sync:syncExpensesDiff'),
+        __syncDiffEntity('convictionFirstfruits', S.convictionFirstfruits, 'sync:syncConvictionFirstfruitsDiff'),
+        __syncDiffEntity('apps',                  S.apps,                  'sync:syncApplicationsDiff'),
         flushAttendance(),
       ];
       await Promise.all(tasks);
@@ -13173,51 +13253,55 @@ applyAnimation();
     }
   }
 
-  // Attendance can be ~thousands of rows. Chunk into batches of 400
-  // and use the chunkIndex==0 + expectedKeys pattern so the first
-  // chunk garbage-collects rows the user deleted.
-  //
-  // This is the single biggest I/O drain in auto-sync — every call
-  // reads ALL existing attendance rows for the org to compute the
-  // delete-missing set. Skip the round-trip entirely if S.att hasn't
-  // changed since last sync.
+  /**
+   * Diff-mode attendance sync. Compares S.att (a keyed object) to
+   * the last-synced snapshot and sends only the rows that changed
+   * or were deleted. Replaces the old full-array chunked approach
+   * which read all 2,400+ rows from the DB every sync.
+   *
+   * If a single sync ends up with a very large diff (e.g. import),
+   * we chunk the upserts to keep each mutation under Convex
+   * transaction limits.
+   */
   async function flushAttendance() {
     const att = S.att || {};
-    const newHash = __h(att);
-    if (__syncHashes.att === newHash) return;
-    const items = Object.entries(att).map(([key, val]) => {
-      const [pid, ...rest] = key.split(':');
-      return {
-        partnerId: parseInt(pid, 10),
-        date: rest.join(':'),
-        ...val,
-      };
-    });
-    const expectedKeys = items
-      .filter(i => i.partnerId && i.date)
-      .map(i => i.partnerId + ':' + i.date);
+    const diff = __diffAtt(att, __syncSnapshots.att || {});
+    if (!diff.hasChanges) return;
+
+    // Big imports / month-of-attendance edits can produce hundreds
+    // of upserts. Chunk them so each mutation stays comfortable.
     const CHUNK = 400;
-    for (let i = 0; i < items.length; i += CHUNK) {
-      const chunk = items.slice(i, i + CHUNK);
-      await client.mutation('sync:syncAttendanceChunk', {
+    if (diff.upserts.length <= CHUNK && diff.deletes.length <= CHUNK) {
+      await client.mutation('sync:syncAttendanceDiff', {
         sessionToken,
-        items: chunk,
-        chunkIndex: i / CHUNK,
-        ...(i === 0 ? { expectedKeys } : {}),
+        upserts: diff.upserts,
+        deletes: diff.deletes,
       });
+    } else {
+      // First call carries any deletes; subsequent calls carry only
+      // upserts. Deletes are typically tiny so they always fit in
+      // the first chunk.
+      let firstCall = true;
+      for (let i = 0; i < diff.upserts.length; i += CHUNK) {
+        const chunk = diff.upserts.slice(i, i + CHUNK);
+        await client.mutation('sync:syncAttendanceDiff', {
+          sessionToken,
+          upserts: chunk,
+          deletes: firstCall ? diff.deletes : [],
+        });
+        firstCall = false;
+      }
+      // If there were only deletes (no upserts), make a single call
+      // with just the deletes.
+      if (diff.upserts.length === 0 && diff.deletes.length > 0) {
+        await client.mutation('sync:syncAttendanceDiff', {
+          sessionToken,
+          upserts: [],
+          deletes: diff.deletes,
+        });
+      }
     }
-    // If there were no items at all but we still need to garbage collect
-    // (user deleted everything), fire one empty chunk with the empty key
-    // list so the delete-missing pass runs.
-    if (items.length === 0) {
-      await client.mutation('sync:syncAttendanceChunk', {
-        sessionToken,
-        items: [],
-        chunkIndex: 0,
-        expectedKeys: [],
-      });
-    }
-    __syncHashes.att = newHash;
+    __syncSnapshots.att = __snapshotAtt(att);
   }
 
   // ─── SIGN OUT ────────────────────────────────────────────
