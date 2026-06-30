@@ -126,7 +126,13 @@ export default defineSchema({
    */
   members: defineTable({
     orgId: v.id("orgs"),
-    userId: v.id("users"),
+    /**
+     * Optional because a CEO can invite a teammate by email before
+     * that person ever signs in. When the invitee uses their magic
+     * link, `consumeMagicLink` links the new user row to the existing
+     * member row by matching email.
+     */
+    userId: v.optional(v.id("users")),
     role: v.union(
       v.literal("ceo"),
       v.literal("admin"),

@@ -60,6 +60,85 @@ async function resolveRef<T extends "businesses" | "partners" | "clients">(
   return row?._id as Id<T> | undefined;
 }
 
+// ─── 0. MEMBERS (team — CEO / admin / accountant) ───────────
+//
+// `S.users` in the app is synthesized from this table by data.listAll.
+// We round-trip it back here so adding/editing/removing team members
+// in the Users page actually persists across refreshes.
+//
+// Natural key = lowercased email. Two safety guards:
+//   1. Never delete the calling user's own member row — protects
+//      against a race where the frontend syncs an empty array
+//      before listAll finishes hydrating
+//   2. Never demote the caller out of `ceo` role — if their incoming
+//      record claims a non-ceo role for them (UI bug), we ignore the
+//      role change for self specifically
+
+export const syncMembers = mutation({
+  args: { sessionToken: v.string(), items: v.array(v.any()) },
+  handler: async (ctx, args) => {
+    const orgId = await requireOrg(ctx, args.sessionToken);
+    // Resolve the caller so we can protect their own member row.
+    const { user: callerUser } = await requireSession(ctx, args.sessionToken);
+    const callerEmail = (callerUser.email || "").trim().toLowerCase();
+
+    const existing = await ctx.db
+      .query("members")
+      .withIndex("by_org", (q) => q.eq("orgId", orgId))
+      .collect();
+
+    const existingByEmail = new Map<string, Doc<"members">>();
+    existing.forEach((m) => {
+      const k = (m.em || "").trim().toLowerCase();
+      if (k) existingByEmail.set(k, m);
+    });
+
+    const incomingEmails = new Set<string>();
+    for (const u of args.items) {
+      if (!u || typeof u !== "object") continue;
+      const em = String(u.em || "").trim().toLowerCase();
+      if (!em || !em.includes("@")) continue;
+      incomingEmails.add(em);
+
+      const rawRole = u.role;
+      const isValidRole =
+        rawRole === "ceo" || rawRole === "admin" || rawRole === "accountant";
+      const role = isValidRole ? rawRole : "admin";
+      const fn = String(u.fn || "").trim() || "—";
+      const ln = String(u.ln || "").trim() || "—";
+
+      const match = existingByEmail.get(em);
+      if (match) {
+        // Guard: never demote the caller's own role away from ceo.
+        const safeRole = em === callerEmail && match.role === "ceo" ? "ceo" : role;
+        await ctx.db.patch(match._id, { fn, ln, em, role: safeRole });
+      } else {
+        // New invite — userId stays undefined until they sign in.
+        await ctx.db.insert("members", {
+          orgId,
+          role,
+          fn,
+          ln,
+          em,
+          invitedAt: Date.now(),
+          status: "active",
+        });
+      }
+    }
+
+    // Delete missing — but protect the caller's own row.
+    for (const m of existing) {
+      const em = (m.em || "").trim().toLowerCase();
+      if (em === callerEmail) continue;
+      if (!incomingEmails.has(em)) {
+        await ctx.db.delete(m._id);
+      }
+    }
+
+    return { count: args.items.length };
+  },
+});
+
 // ─── 1. ORG CONFIG ───────────────────────────────────────────
 
 export const syncOrgConfig = mutation({

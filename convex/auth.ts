@@ -198,6 +198,28 @@ export const consumeMagicLink = mutation({
       await ctx.db.patch(userId, { lastSignInAt: now });
     }
 
+    // If a CEO already invited this email and the member row has no
+    // userId yet, attach it now. Lets a returning invitee land
+    // straight in the org their CEO invited them to.
+    //
+    // Full table scan is fine here — members count stays small.
+    // Add a `by_email` index if scale ever demands it.
+    const pendingInvite = await ctx.db
+      .query("members")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("em"), authToken.email),
+          q.eq(q.field("userId"), undefined),
+        ),
+      )
+      .first();
+    if (pendingInvite) {
+      await ctx.db.patch(pendingInvite._id, {
+        userId,
+        joinedAt: now,
+      });
+    }
+
     // Mint a session.
     const sessionToken = generateToken(48);
     await ctx.db.insert("sessions", {

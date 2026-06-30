@@ -1774,7 +1774,7 @@ body{
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <label style="font-size:12px;color:var(--text2);">Month:</label>
-          <input type="month" id="att-month" onchange="renderAttCal()" style="padding:6px 10px;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);"/>
+          <input type="month" id="att-month" onchange="populateAttendancePartnerDropdown();renderAttCal()" style="padding:6px 10px;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);"/>
         </div>
       </div>
       <div id="att-sum" style="display:none;" class="sum-bar"></div>
@@ -4059,10 +4059,30 @@ function renderPartnersConsentDocument(rec){
 // ATTENDANCE
 // ============================================================
 function initAttendance(){
-  const sel=document.getElementById('att-partner');
-  sel.innerHTML='<option value="">-- Select partner --</option>'+S.partners.map(p=>`<option value="${p.id}">${p.fn} ${p.ln}</option>`).join('');
   if(!document.getElementById('att-month').value)document.getElementById('att-month').value=nm();
+  populateAttendancePartnerDropdown();
   renderAttCal();
+}
+
+/**
+ * Populates the partner dropdown filtered by the selected month.
+ * A partner is included if they were active any time during that
+ * month (i.e. not deactivated before the first day of the month).
+ * Called on initAttendance + whenever the month input changes.
+ */
+function populateAttendancePartnerDropdown(){
+  const sel=document.getElementById('att-partner');
+  if(!sel) return;
+  const previousValue = sel.value;
+  const month = document.getElementById('att-month').value || nm();
+  // First day of the month — covers anyone deactivated on or after this date.
+  const firstDay = month + '-01';
+  const visible = S.partners.filter(p => wasActiveOn(p, firstDay));
+  sel.innerHTML='<option value="">-- Select partner --</option>'+visible.map(p=>`<option value="${p.id}">${p.fn} ${p.ln}${p.st==='inactive'?` (until ${p.deactivatedAt||'?'})`:''}</option>`).join('');
+  // Restore the prior selection if it's still in the visible set.
+  if (previousValue && visible.some(p => p.id === parseInt(previousValue))) {
+    sel.value = previousValue;
+  }
 }
 function renderAttCal(){
   const pid=parseInt(document.getElementById('att-partner').value);
@@ -13063,6 +13083,7 @@ applyAnimation();
       // small enough to fit in a single mutation each.
       const tasks = [
         client.mutation('sync:syncOrgConfig', { sessionToken, cfg: S.cfg || {} }),
+        client.mutation('sync:syncMembers', { sessionToken, items: S.users || [] }),
         client.mutation('sync:syncBusinesses', { sessionToken, items: S.businesses || [] }),
         client.mutation('sync:syncPartners', { sessionToken, items: S.partners || [] }),
         client.mutation('sync:syncClients', { sessionToken, items: S.clients || [] }),
