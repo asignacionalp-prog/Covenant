@@ -11203,6 +11203,10 @@ function saveUser(){
   }
   closeModal('modal-user');
   renderUsers();
+  // User-management changes feel like they should be instant —
+  // tighten the sync window so a save-then-refresh consistently
+  // catches the new state in Convex.
+  if (window.__covFlushSoon) window.__covFlushSoon();
 }
 
 function removeUser(id){
@@ -11217,6 +11221,7 @@ function removeUser(id){
   if(!confirm(`Remove ${u.fn} ${u.ln}? This cannot be undone.`)) return;
   S.users = S.users.filter(x => x.id !== id);
   renderUsers();
+  if (window.__covFlushSoon) window.__covFlushSoon();
 }
 
 // Helper: refresh sidebar after CEO edits their own account
@@ -13165,15 +13170,19 @@ applyAnimation();
     scheduleSave();
   };
 
-  function scheduleSave() {
+  function scheduleSave(delayMs) {
     if (saveInFlight) { savePending = true; return; }
     if (saveTimer) clearTimeout(saveTimer);
     renderSyncIndicator('pending');
-    // 10s debounce — coalesces bursts of edits into a single sync.
-    // Longer debounce trades latency for I/O savings (each sync
-    // mutation reads the full entity table to compute the delta).
-    saveTimer = setTimeout(flushNow, 10000);
+    // 3s debounce — short enough that a save-then-refresh sequence
+    // (which feels instant to the user) reliably catches the sync.
+    // The diff-sync layer already keeps each call cheap, so we don't
+    // need a longer wait to save on I/O.
+    saveTimer = setTimeout(flushNow, typeof delayMs === 'number' ? delayMs : 3000);
   }
+  // Expose for code paths that need an immediate sync (e.g. user
+  // management saves where the CEO often refreshes right away).
+  window.__covFlushSoon = function() { scheduleSave(300); };
 
   /**
    * Compute the diff between current S.<entity> and the last-synced
