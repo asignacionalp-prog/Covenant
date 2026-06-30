@@ -11249,6 +11249,13 @@ let __lastBackup = null;
 function markDirty() { __dirty = true; updateBackupIndicator(); }
 
 function updateBackupIndicator() {
+  // Once the Convex bridge is alive, all sync status comes from
+  // renderSyncIndicator(). This legacy indicator is registered as
+  // a 60-second setInterval callback whose function reference was
+  // captured before the bridge could neutralise it — so we have to
+  // bail out here, otherwise it'd overwrite "✓ Synced" with the
+  // misleading "⚠ Never backed up" once a minute.
+  if (window.__covBridgeReady) return;
   const el = document.getElementById('sb-backup-indicator');
   if (!el) return;
   const last = __lastBackup ? __lastBackup : null;
@@ -11423,6 +11430,7 @@ function handleRestore(files) {
 }
 
 function renderBackupStatus() {
+  if (window.__covBridgeReady) return; // bridge owns sync UI now
   const el = document.getElementById('backup-status');
   if (!el) return;
   if (!__lastBackup) {
@@ -13153,9 +13161,12 @@ applyAnimation();
   setInterval(() => { if (!saveInFlight && !saveTimer) renderSyncIndicator('idle'); }, 30000);
   renderSyncIndicator('idle');
 
-  // Neutralise the legacy backup-indicator updaters — they target the
-  // same DOM node and would clobber our sync status text on their own
-  // setInterval. Auto-sync to Convex replaces local backup entirely.
+  // Neutralise the legacy backup-indicator updaters. The flag is read
+  // at the top of the originals so even already-registered setInterval
+  // callbacks (which captured the original function reference at line
+  // 11504 BEFORE we could reassign) short-circuit out. The reassigns
+  // below still help any future fresh callers.
+  window.__covBridgeReady = true;
   if (typeof window.updateBackupIndicator === 'function') {
     window.updateBackupIndicator = function() { /* phase-2 noop */ };
   }
