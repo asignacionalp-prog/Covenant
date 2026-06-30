@@ -11505,11 +11505,18 @@ function __wrapDirty(fnName) {
   'setSalariesView','toggleSalaryGroup','toggleOblPool','toggleOblItem'
 ].forEach(__wrapDirty);
 
-// Initialize indicator on init
-setTimeout(() => { updateBackupIndicator(); renderBackupStatus(); }, 100);
+// Initialize indicator on init. Stored on window so the Convex
+// bridge can clear it if it boots before 100ms (preventing the
+// "Never backed up" flash).
+window.__legacyBackupBootTimeoutId = setTimeout(() => {
+  updateBackupIndicator(); renderBackupStatus();
+}, 100);
 
-// Update indicator every minute (so age string stays fresh)
-setInterval(updateBackupIndicator, 60000);
+// Update indicator every minute (so age string stays fresh).
+// Stored on window so the bridge can clearInterval it once Convex
+// auto-sync takes over — otherwise the captured function reference
+// keeps re-asserting "Never backed up" every 60s.
+window.__legacyBackupIntervalId = setInterval(updateBackupIndicator, 60000);
 
 
 
@@ -13161,12 +13168,23 @@ applyAnimation();
   setInterval(() => { if (!saveInFlight && !saveTimer) renderSyncIndicator('idle'); }, 30000);
   renderSyncIndicator('idle');
 
-  // Neutralise the legacy backup-indicator updaters. The flag is read
-  // at the top of the originals so even already-registered setInterval
-  // callbacks (which captured the original function reference at line
-  // 11504 BEFORE we could reassign) short-circuit out. The reassigns
-  // below still help any future fresh callers.
+  // Neutralise the legacy backup-indicator updaters. Two layers of
+  // defense because the legacy setInterval captured the original
+  // function reference before we could reassign window.X:
+  //   (a) cancel the timers outright by their saved ids
+  //   (b) flag-gate the original function body — set BEFORE the timers
+  //       are cleared so any tick that already fired this microtask
+  //       short-circuits out
+  //   (c) reassign window.X to a noop for any future fresh lookups
   window.__covBridgeReady = true;
+  if (window.__legacyBackupIntervalId) {
+    clearInterval(window.__legacyBackupIntervalId);
+    window.__legacyBackupIntervalId = null;
+  }
+  if (window.__legacyBackupBootTimeoutId) {
+    clearTimeout(window.__legacyBackupBootTimeoutId);
+    window.__legacyBackupBootTimeoutId = null;
+  }
   if (typeof window.updateBackupIndicator === 'function') {
     window.updateBackupIndicator = function() { /* phase-2 noop */ };
   }
