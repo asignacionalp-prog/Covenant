@@ -334,6 +334,49 @@ export const signInWithPassword = mutation({
 });
 
 /**
+ * "I was invited as admin/accountant and need to set up my account"
+ * recovery flow. Looks for a pending member row (userId === undefined)
+ * matching the email, mints a 15-minute auth token, and returns it so
+ * the frontend can redirect to /auth.html?token=… for first-time
+ * sign-in. consumeMagicLink will link the new user to the pending
+ * member row automatically.
+ *
+ * Returns ok:false silently if no matching pending invitation is
+ * found, so a probe with a random email reveals nothing.
+ */
+export const claimMemberInvitation = mutation({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const email = normalizeEmail(args.email);
+    // Full scan is fine — members count stays small. Match any
+    // member row that has this email and no linked userId yet.
+    const pending = await ctx.db
+      .query("members")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("em"), email),
+          q.eq(q.field("userId"), undefined),
+        ),
+      )
+      .first();
+
+    if (!pending) {
+      return { ok: false as const, reason: "no_invitation" as const };
+    }
+
+    const token = generateToken(24);
+    const now = Date.now();
+    await ctx.db.insert("authTokens", {
+      email,
+      token,
+      expiresAt: now + TOKEN_LIFETIME_MS,
+      createdAt: now,
+    });
+    return { ok: true as const, token };
+  },
+});
+
+/**
  * "I already paid but never finished setting up my account" recovery
  * flow. Looks for a paid-but-unactivated license matching the email,
  * mints a 15-minute auth token, and returns it so the frontend can

@@ -73,6 +73,10 @@
     <a id="link-recovery">Already paid but never set up your account? →</a>
   </div>
 
+  <div class="foot" style="margin-top:.5rem;">
+    <a id="link-invite">Recently invited by your CEO? Set up your account →</a>
+  </div>
+
   <div id="recovery-panel" class="recovery-panel">
     <p>Enter the email you paid with. We'll take you back to the setup screen so you can finish creating your workspace and choose a password.</p>
     <div class="field">
@@ -81,6 +85,16 @@
     </div>
     <button type="button" id="recovery-btn">Send me to setup</button>
     <button type="button" id="recovery-cancel" class="ghost">Cancel</button>
+  </div>
+
+  <div id="invite-panel" class="recovery-panel">
+    <p>Enter the email your CEO used when inviting you. We'll log you in once so you can pick a password from Settings — after that, you'll sign in normally with email + password.</p>
+    <div class="field">
+      <label for="invite-email">Invited email</label>
+      <input type="email" id="invite-email" placeholder="you@example.com"/>
+    </div>
+    <button type="button" id="invite-btn">Sign me in</button>
+    <button type="button" id="invite-cancel" class="ghost">Cancel</button>
   </div>
 
   <div class="foot" style="margin-top:1.4rem;">
@@ -206,6 +220,53 @@
     } finally {
       recoveryBtn.disabled = false;
       recoveryBtn.textContent = "Send me to setup";
+    }
+  });
+
+  // ── INVITE: invited admin/accountant first-time sign-in ──
+  const invitePanel  = document.getElementById("invite-panel");
+  const inviteBtn    = document.getElementById("invite-btn");
+  const inviteCancel = document.getElementById("invite-cancel");
+  const inviteEmail  = document.getElementById("invite-email");
+
+  document.getElementById("link-invite").addEventListener("click", () => {
+    hideMsg();
+    invitePanel.classList.add("show");
+    recoveryPanel.classList.remove("show");
+    inviteEmail.focus();
+  });
+  inviteCancel.addEventListener("click", () => {
+    invitePanel.classList.remove("show");
+  });
+
+  inviteBtn.addEventListener("click", async () => {
+    hideMsg();
+    const e = inviteEmail.value.trim();
+    if (!e || !e.includes("@")) {
+      show("Please enter a valid email.", "err");
+      return;
+    }
+    inviteBtn.disabled = true;
+    inviteBtn.textContent = "Looking up…";
+    try {
+      const result = await client.mutation("auth:claimMemberInvitation", { email: e });
+      if (result?.ok && result.token) {
+        location.replace("/auth.html?token=" + encodeURIComponent(result.token));
+        return;
+      }
+      // Same privacy stance — we don't confirm/deny whether this
+      // email has a pending invitation. Ambiguous nudge.
+      show(
+        "We couldn't find a pending invitation for that email. " +
+        "Ask the CEO who invited you to double-check the email they used, " +
+        "then come back here.",
+        "err"
+      );
+    } catch (err) {
+      show(err.message || "Sign-in failed. Try again.", "err");
+    } finally {
+      inviteBtn.disabled = false;
+      inviteBtn.textContent = "Sign me in";
     }
   });
 
