@@ -15,6 +15,20 @@ import { v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { requireSession } from "./auth";
+import { internal } from "./_generated/api";
+
+// Magic-link token lifetime — kept here as a duplicate of the one in
+// auth.ts so syncMembers can mint invite tokens without exporting
+// internals from auth.ts.
+const INVITE_TOKEN_LIFETIME_MS = 15 * 60 * 1000;
+
+function generateInviteToken(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 // ─── shared helpers ──────────────────────────────────────────
 
@@ -768,6 +782,37 @@ export const syncMembers = mutation({
           status: "active",
         });
         finalEmails.add(em);
+
+        // Mint a magic-link token and schedule the invite email so
+        // the new admin can actually sign in. This only fires on the
+        // FIRST insert — subsequent syncs find the row by email or
+        // _memberId and patch instead, so no duplicate sends.
+        const token = generateInviteToken();
+        const now = Date.now();
+        await ctx.db.insert("authTokens", {
+          email: em,
+          token,
+          expiresAt: now + INVITE_TOKEN_LIFETIME_MS,
+          createdAt: now,
+        });
+        // Look up the inviter's display name from their member row
+        // (the `users` table only stores email/password, not name).
+        const inviterRow = existing.find(
+          (m) => (m.em || "").trim().toLowerCase() === callerEmail,
+        );
+        const inviterName =
+          inviterRow
+            ? `${inviterRow.fn || ""} ${inviterRow.ln || ""}`.trim()
+            : "";
+        await ctx.scheduler.runAfter(
+          0,
+          internal.email.sendMemberInvite,
+          {
+            email: em,
+            token,
+            inviterName: inviterName || "Your team",
+          },
+        );
       }
     }
 

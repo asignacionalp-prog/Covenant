@@ -188,3 +188,71 @@ export const sendMagicLink = internalAction({
     });
   },
 });
+
+/**
+ * Internal action: send an invitation email to a newly-added member.
+ * Scheduled by `sync.syncMembers` the first time a member row gets
+ * inserted. Uses the same magic-link token mechanism as ordinary
+ * sign-in — the recipient clicks, lands on /auth.html?token=..., the
+ * existing consumeMagicLink mutation auto-links their userId to the
+ * pending member row.
+ */
+export const sendMemberInvite = internalAction({
+  args: {
+    email: v.string(),
+    token: v.string(),
+    inviterName: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const appUrl = process.env.APP_URL ?? "http://localhost:5173";
+    const link = `${appUrl}/auth.html?token=${args.token}`;
+    const expiresInMin = 15;
+
+    const html = `
+      <!doctype html>
+      <html>
+      <body style="margin:0;padding:0;background:#F4EDD9;font-family:Cardo,Georgia,serif;">
+        <div style="max-width:520px;margin:0 auto;padding:36px 24px;color:#1A1410;">
+          <div style="text-align:center;margin-bottom:32px;">
+            <span style="font-size:32px;color:#C9A227;">✝</span>
+            <h1 style="font-family:Georgia,serif;font-style:italic;font-weight:500;font-size:30px;color:#1A1410;margin:8px 0 0;letter-spacing:-0.01em;">Covenant</h1>
+            <p style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#8C7853;margin-top:6px;">Ministry Accounting &amp; HRIS</p>
+          </div>
+
+          <p style="font-size:16px;line-height:1.6;margin:0 0 14px;">${escapeHtml(args.inviterName)} has invited you to their Covenant workspace.</p>
+          <p style="font-size:15px;line-height:1.6;margin:0 0 22px;color:#5C4A2D;">Click the button below to accept the invitation and finish setting up your account. The link signs you in directly — no password needed for the first visit.</p>
+
+          <p style="text-align:center;margin:30px 0;">
+            <a href="${link}" style="display:inline-block;padding:14px 36px;background:#C9A227;color:#0E1830;text-decoration:none;border-radius:5px;font-family:'DM Sans',Helvetica,Arial,sans-serif;font-weight:500;letter-spacing:.06em;text-transform:uppercase;font-size:13px;">Accept invitation</a>
+          </p>
+
+          <p style="font-size:12px;color:#5C4A2D;line-height:1.6;margin:18px 0;">If the button doesn't work, copy and paste this link:<br><span style="color:#1A1410;word-break:break-all;">${link}</span></p>
+
+          <hr style="border:none;border-top:1px solid #D4C690;margin:32px 0;"/>
+
+          <p style="font-size:11px;color:#8C7853;line-height:1.6;margin:0;">This invitation link expires in ${expiresInMin} minutes and can only be used once. If a link expires before you use it, just visit the sign-in page, choose "Recently invited?", and enter this email address to get a fresh one.</p>
+
+          <p style="font-family:Georgia,serif;font-style:italic;color:#8C7853;font-size:12px;text-align:center;margin-top:24px;">"Bring the whole tithe into the storehouse." — Malachi 3:10</p>
+        </div>
+      </body>
+      </html>
+    `.trim();
+
+    await sendEmail({
+      to: args.email,
+      subject: `${args.inviterName} invited you to Covenant`,
+      html,
+    });
+  },
+});
+
+// Bare-minimum escape so an inviter name with `<` or `&` doesn't
+// inject HTML into the email body.
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
