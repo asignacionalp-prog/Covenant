@@ -12992,6 +12992,11 @@ applyAnimation();
   const overlay = document.getElementById('cov-bridge-status');
   if (overlay) overlay.remove();
 
+  // Seed per-entity hashes from the freshly-hydrated state so the
+  // first auto-save after page load doesn't re-sync everything
+  // that hasn't actually changed.
+  __seedHashes();
+
   // ─── AUTO-SAVE ON markDirty ──────────────────────────────
   // The existing __wrapDirty machinery already calls markDirty after
   // every mutation. We override markDirty to also schedule a Convex
@@ -13002,6 +13007,35 @@ applyAnimation();
   let savePending = false;
   let lastSaveAt = null;
   let lastError = null;
+
+  // Per-entity hash of what was last successfully synced. flushNow
+  // compares the current S.<entity> against this and skips the
+  // mutation if unchanged — saves a full table scan inside the
+  // mutation handler. Hashes are seeded right after hydrate so the
+  // first markDirty after page load doesn't sync everything when
+  // nothing has actually changed.
+  const __syncHashes = {};
+  function __h(value) {
+    try { return JSON.stringify(value || []); } catch { return String(Date.now()); }
+  }
+  function __seedHashes() {
+    __syncHashes.cfg = __h(S.cfg);
+    __syncHashes.users = __h(S.users);
+    __syncHashes.businesses = __h(S.businesses);
+    __syncHashes.partners = __h(S.partners);
+    __syncHashes.clients = __h(S.clients);
+    __syncHashes.payments = __h(S.payments);
+    __syncHashes.salaries = __h(S.salaries);
+    __syncHashes.att = __h(S.att);
+    __syncHashes.obls = __h(S.obls);
+    __syncHashes.logs = __h(S.logs);
+    __syncHashes.runs = __h(S.runs);
+    __syncHashes.invoices = __h(S.invoices);
+    __syncHashes.sales = __h(S.sales);
+    __syncHashes.expenses = __h(S.expenses);
+    __syncHashes.convictionFirstfruits = __h(S.convictionFirstfruits);
+    __syncHashes.apps = __h(S.apps);
+  }
 
   // Mirror the original markDirty behaviour (sets __dirty + updates the
   // sidebar indicator) but redirect the sidebar UI to our sync status.
@@ -13069,7 +13103,25 @@ applyAnimation();
     if (saveInFlight) { savePending = true; return; }
     if (saveTimer) clearTimeout(saveTimer);
     renderSyncIndicator('pending');
-    saveTimer = setTimeout(flushNow, 3000);
+    // 10s debounce — coalesces bursts of edits into a single sync.
+    // Longer debounce trades latency for I/O savings (each sync
+    // mutation reads the full entity table to compute the delta).
+    saveTimer = setTimeout(flushNow, 10000);
+  }
+
+  /**
+   * Run a sync mutation only if the entity's stringified data has
+   * changed since the last successful sync. Records the new hash
+   * only after the mutation succeeds, so a transient failure forces
+   * a retry on the next flush.
+   */
+  async function __syncIfChanged(entityKey, value, mutationName, payloadKey) {
+    const newHash = __h(value);
+    if (__syncHashes[entityKey] === newHash) return;   // unchanged → skip
+    const args = { sessionToken };
+    args[payloadKey] = value || (payloadKey === 'cfg' ? {} : []);
+    await client.mutation(mutationName, args);
+    __syncHashes[entityKey] = newHash;
   }
 
   async function flushNow() {
@@ -13079,24 +13131,29 @@ applyAnimation();
     renderSyncIndicator('saving');
 
     try {
-      // Fire all per-entity syncs in parallel. They're independent and
-      // small enough to fit in a single mutation each.
+      // Fire only the entity syncs that have actually changed since
+      // the last successful flush. Each call still runs in parallel,
+      // but unchanged entities are skipped entirely — saves a full
+      // table scan per entity inside the mutation handler.
       const tasks = [
-        client.mutation('sync:syncOrgConfig', { sessionToken, cfg: S.cfg || {} }),
-        client.mutation('sync:syncMembers', { sessionToken, items: S.users || [] }),
-        client.mutation('sync:syncBusinesses', { sessionToken, items: S.businesses || [] }),
-        client.mutation('sync:syncPartners', { sessionToken, items: S.partners || [] }),
-        client.mutation('sync:syncClients', { sessionToken, items: S.clients || [] }),
-        client.mutation('sync:syncPayments', { sessionToken, items: S.payments || [] }),
-        client.mutation('sync:syncSalaries', { sessionToken, items: S.salaries || [] }),
-        client.mutation('sync:syncObligations', { sessionToken, items: S.obls || [] }),
-        client.mutation('sync:syncRemittanceLogs', { sessionToken, items: S.logs || [] }),
-        client.mutation('sync:syncPayrollRuns', { sessionToken, items: S.runs || [] }),
-        client.mutation('sync:syncInvoices', { sessionToken, items: S.invoices || [] }),
-        client.mutation('sync:syncSales', { sessionToken, items: S.sales || [] }),
-        client.mutation('sync:syncExpenses', { sessionToken, items: S.expenses || [] }),
-        client.mutation('sync:syncConvictionFirstfruits', { sessionToken, items: S.convictionFirstfruits || [] }),
-        client.mutation('sync:syncApplications', { sessionToken, items: S.apps || [] }),
+        __syncIfChanged('cfg',                   S.cfg,                   'sync:syncOrgConfig',              'cfg'),
+        __syncIfChanged('users',                 S.users,                 'sync:syncMembers',                'items'),
+        __syncIfChanged('businesses',            S.businesses,            'sync:syncBusinesses',             'items'),
+        __syncIfChanged('partners',              S.partners,              'sync:syncPartners',               'items'),
+        __syncIfChanged('clients',               S.clients,               'sync:syncClients',                'items'),
+        __syncIfChanged('payments',              S.payments,              'sync:syncPayments',               'items'),
+        __syncIfChanged('salaries',              S.salaries,              'sync:syncSalaries',               'items'),
+        __syncIfChanged('obls',                  S.obls,                  'sync:syncObligations',            'items'),
+        __syncIfChanged('logs',                  S.logs,                  'sync:syncRemittanceLogs',         'items'),
+        __syncIfChanged('runs',                  S.runs,                  'sync:syncPayrollRuns',            'items'),
+        __syncIfChanged('invoices',              S.invoices,              'sync:syncInvoices',               'items'),
+        __syncIfChanged('sales',                 S.sales,                 'sync:syncSales',                  'items'),
+        __syncIfChanged('expenses',              S.expenses,              'sync:syncExpenses',               'items'),
+        __syncIfChanged('convictionFirstfruits', S.convictionFirstfruits, 'sync:syncConvictionFirstfruits',  'items'),
+        __syncIfChanged('apps',                  S.apps,                  'sync:syncApplications',           'items'),
+        // Attendance is special — it's a keyed object that gets
+        // flattened + chunked. flushAttendance has its own internal
+        // hash check.
         flushAttendance(),
       ];
       await Promise.all(tasks);
@@ -13119,8 +13176,15 @@ applyAnimation();
   // Attendance can be ~thousands of rows. Chunk into batches of 400
   // and use the chunkIndex==0 + expectedKeys pattern so the first
   // chunk garbage-collects rows the user deleted.
+  //
+  // This is the single biggest I/O drain in auto-sync — every call
+  // reads ALL existing attendance rows for the org to compute the
+  // delete-missing set. Skip the round-trip entirely if S.att hasn't
+  // changed since last sync.
   async function flushAttendance() {
     const att = S.att || {};
+    const newHash = __h(att);
+    if (__syncHashes.att === newHash) return;
     const items = Object.entries(att).map(([key, val]) => {
       const [pid, ...rest] = key.split(':');
       return {
@@ -13153,6 +13217,7 @@ applyAnimation();
         expectedKeys: [],
       });
     }
+    __syncHashes.att = newHash;
   }
 
   // ─── SIGN OUT ────────────────────────────────────────────
