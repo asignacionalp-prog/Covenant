@@ -100,6 +100,11 @@ export const listAll = query({
     // one CEO; future invites will populate this with admin/accountant.
     const usersAsLegacy = members.map((m, i) => ({
       id: i + 1,
+      // Stable id round-tripped to syncMembers so email renames patch
+      // the same row instead of insert-old-then-delete-new. Carried as
+      // a plain string field so the legacy hash/diff layer doesn't
+      // choke on Convex Id objects.
+      _memberId: String(m._id),
       fn: m.fn,
       ln: m.ln,
       em: m.em,

@@ -686,18 +686,32 @@ export const syncMembers = mutation({
       .withIndex("by_org", (q) => q.eq("orgId", orgId))
       .collect();
 
+    const existingById = new Map<string, Doc<"members">>();
     const existingByEmail = new Map<string, Doc<"members">>();
     existing.forEach((m) => {
+      existingById.set(String(m._id), m);
       const k = (m.em || "").trim().toLowerCase();
       if (k) existingByEmail.set(k, m);
     });
 
-    const incomingEmails = new Set<string>();
+    // Track which existing rows we've kept (matched against an
+    // incoming item). Anything NOT in this set at the end is a delete
+    // candidate. This is what makes email renames safe: we match by
+    // stable _memberId first, so the old row gets patched in place
+    // rather than deleted and re-inserted.
+    const matchedExisting = new Set<string>();
+    // Email uniqueness guard for inserts/renames (avoid two rows with
+    // the same email).
+    const finalEmails = new Set<string>();
+    existing.forEach((m) => {
+      const k = (m.em || "").trim().toLowerCase();
+      if (k) finalEmails.add(k);
+    });
+
     for (const u of args.items) {
       if (!u || typeof u !== "object") continue;
       const em = String(u.em || "").trim().toLowerCase();
       if (!em || !em.includes("@")) continue;
-      incomingEmails.add(em);
 
       const rawRole = u.role;
       const isValidRole =
@@ -706,13 +720,44 @@ export const syncMembers = mutation({
       const fn = String(u.fn || "").trim() || "—";
       const ln = String(u.ln || "").trim() || "—";
 
-      const match = existingByEmail.get(em);
+      // Prefer matching by the stable _memberId the client preserved
+      // through the bridge (see data:listAll synthesizing it). Fall
+      // back to email for items that don't have one (newly added by
+      // the CEO this session, or pre-_memberId rows).
+      const idKey = u._memberId ? String(u._memberId) : null;
+      let match: Doc<"members"> | undefined = undefined;
+      if (idKey && existingById.has(idKey)) {
+        match = existingById.get(idKey);
+      } else {
+        match = existingByEmail.get(em);
+      }
+
       if (match) {
+        // If the email is changing on rename, make sure we don't
+        // collide with another row that already owns it.
+        const oldEmail = (match.em || "").trim().toLowerCase();
+        if (em !== oldEmail && existingByEmail.has(em)) {
+          const other = existingByEmail.get(em)!;
+          if (String(other._id) !== String(match._id)) {
+            // Another row already has this email — skip the rename
+            // rather than create a dup or destroy the other row.
+            matchedExisting.add(String(match._id));
+            continue;
+          }
+        }
         // Guard: never demote the caller's own role away from ceo.
-        const safeRole = em === callerEmail && match.role === "ceo" ? "ceo" : role;
+        const safeRole =
+          oldEmail === callerEmail && match.role === "ceo" ? "ceo" : role;
         await ctx.db.patch(match._id, { fn, ln, em, role: safeRole });
+        matchedExisting.add(String(match._id));
+        if (oldEmail && oldEmail !== em) finalEmails.delete(oldEmail);
+        finalEmails.add(em);
       } else {
         // New invite — userId stays undefined until they sign in.
+        if (finalEmails.has(em)) {
+          // Email already taken — silently skip rather than insert dup.
+          continue;
+        }
         await ctx.db.insert("members", {
           orgId,
           role,
@@ -722,14 +767,16 @@ export const syncMembers = mutation({
           invitedAt: Date.now(),
           status: "active",
         });
+        finalEmails.add(em);
       }
     }
 
-    // Delete missing — but protect the caller's own row.
+    // Delete any existing row we didn't match — but protect the
+    // caller's own row so they can't sync themselves out of the org.
     for (const m of existing) {
       const em = (m.em || "").trim().toLowerCase();
       if (em === callerEmail) continue;
-      if (!incomingEmails.has(em)) {
+      if (!matchedExisting.has(String(m._id))) {
         await ctx.db.delete(m._id);
       }
     }
