@@ -13012,10 +13012,12 @@ applyAnimation();
   const overlay = document.getElementById('cov-bridge-status');
   if (overlay) overlay.remove();
 
-  // Seed per-entity hashes from the freshly-hydrated state so the
-  // first auto-save after page load doesn't re-sync everything
-  // that hasn't actually changed.
-  __seedHashes();
+  // NOTE: __seedHashes() used to be called here, but __syncSnapshots
+  // and __syncHashes are declared with `const` further down — calling
+  // the seed function here threw a ReferenceError (TDZ), which killed
+  // the entire bridge before it could install the markDirty wrapper
+  // or render the sync indicator. The call now lives right after the
+  // const declarations below.
 
   // ─── AUTO-SAVE ON markDirty ──────────────────────────────
   // The existing __wrapDirty machinery already calls markDirty after
@@ -13040,6 +13042,19 @@ applyAnimation();
   // and re-sync the whole object when it changes.
   const __syncSnapshots = {};
   const __syncHashes = {}; // for cfg + users
+
+  // Seed per-entity hashes from the freshly-hydrated state so the
+  // first auto-save after page load doesn't re-sync everything
+  // that hasn't actually changed. Called AFTER the const decls above
+  // to avoid the TDZ ReferenceError that previously crashed the
+  // bridge before it could install renderSyncIndicator / markDirty.
+  // The function itself is declared further down — function decls
+  // are hoisted, so calling it here works.
+  try {
+    __seedHashes();
+  } catch (err) {
+    console.error('[covBridge] __seedHashes failed:', err);
+  }
 
   function __h(value) {
     try { return JSON.stringify(value || []); } catch { return String(Date.now()); }
