@@ -255,7 +255,8 @@ export default defineSchema({
   })
     .index("by_org", ["orgId"])
     .index("by_org_period", ["orgId", "pe"])
-    .index("by_org_client", ["orgId", "clientId"]),
+    .index("by_org_client", ["orgId", "clientId"])
+    .index("by_org_legacyId", ["orgId", "legacyId"]),
 
   /** Legacy: S.salaries */
   salaries: defineTable({
@@ -279,7 +280,8 @@ export default defineSchema({
     .index("by_org", ["orgId"])
     .index("by_org_period", ["orgId", "pe"])
     .index("by_org_partner", ["orgId", "partnerId"])
-    .index("by_org_client", ["orgId", "clientId"]),
+    .index("by_org_client", ["orgId", "clientId"])
+    .index("by_org_legacyId", ["orgId", "legacyId"]),
 
   /**
    * Legacy: S.att (object keyed by `partnerId:date`).
@@ -329,7 +331,8 @@ export default defineSchema({
   })
     .index("by_org", ["orgId"])
     .index("by_org_period", ["orgId", "pe"])
-    .index("by_org_key", ["orgId", "key"]),
+    .index("by_org_key", ["orgId", "key"])
+    .index("by_org_legacyId", ["orgId", "legacyId"]),
 
   /** Legacy: S.logs (remittance log) */
   remittanceLogs: defineTable({
@@ -354,7 +357,8 @@ export default defineSchema({
     creditEarned: v.optional(v.number()),
   })
     .index("by_org", ["orgId"])
-    .index("by_org_date", ["orgId", "dt"]),
+    .index("by_org_date", ["orgId", "dt"])
+    .index("by_org_legacyId", ["orgId", "legacyId"]),
 
   /** Legacy: S.runs (payroll runs) */
   payrollRuns: defineTable({
@@ -370,7 +374,8 @@ export default defineSchema({
     lines: v.array(v.any()),              // per-partner line items — shape preserved as-is
   })
     .index("by_org", ["orgId"])
-    .index("by_org_status", ["orgId", "status"]),
+    .index("by_org_status", ["orgId", "status"])
+    .index("by_org_legacyId", ["orgId", "legacyId"]),
 
   /** Legacy: S.invoices */
   invoices: defineTable({
@@ -394,7 +399,8 @@ export default defineSchema({
   })
     .index("by_org", ["orgId"])
     .index("by_org_status", ["orgId", "status"])
-    .index("by_org_client", ["orgId", "clientId"]),
+    .index("by_org_client", ["orgId", "clientId"])
+    .index("by_org_legacyId", ["orgId", "legacyId"]),
 
   /** Legacy: S.credits + S.clientCredits — kept as separate tables */
   credits: defineTable({
@@ -405,7 +411,9 @@ export default defineSchema({
     pe: v.optional(v.string()),
     note: v.optional(v.string()),
     used: v.optional(v.boolean()),
-  }).index("by_org", ["orgId"]),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_org_legacyId", ["orgId", "legacyId"]),
 
   clientCredits: defineTable({
     orgId: v.id("orgs"),
@@ -417,7 +425,9 @@ export default defineSchema({
     pe: v.optional(v.string()),
     note: v.optional(v.string()),
     used: v.optional(v.boolean()),
-  }).index("by_org", ["orgId"]),
+  })
+    .index("by_org", ["orgId"])
+    .index("by_org_legacyId", ["orgId", "legacyId"]),
 
   /** Legacy: S.convictionFirstfruits */
   convictionFirstfruits: defineTable({
@@ -430,7 +440,8 @@ export default defineSchema({
     loggedAt: v.optional(v.string()),
   })
     .index("by_org", ["orgId"])
-    .index("by_org_period", ["orgId", "pe"]),
+    .index("by_org_period", ["orgId", "pe"])
+    .index("by_org_legacyId", ["orgId", "legacyId"]),
 
   /** Legacy: S.sales (product-business sales) */
   sales: defineTable({
@@ -446,7 +457,8 @@ export default defineSchema({
     note: v.optional(v.string()),
   })
     .index("by_org", ["orgId"])
-    .index("by_org_period", ["orgId", "pe"]),
+    .index("by_org_period", ["orgId", "pe"])
+    .index("by_org_legacyId", ["orgId", "legacyId"]),
 
   /** Legacy: S.expenses */
   expenses: defineTable({
@@ -463,7 +475,8 @@ export default defineSchema({
     note: v.optional(v.string()),
   })
     .index("by_org", ["orgId"])
-    .index("by_org_period", ["orgId", "pe"]),
+    .index("by_org_period", ["orgId", "pe"])
+    .index("by_org_legacyId", ["orgId", "legacyId"]),
 
   /** Legacy: S.apps (job applications — Career section) */
   applications: defineTable({
@@ -491,7 +504,8 @@ export default defineSchema({
     lastUpdated: v.optional(v.string()),
   })
     .index("by_org", ["orgId"])
-    .index("by_org_status", ["orgId", "status"]),
+    .index("by_org_status", ["orgId", "status"])
+    .index("by_org_legacyId", ["orgId", "legacyId"]),
 
   // ─────────────────────────────────────────────────────────────
   // AUDIT + SUPPORT
