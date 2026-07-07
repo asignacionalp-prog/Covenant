@@ -68,6 +68,52 @@
   .chart-svg-tick{font-size:9px;fill:var(--text3);font-family:'DM Sans',sans-serif;}
   .chart-svg-label{font-size:10px;fill:var(--text2);font-family:'DM Sans',sans-serif;letter-spacing:.02em;}
 
+  /* Tabs */
+  .tabs{display:flex;gap:.15rem;margin-bottom:1.5rem;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .tab{background:none;border:none;color:var(--text2);padding:.65rem 1.1rem;font-family:inherit;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;position:relative;margin-bottom:-1px;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;font-weight:500;}
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  /* Data tables */
+  .data-tbl{background:var(--paper);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  .data-tbl table{width:100%;border-collapse:collapse;}
+  .data-tbl th{background:rgba(180,138,30,.06);text-align:left;font-weight:500;color:var(--text3);padding:.65rem .95rem;font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;border-bottom:1px solid var(--border);}
+  .data-tbl th.r{text-align:right;}
+  .data-tbl td{padding:.6rem .95rem;border-bottom:1px solid rgba(55,71,101,.45);color:var(--text2);font-size:.9rem;}
+  .data-tbl td.r{text-align:right;font-feature-settings:"tnum";}
+  .data-tbl tr:last-child td{border-bottom:none;}
+  .data-tbl td.name{color:var(--text);font-weight:500;}
+  .data-tbl tr:hover td{background:rgba(180,138,30,.03);}
+  .type-tag{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10.5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;background:rgba(180,138,30,.15);color:var(--gold-bright);}
+  .type-tag.pt{background:rgba(43,100,56,.18);color:#a8d6b3;}
+  .type-tag.gig{background:rgba(85,106,142,.22);color:#c0d0e8;}
+  .type-tag.inactive{background:rgba(154,130,100,.18);color:var(--text3);}
+  .status-tag{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10.5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;}
+  .status-tag.pending{background:rgba(180,138,30,.18);color:var(--gold-bright);}
+  .status-tag.partial{background:rgba(85,106,142,.22);color:#c0d0e8;}
+  .status-tag.remitted{background:rgba(43,100,56,.18);color:#a8d6b3;}
+  .status-tag.archived{background:rgba(154,130,100,.18);color:var(--text3);}
+
+  /* Health tab */
+  .health-hos{display:grid;gap:.85rem;}
+  .health-ho{background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:1rem 1.15rem;}
+  .health-ho-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;gap:.75rem;flex-wrap:wrap;}
+  .health-ho-name{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.15rem;color:var(--text);letter-spacing:.005em;}
+  .health-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:.85rem;}
+  .health-metric{background:var(--paper2);border:1px solid var(--border);border-radius:5px;padding:.7rem .9rem;}
+  .health-metric-label{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:.75rem;color:var(--text2);letter-spacing:.14em;text-transform:uppercase;margin-bottom:5px;}
+  .health-metric-value{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:500;color:var(--text);line-height:1.05;font-feature-settings:"tnum";}
+  .health-metric-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+  .health-toggle{background:transparent;border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:4px;font-family:inherit;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:border-color .15s,color .15s;width:auto;margin:0;}
+  .health-toggle:hover{border-color:var(--gold);color:var(--gold);box-shadow:none;transform:none;}
+  .health-partners{margin-top:.75rem;display:none;}
+  .health-ho.expanded .health-partners{display:block;}
+  .month-picker{display:flex;align-items:center;gap:.6rem;margin-bottom:1.25rem;color:var(--text2);font-size:.85rem;}
+  .month-picker input{background:rgba(246,242,232,.04);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-family:inherit;font-size:.85rem;width:auto;margin:0;}
+  .month-picker input:focus{border-color:var(--gold);outline:none;}
+
   /* HO table */
   .ho-table{background:var(--paper);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
   .ho-row{display:grid;grid-template-columns:2fr 1fr 1fr 1.2fr 1.2fr 32px;align-items:center;padding:.85rem 1.15rem;gap:1rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
@@ -138,16 +184,58 @@
   </div>
 
   <div class="content">
-    <div id="stats" class="stat-grid"></div>
-    <div class="chart-card">
-      <div class="section-title" style="margin-bottom:.35rem;">Remittances — last 12 months</div>
-      <div class="section-sub">Total received across every affiliated Home Office, per month.</div>
-      <div id="remit-chart"></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="overview">Overview</button>
+      <button class="tab" data-tab="clients">Clients</button>
+      <button class="tab" data-tab="obligations">Obligations</button>
+      <button class="tab" data-tab="health">Home Office Health</button>
     </div>
 
-    <div class="section-title" style="margin-top:.5rem;">Affiliated Home Offices</div>
-    <div class="section-sub">Click any row to see partners, clients, and this month's devotion + attendance.</div>
-    <div id="ho-table" class="ho-table"></div>
+    <!-- Overview tab (default) -->
+    <div id="tab-overview" class="tab-panel active">
+      <div id="stats" class="stat-grid"></div>
+      <div class="chart-card">
+        <div class="section-title" style="margin-bottom:.35rem;">Remittances — last 12 months</div>
+        <div class="section-sub">Total received across every affiliated Home Office, per month.</div>
+        <div id="remit-chart"></div>
+      </div>
+
+      <div class="section-title" style="margin-top:.5rem;">Affiliated Home Offices</div>
+      <div class="section-sub">Click any row to see partners, clients, and this month's devotion + attendance.</div>
+      <div id="ho-table" class="ho-table"></div>
+    </div>
+
+    <!-- Clients tab -->
+    <div id="tab-clients" class="tab-panel">
+      <div class="section-title">Clients across all affiliated Home Offices</div>
+      <div class="section-sub">Everyone your Home Offices serve, with engagement type. No payment amounts.</div>
+      <div id="clients-tbl" class="data-tbl"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
+    </div>
+
+    <!-- Obligations tab -->
+    <div id="tab-obligations" class="tab-panel">
+      <div class="section-title">Obligations across all affiliated Home Offices</div>
+      <div class="section-sub">Firstfruits, tithes, church-project remittances, and partner tithes — what's been remitted and what's still owed.</div>
+      <div style="margin-bottom:1rem;display:flex;gap:.4rem;flex-wrap:wrap;" id="obl-filter">
+        <button class="tab" data-obl-filter="all" style="border:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;margin-bottom:0;padding:.4rem .85rem;font-size:.7rem;">All</button>
+        <button class="tab" data-obl-filter="pending" style="border:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;margin-bottom:0;padding:.4rem .85rem;font-size:.7rem;">Pending</button>
+        <button class="tab" data-obl-filter="partial" style="border:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;margin-bottom:0;padding:.4rem .85rem;font-size:.7rem;">Partial</button>
+        <button class="tab" data-obl-filter="remitted" style="border:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;margin-bottom:0;padding:.4rem .85rem;font-size:.7rem;">Remitted</button>
+      </div>
+      <div id="obligations-tbl" class="data-tbl"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
+    </div>
+
+    <!-- Health tab -->
+    <div id="tab-health" class="tab-panel">
+      <div class="section-title">Home Office ministry health</div>
+      <div class="section-sub">Team devotion rate, Sunday-service attendance, and church-activities participation per Home Office. Click any row for per-partner detail.</div>
+      <div class="month-picker">
+        Month:
+        <input type="month" id="health-month"/>
+        <span style="color:var(--text3);font-size:.78rem;">All percentages are among logged workdays for active partners.</span>
+      </div>
+      <div id="health-view" class="health-hos"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
+    </div>
   </div>
 </div>
 
@@ -418,6 +506,207 @@
       </div>
     </div>`;
   }
+
+  // ─── Tab switching ──────────────────────────────────────
+  // Each tab's data is lazy-loaded on first activation so a big
+  // church doesn't pay the full query cost until it clicks in.
+
+  const _tabState = { loaded: { overview: true } };
+  let _obligationsFilter = 'all';
+  let _obligationsCache = null;
+
+  function switchTab(name){
+    document.querySelectorAll('.tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+    if (_tabState.loaded[name]) return;
+    _tabState.loaded[name] = true;
+    if (name === 'clients') loadClients();
+    else if (name === 'obligations') loadObligations();
+    else if (name === 'health') loadHealth();
+  }
+
+  document.querySelectorAll('.tabs .tab').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // ─── Clients tab ────────────────────────────────────────
+  async function loadClients(){
+    const wrap = document.getElementById('clients-tbl');
+    try {
+      const rows = await client.query('church:allClients', { sessionToken });
+      if (!rows.length) {
+        wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No clients recorded across your affiliated Home Offices yet.</div>';
+        return;
+      }
+      const typeTag = (t) => {
+        const key = (t || '').toLowerCase();
+        const cls = key === 'part-time' ? 'pt' : key === 'gig' ? 'gig' : '';
+        return `<span class="type-tag ${cls}">${t || '—'}</span>`;
+      };
+      const statusTag = (s) => `<span class="type-tag ${s === 'inactive' ? 'inactive' : ''}">${s}</span>`;
+      wrap.innerHTML = `<table>
+        <thead><tr><th>Home Office</th><th>Client</th><th>Type</th><th>Status</th></tr></thead>
+        <tbody>${rows.map(r => `
+          <tr>
+            <td>${r.orgName}</td>
+            <td class="name">${r.name}</td>
+            <td>${typeTag(r.type)}</td>
+            <td>${statusTag(r.status)}</td>
+          </tr>
+        `).join('')}</tbody>
+      </table>`;
+    } catch (e) {
+      wrap.innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
+    }
+  }
+
+  // ─── Obligations tab ────────────────────────────────────
+  function renderObligations(){
+    const wrap = document.getElementById('obligations-tbl');
+    if (!_obligationsCache) return;
+    const filtered = _obligationsFilter === 'all'
+      ? _obligationsCache
+      : _obligationsCache.filter(o => o.status === _obligationsFilter);
+    if (!filtered.length) {
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No obligations match this filter.</div>';
+      return;
+    }
+    const statusTag = (s) => `<span class="status-tag ${s}">${s}</span>`;
+    const partyLabel = (o) => {
+      if (o.partnerName) return `<span style="color:var(--text3);font-style:italic;">Partner:</span> ${o.partnerName}`;
+      if (o.clientName) return `<span style="color:var(--text3);font-style:italic;">Client:</span> ${o.clientName}`;
+      return '<span style="color:var(--text3);">—</span>';
+    };
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Home Office</th>
+        <th>Type</th>
+        <th>Period</th>
+        <th>Party</th>
+        <th class="r">Owed</th>
+        <th class="r">Balance</th>
+        <th>Status</th>
+      </tr></thead>
+      <tbody>${filtered.map(o => `
+        <tr>
+          <td>${o.orgName}</td>
+          <td>${o.label}</td>
+          <td>${o.period || '—'}</td>
+          <td>${partyLabel(o)}</td>
+          <td class="r">${fmt(o.total)}</td>
+          <td class="r" style="color:${o.balance > 0.01 ? '#e8b0bb' : '#a8d6b3'};">${fmt(o.balance)}</td>
+          <td>${statusTag(o.status)}</td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+  }
+
+  async function loadObligations(){
+    const wrap = document.getElementById('obligations-tbl');
+    try {
+      _obligationsCache = await client.query('church:allObligations', { sessionToken });
+      renderObligations();
+    } catch (e) {
+      wrap.innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
+    }
+  }
+
+  // Highlight the first filter chip on load; wire clicks
+  document.querySelectorAll('#obl-filter [data-obl-filter]').forEach(btn => {
+    if (btn.dataset.oblFilter === 'all') btn.classList.add('active');
+    btn.addEventListener('click', () => {
+      _obligationsFilter = btn.dataset.oblFilter;
+      document.querySelectorAll('#obl-filter [data-obl-filter]').forEach(b => b.classList.toggle('active', b === btn));
+      renderObligations();
+    });
+  });
+
+  // ─── Health tab ─────────────────────────────────────────
+  function pctCell(pct){
+    if (pct == null) return '<span class="pct-badge" style="background:rgba(154,130,100,.15);color:var(--text3);">—</span>';
+    const cls = pct >= 80 ? '' : (pct >= 50 ? 'mid' : 'low');
+    return `<span class="pct-badge ${cls}">${pct}%</span>`;
+  }
+
+  async function loadHealth(){
+    const wrap = document.getElementById('health-view');
+    const monthInput = document.getElementById('health-month');
+    if (!monthInput.value) {
+      const now = new Date();
+      monthInput.value = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+    }
+    try {
+      const rows = await client.query('church:health', { sessionToken, monthKey: monthInput.value });
+      if (!rows.length) {
+        wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No Home Offices are affiliated yet.</div>';
+        return;
+      }
+      wrap.innerHTML = rows.map((r, i) => `
+        <div class="health-ho" data-idx="${i}">
+          <div class="health-ho-hdr">
+            <div>
+              <div class="health-ho-name">${r.orgName}</div>
+              <div style="font-size:.78rem;color:var(--text3);letter-spacing:.02em;margin-top:2px;">${r.activePartners} active partner${r.activePartners === 1 ? '' : 's'} · ${r.monthKey}</div>
+            </div>
+            <button class="health-toggle" onclick="toggleHealthDetail(this)">Show partners ▾</button>
+          </div>
+          <div class="health-metrics">
+            <div class="health-metric">
+              <div class="health-metric-label">Devotion</div>
+              <div class="health-metric-value">${r.devotionPct != null ? r.devotionPct + '%' : '—'}</div>
+              <div class="health-metric-sub">Daily walk with God</div>
+            </div>
+            <div class="health-metric">
+              <div class="health-metric-label">Sunday service</div>
+              <div class="health-metric-value">${r.sundayServicePct != null ? r.sundayServicePct + '%' : '—'}</div>
+              <div class="health-metric-sub">Corporate worship</div>
+            </div>
+            <div class="health-metric">
+              <div class="health-metric-label">Church activities</div>
+              <div class="health-metric-value">${r.churchActivitiesPct != null ? r.churchActivitiesPct + '%' : '—'}</div>
+              <div class="health-metric-sub">Serving in ministry</div>
+            </div>
+          </div>
+          <div class="health-partners">
+            <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Partner</th>
+                  <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Role</th>
+                  <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Devotion</th>
+                  <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Sunday</th>
+                  <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Activities</th>
+                </tr>
+              </thead>
+              <tbody>${r.partners.map(p => `
+                <tr>
+                  <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);color:var(--text);">${p.name}</td>
+                  <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);color:var(--text2);">${p.role || '—'}</td>
+                  <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);">${pctCell(p.devotionPct)}</td>
+                  <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);">${pctCell(p.sundayServicePct)}</td>
+                  <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);">${pctCell(p.churchActivitiesPct)}</td>
+                </tr>
+              `).join('')}</tbody>
+            </table>
+          </div>
+        </div>
+      `).join('');
+    } catch (e) {
+      wrap.innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
+    }
+  }
+
+  // Reload health on month change
+  document.getElementById('health-month').addEventListener('change', loadHealth);
+
+  // Global — exposed for inline onclick above
+  window.toggleHealthDetail = function(btn){
+    const card = btn.closest('.health-ho');
+    if (!card) return;
+    const nowExpanded = !card.classList.contains('expanded');
+    card.classList.toggle('expanded', nowExpanded);
+    btn.textContent = nowExpanded ? 'Hide partners ▴' : 'Show partners ▾';
+  };
 
   // ─── Init ───────────────────────────────────────────────
   if (sessionToken) {

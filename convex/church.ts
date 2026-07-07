@@ -472,3 +472,254 @@ export const homeOfficeDetail = query({
     };
   },
 });
+
+// ─── Cross-HO tab queries ───────────────────────────────────
+// Small helper — reuse the church's affiliated orgs across queries
+// so we're not rewriting the fetch three times.
+async function affiliatedOrgIds(
+  ctx: QueryCtx,
+  churchId: Id<"churches">,
+): Promise<Array<Doc<"orgs">>> {
+  return await ctx.db
+    .query("orgs")
+    .withIndex("by_church", (q) => q.eq("churchId", churchId))
+    .collect();
+}
+
+/**
+ * All clients across every affiliated Home Office. Church sees who's
+ * being served in each ministry umbrella + their engagement type
+ * (full-time / part-time / gig). No payment amounts.
+ */
+export const allClients = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const church = await requireChurchSession(ctx, args.sessionToken);
+    const orgs = await affiliatedOrgIds(ctx, church._id);
+    const rows: Array<{
+      orgId: Id<"orgs">;
+      orgName: string;
+      clientId: number | undefined;
+      name: string;
+      type: string;
+      status: string;
+    }> = [];
+    for (const org of orgs) {
+      const clients = await ctx.db
+        .query("clients")
+        .withIndex("by_org", (q) => q.eq("orgId", org._id))
+        .collect();
+      for (const c of clients) {
+        rows.push({
+          orgId: org._id,
+          orgName: org.name,
+          clientId: c.legacyId,
+          name: c.nm,
+          type: c.ty || "—",
+          status: c.st,
+        });
+      }
+    }
+    rows.sort((a, b) =>
+      a.orgName.localeCompare(b.orgName) ||
+      a.name.localeCompare(b.name),
+    );
+    return rows;
+  },
+});
+
+/**
+ * All obligations across every affiliated Home Office. Obligations
+ * are already an aggregate concept (what the HO owes to the church
+ * or to partners for a given period) so church visibility is
+ * appropriate. Partner-tithe rows include partner names since the
+ * church cares who's remitting.
+ */
+export const allObligations = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const church = await requireChurchSession(ctx, args.sessionToken);
+    const orgs = await affiliatedOrgIds(ctx, church._id);
+    const rows: Array<{
+      orgId: Id<"orgs">;
+      orgName: string;
+      key: string;
+      type: string;
+      label: string;
+      period: string;
+      total: number;
+      balance: number;
+      status: string;
+      partnerName: string | null;
+      clientName: string | null;
+      archived: boolean;
+    }> = [];
+    for (const org of orgs) {
+      const [obls, partners, clients] = await Promise.all([
+        ctx.db.query("obligations").withIndex("by_org", (q) => q.eq("orgId", org._id)).collect(),
+        ctx.db.query("partners").withIndex("by_org", (q) => q.eq("orgId", org._id)).collect(),
+        ctx.db.query("clients").withIndex("by_org", (q) => q.eq("orgId", org._id)).collect(),
+      ]);
+      const partnerByLegacy = new Map(partners.map((p) => [p.legacyId, p]));
+      const clientByLegacy = new Map(clients.map((c) => [c.legacyId, c]));
+      for (const o of obls) {
+        const p = o.ptnId != null ? partnerByLegacy.get(o.ptnId) : undefined;
+        const c = o.ci != null ? clientByLegacy.get(o.ci) : undefined;
+        const status = o.archived
+          ? "archived"
+          : o.bal <= 0.01
+          ? "remitted"
+          : o.bal < o.tot - 0.01
+          ? "partial"
+          : "pending";
+        rows.push({
+          orgId: org._id,
+          orgName: org.name,
+          key: o.key ?? String(o._id),
+          type: o.ty,
+          label: o.lb,
+          period: o.pe ?? "",
+          total: o.tot,
+          balance: o.bal,
+          status,
+          partnerName: p ? `${p.fn} ${p.ln}` : null,
+          clientName: c ? c.nm : null,
+          archived: !!o.archived,
+        });
+      }
+    }
+    rows.sort((a, b) => {
+      const s = (b.period || "").localeCompare(a.period || "");
+      if (s !== 0) return s;
+      return a.orgName.localeCompare(b.orgName);
+    });
+    return rows;
+  },
+});
+
+/**
+ * Ministry participation across every affiliated Home Office for a
+ * given month. Devotion, Sunday service, and Church activities each
+ * yield a team-average %. Per-partner breakdown is available inside
+ * each row so the church can drill in.
+ */
+export const health = query({
+  args: {
+    sessionToken: v.string(),
+    monthKey: v.optional(v.string()), // "YYYY-MM"; defaults to current month
+  },
+  handler: async (ctx, args) => {
+    const church = await requireChurchSession(ctx, args.sessionToken);
+    const orgs = await affiliatedOrgIds(ctx, church._id);
+
+    // Resolve the month bounds.
+    const now = new Date();
+    const monthKey =
+      args.monthKey || now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+    const [y, m] = monthKey.split("-").map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const todayStr = now.toISOString().slice(0, 10);
+    const monthDays: string[] = [];
+    const sundaysInMonth: string[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds = monthKey + "-" + String(d).padStart(2, "0");
+      if (ds > todayStr) continue;
+      monthDays.push(ds);
+      const dow = new Date(y, m - 1, d).getDay();
+      if (dow === 0) sundaysInMonth.push(ds);
+    }
+
+    const rows: Array<{
+      orgId: Id<"orgs">;
+      orgName: string;
+      monthKey: string;
+      activePartners: number;
+      devotionPct: number | null;
+      sundayServicePct: number | null;
+      churchActivitiesPct: number | null;
+      partners: Array<{
+        legacyId: number | undefined;
+        name: string;
+        role: string;
+        status: string;
+        devotionPct: number | null;
+        sundayServicePct: number | null;
+        churchActivitiesPct: number | null;
+      }>;
+    }> = [];
+
+    for (const org of orgs) {
+      const [partners, attendance] = await Promise.all([
+        ctx.db.query("partners").withIndex("by_org", (q) => q.eq("orgId", org._id)).collect(),
+        ctx.db.query("attendance").withIndex("by_org_partner_date", (q) => q.eq("orgId", org._id)).collect(),
+      ]);
+      const attByPartnerDate = new Map<string, typeof attendance[number]>();
+      for (const r of attendance) {
+        if (r.partnerLegacyId != null && r.date) {
+          attByPartnerDate.set(r.partnerLegacyId + ":" + r.date, r);
+        }
+      }
+      let teamDevT = 0, teamDevL = 0;
+      let teamSsT = 0, teamSsL = 0;
+      let teamCaT = 0, teamCaL = 0;
+      const partnerRows = partners.map((p) => {
+        let devT = 0, devL = 0;
+        let ssT = 0, ssL = 0;
+        let caT = 0, caL = 0;
+        for (const ds of monthDays) {
+          const activeOn =
+            p.st === "active" ||
+            (p.deactivatedAt != null && ds <= p.deactivatedAt);
+          if (!activeOn) continue;
+          const r = attByPartnerDate.get(p.legacyId + ":" + ds);
+          if (r?.dv) {
+            devT++;
+            if (r.dv === "yes") devL++;
+          }
+          if (r?.ca) {
+            caT++;
+            if (r.ca === "yes") caL++;
+          }
+        }
+        for (const ds of sundaysInMonth) {
+          const activeOn =
+            p.st === "active" ||
+            (p.deactivatedAt != null && ds <= p.deactivatedAt);
+          if (!activeOn) continue;
+          const r = attByPartnerDate.get(p.legacyId + ":" + ds);
+          if (r?.ss) {
+            ssT++;
+            if (r.ss === "yes") ssL++;
+          }
+        }
+        teamDevT += devT;
+        teamDevL += devL;
+        teamSsT += ssT;
+        teamSsL += ssL;
+        teamCaT += caT;
+        teamCaL += caL;
+        return {
+          legacyId: p.legacyId,
+          name: `${p.fn ?? ""} ${p.ln ?? ""}`.trim(),
+          role: p.ro ?? "",
+          status: p.st,
+          devotionPct: devT > 0 ? Math.round((devL / devT) * 100) : null,
+          sundayServicePct: ssT > 0 ? Math.round((ssL / ssT) * 100) : null,
+          churchActivitiesPct: caT > 0 ? Math.round((caL / caT) * 100) : null,
+        };
+      });
+      rows.push({
+        orgId: org._id,
+        orgName: org.name,
+        monthKey,
+        activePartners: partners.filter((p) => p.st === "active").length,
+        devotionPct: teamDevT > 0 ? Math.round((teamDevL / teamDevT) * 100) : null,
+        sundayServicePct: teamSsT > 0 ? Math.round((teamSsL / teamSsT) * 100) : null,
+        churchActivitiesPct: teamCaT > 0 ? Math.round((teamCaL / teamCaT) * 100) : null,
+        partners: partnerRows,
+      });
+    }
+    rows.sort((a, b) => a.orgName.localeCompare(b.orgName));
+    return rows;
+  },
+});
