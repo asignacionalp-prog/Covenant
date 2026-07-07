@@ -576,48 +576,48 @@ body.theme-dark .btn-link{color:var(--gold-pale);}
 .dash-card{
   background:var(--paper);
   border:1px solid var(--border);
-  border-radius:var(--radius-lg);
-  padding:1.15rem 1.25rem 1rem;
+  border-radius:var(--radius);
+  padding:.85rem 1rem .75rem;
   box-shadow:var(--shadow);
   cursor:pointer;
   transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
   position:relative;
   overflow:hidden;
-  min-height:200px;
+  min-height:140px;
   display:flex;flex-direction:column;
 }
 .dash-card::before{
   content:'';position:absolute;top:0;left:0;width:100%;height:2px;
-  background:var(--gold);opacity:.55;
+  background:var(--gold);opacity:.5;
   transition:opacity .18s ease;
 }
 .dash-card:hover{
-  transform:translateY(-2px);
+  transform:translateY(-1px);
   border-color:var(--border2);
   box-shadow:var(--shadow-md);
 }
 .dash-card:hover::before{opacity:1;}
 .dash-card-hdr{
   display:flex;align-items:flex-start;justify-content:space-between;
-  gap:1rem;margin-bottom:.75rem;
+  gap:.75rem;margin-bottom:.4rem;
 }
 .dash-card-title{
   font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;
-  font-size:19px;color:var(--text);letter-spacing:-.005em;
+  font-size:16px;color:var(--text);letter-spacing:-.005em;
   line-height:1.15;
 }
 .dash-card-sub{
-  font-size:12.5px;font-weight:500;color:var(--text2);
-  letter-spacing:.01em;margin-top:4px;font-feature-settings:"tnum";
+  font-size:11.5px;font-weight:500;color:var(--text2);
+  letter-spacing:.01em;margin-top:2px;font-feature-settings:"tnum";
 }
 .dash-card-arrow{
-  color:var(--text3);font-size:16px;line-height:1;
+  color:var(--text3);font-size:14px;line-height:1;
   transition:color .18s ease, transform .18s ease;
 }
 .dash-card:hover .dash-card-arrow{color:var(--gold);transform:translateX(2px);}
-.dash-svg{width:100%;height:auto;display:block;}
-.dash-svg-tick{font-size:10px;fill:var(--text3);font-family:'DM Sans',sans-serif;}
-.dash-svg-label{font-size:11px;fill:var(--text2);font-family:'DM Sans',sans-serif;letter-spacing:.02em;}
+.dash-svg{width:100%;height:auto;display:block;max-height:110px;}
+.dash-svg-tick{font-size:9px;fill:var(--text3);font-family:'DM Sans',sans-serif;}
+.dash-svg-label{font-size:10px;fill:var(--text2);font-family:'DM Sans',sans-serif;letter-spacing:.02em;}
 .dash-svg-value{font-size:11px;fill:var(--text);font-family:'DM Sans',sans-serif;font-weight:500;font-feature-settings:"tnum";}
 .acc-purple::before{background:var(--purple);}
 .acc-gray::before{background:var(--text3);opacity:.5;}
@@ -3300,7 +3300,7 @@ function dashNav(view){
 // CSS color string; defaults to var(--gold). Returns an SVG string.
 function svgBarChart(bars, opts){
   opts = opts || {};
-  const W = 480, H = 150, padL = 8, padR = 8, padT = 12, padB = 22;
+  const W = 480, H = 110, padL = 8, padR = 8, padT = 8, padB = 18;
   const cw = W - padL - padR;
   const ch = H - padT - padB;
   const n = bars.length || 1;
@@ -3329,8 +3329,8 @@ function svgBarChart(bars, opts){
 // Donut chart. `segments` is [{label, value, color}]. Returns SVG string.
 function svgDonut(segments, opts){
   opts = opts || {};
-  const W = 240, H = 150;
-  const cx = 70, cy = H/2, rOut = 55, rIn = 34;
+  const W = 240, H = 110;
+  const cx = 55, cy = H/2, rOut = 42, rIn = 26;
   const total = segments.reduce((a, s) => a + Math.max(0, s.value||0), 0);
   const center = opts.centerLabel || '';
   const centerSub = opts.centerSub || '';
@@ -3356,12 +3356,12 @@ function svgDonut(segments, opts){
     ? '<text x="'+cx+'" y="'+(cy-2)+'" text-anchor="middle" class="dash-svg-value" font-size="14" font-weight="600">'+center+'</text>' +
       (centerSub ? '<text x="'+cx+'" y="'+(cy+13)+'" text-anchor="middle" class="dash-svg-tick">'+centerSub+'</text>' : '')
     : '';
-  // Legend on the right
-  const legendX = 155;
+  // Legend on the right — tight rows so all four fit inside 110h
+  const legendX = 118;
   const legend = segments.filter(s => (s.value||0) > 0).slice(0, 4).map((s, i) => {
-    const y = 30 + i*22;
-    return '<rect x="'+legendX+'" y="'+(y-8)+'" width="9" height="9" rx="1.5" fill="'+(s.color||'var(--gold)')+'"/>' +
-           '<text x="'+(legendX+14)+'" y="'+(y-1)+'" class="dash-svg-label">'+s.label+'</text>';
+    const y = 22 + i*17;
+    return '<rect x="'+legendX+'" y="'+(y-7)+'" width="8" height="8" rx="1.5" fill="'+(s.color||'var(--gold)')+'"/>' +
+           '<text x="'+(legendX+12)+'" y="'+(y-0.5)+'" class="dash-svg-label">'+s.label+'</text>';
   }).join('');
   return '<svg class="dash-svg" viewBox="0 0 '+W+' '+H+'" role="img">'+arcs+centerHtml+legend+'</svg>';
 }
@@ -3369,7 +3369,7 @@ function svgDonut(segments, opts){
 // Line/area chart for 2 series. `labels` = x labels, `series` = [{name, values, color}].
 function svgLineChart(labels, series, opts){
   opts = opts || {};
-  const W = 240, H = 150, padL = 20, padR = 10, padT = 14, padB = 22;
+  const W = 240, H = 110, padL = 18, padR = 8, padT = 10, padB = 18;
   const cw = W - padL - padR, ch = H - padT - padB;
   const n = labels.length;
   const max = 100; // percentages
