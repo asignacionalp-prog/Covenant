@@ -52,7 +52,11 @@
   .who strong{color:var(--text);}
   .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);padding:7px 14px;border-radius:5px;font-family:inherit;font-size:12px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:border-color .18s,color .18s;width:auto;margin:0;}
   .btn-ghost:hover{border-color:var(--gold);color:var(--gold);box-shadow:none;transform:none;}
-  .content{max-width:1180px;margin:0 auto;padding:2rem;}
+  .content{max-width:1320px;margin:0 auto;padding:1.75rem 2rem 2rem;display:grid;grid-template-columns:210px 1fr;gap:2rem;align-items:start;}
+  .content-main{min-width:0;}
+  @media (max-width:900px){
+    .content{grid-template-columns:1fr;gap:1rem;}
+  }
   .section-title{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.3rem;margin-bottom:.9rem;letter-spacing:.005em;color:var(--text);}
   .section-sub{font-size:.78rem;color:var(--text3);letter-spacing:.02em;margin-bottom:1.2rem;}
 
@@ -91,13 +95,20 @@
   .health-ho.low-perf{border-left:3px solid var(--coral);}
   .health-ho.high-perf{border-left:3px solid var(--teal);}
 
-  /* Tabs */
-  .tabs{display:flex;gap:.15rem;margin-bottom:1.5rem;border-bottom:1px solid var(--border);flex-wrap:wrap;}
-  .tab{background:none;border:none;color:var(--text2);padding:.65rem 1.1rem;font-family:inherit;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;position:relative;margin-bottom:-1px;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;font-weight:500;}
-  .tab:hover{color:var(--text);}
-  .tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+  /* Sidebar tabs (vertical navigation, sticks while scrolling the panel) */
+  .tabs{display:flex;flex-direction:column;gap:2px;position:sticky;top:1rem;padding-right:1rem;border-right:1px solid var(--border);align-self:start;}
+  .tab{background:none;border:none;color:var(--text2);padding:.7rem 1rem;font-family:inherit;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;text-align:left;border-left:2px solid transparent;border-radius:0 4px 4px 0;transition:color .15s,border-color .15s,background .15s;font-weight:500;width:100%;margin:0;line-height:1.35;}
+  .tab:hover{color:var(--text);background:rgba(180,138,30,.04);}
+  .tab.active{color:var(--gold);border-left-color:var(--gold);background:rgba(180,138,30,.07);}
   .tab-panel{display:none;}
   .tab-panel.active{display:block;}
+  /* Filter-chip variant is scoped to obl-filter; keep any legacy inline
+     look for those buttons if they ever re-appear. */
+  @media (max-width:900px){
+    .tabs{flex-direction:row;overflow-x:auto;position:static;padding-right:0;padding-bottom:0;border-right:none;border-bottom:1px solid var(--border);gap:.15rem;}
+    .tab{border-left:none;border-bottom:2px solid transparent;border-radius:4px 4px 0 0;padding:.6rem .9rem;flex-shrink:0;}
+    .tab.active{border-left-color:transparent;border-bottom-color:var(--gold);}
+  }
 
   /* Data tables */
   .data-tbl{background:var(--paper);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
@@ -214,6 +225,7 @@
       <button class="tab" data-tab="health">Home Office Health</button>
     </div>
 
+    <div class="content-main">
     <!-- Overview tab (default) -->
     <div id="tab-overview" class="tab-panel active">
       <div id="stats" class="stat-grid"></div>
@@ -309,6 +321,7 @@
       </div>
       <div id="health-view" class="health-hos"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
     </div>
+    </div><!-- /content-main -->
   </div>
 </div>
 
