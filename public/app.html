@@ -7080,8 +7080,39 @@ function reverseRun(id){
 }
 
 function delRun(id){
-  if(!confirm('Delete this draft?'))return;S.runs=S.runs.filter(r=>r.id!==id);
-  showView('payroll');renderPayrollList();
+  const r = S.runs.find(x => x.id === id);
+  if (!r) return;
+
+  // Guard: only drafts can be deleted. Posted runs must be reversed
+  // via reverseRun (or unposted first) so their salary + obligation
+  // trail is properly cancelled instead of silently orphaned.
+  if (r.status === 'posted') {
+    alert('This run is already posted. Use Reverse (on the run detail page) to cancel it — reversing preserves the audit trail and correctly zeroes out the associated obligations. Deleting it would orphan the salary records.');
+    return;
+  }
+
+  // Defensive cleanup: even though drafts don't create salary records
+  // in the current code, a prior version (or an interrupted sync) may
+  // have left rows tagged with this run's id behind. Remove them so
+  // computeAll doesn't pull them into partner-tithe totals after the
+  // run is gone.
+  const sourceTag = 'payroll-run-' + id;
+  const orphanCount = S.salaries.filter(s => s.source === sourceTag).length;
+  if (orphanCount > 0) {
+    S.salaries = S.salaries.filter(s => s.source !== sourceTag);
+    console.warn('[delRun] cleaned up ' + orphanCount + ' orphan salary record(s) tagged ' + sourceTag);
+  }
+
+  if (!confirm('Delete this draft? Any auto-generated lines will be discarded.')) return;
+  S.runs = S.runs.filter(x => x.id !== id);
+
+  // Rebuild obligations so partner-tithe totals reflect the removed
+  // salaries (if any orphans were cleaned up) and so pruning drops
+  // any obligation keys that only referenced this run.
+  if (typeof computeAll === 'function') computeAll();
+
+  showView('payroll');
+  renderPayrollList();
 }
 
 // Unpost a posted run: revert to draft AND remove any salary records it generated.
