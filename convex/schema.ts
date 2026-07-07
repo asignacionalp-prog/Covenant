@@ -73,6 +73,33 @@ export default defineSchema({
   }).index("by_token", ["token"]),
 
   // ─────────────────────────────────────────────────────────────
+  // CHURCHES — master accounts that see aggregate reports across
+  // one or more affiliated Home Office orgs. A church is NOT a user
+  // — it has its own auth via churchSessions. Home Offices affiliate
+  // by pasting the church's inviteCode into their Settings.
+  // ─────────────────────────────────────────────────────────────
+  churches: defineTable({
+    name: v.string(),
+    contactPerson: v.optional(v.string()),
+    email: v.string(),
+    passwordHash: v.string(),                 // PBKDF2 — same format as users
+    inviteCode: v.string(),                   // e.g. "TRUEVINE-9F2A" — CEOs paste this in Settings
+    createdAt: v.number(),
+    lastSignInAt: v.optional(v.number()),
+  })
+    .index("by_email", ["email"])
+    .index("by_inviteCode", ["inviteCode"]),
+
+  churchSessions: defineTable({
+    churchId: v.id("churches"),
+    sessionToken: v.string(),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_token", ["sessionToken"])
+    .index("by_church", ["churchId"]),
+
+  // ─────────────────────────────────────────────────────────────
   // ORGS + LICENSES + MEMBERSHIP
   // ─────────────────────────────────────────────────────────────
 
@@ -90,7 +117,14 @@ export default defineSchema({
     logo: v.optional(v.string()),  // base64 data URL — same as standalone
     createdAt: v.number(),         // ms epoch
     licenseId: v.optional(v.id("licenses")),
-  }),
+    /**
+     * If set, this Home Office has affiliated with the church and its
+     * aggregate + personnel data will show up in that church's dashboard.
+     * Set/unset by the CEO from Settings → Church affiliation.
+     */
+    churchId: v.optional(v.id("churches")),
+    churchAffiliatedAt: v.optional(v.number()),
+  }).index("by_church", ["churchId"]),
 
   /**
    * One row per ₱1,000 purchase. Created by the PayMongo webhook BEFORE

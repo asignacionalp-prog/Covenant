@@ -32,7 +32,66 @@ export const getMyOrg = query({
     if (!member) return null;
     const org = await ctx.db.get(member.orgId);
     if (!org) return null;
-    return { org, member };
+    // Include the church affiliation status so the Settings card can
+    // show "Affiliated with <ChurchName>" without a second round-trip.
+    let church = null as null | { name: string; inviteCode: string };
+    if (org.churchId) {
+      const c = await ctx.db.get(org.churchId);
+      if (c) church = { name: c.name, inviteCode: c.inviteCode };
+    }
+    return { org, member, church };
+  },
+});
+
+/**
+ * CEO-only: paste the church's invite code to affiliate this Home
+ * Office with a church. After this, the church's dashboard will show
+ * this org and its aggregate/personnel data.
+ */
+export const affiliateWithChurch = mutation({
+  args: { sessionToken: v.string(), inviteCode: v.string() },
+  handler: async (ctx, args) => {
+    const { user } = await requireSession(ctx, args.sessionToken);
+    const member = await ctx.db
+      .query("members")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+    if (!member) throw new Error("You don't belong to an organization yet.");
+    if (member.role !== "ceo") throw new Error("Only the CEO can affiliate with a church.");
+    const code = args.inviteCode.trim().toUpperCase();
+    if (!code) throw new Error("Enter the church's invite code.");
+    const church = await ctx.db
+      .query("churches")
+      .withIndex("by_inviteCode", (q) => q.eq("inviteCode", code))
+      .unique();
+    if (!church) throw new Error("Invite code not recognized. Check with your church for the exact code.");
+    await ctx.db.patch(member.orgId, {
+      churchId: church._id,
+      churchAffiliatedAt: Date.now(),
+    });
+    return { ok: true, churchName: church.name };
+  },
+});
+
+/**
+ * CEO-only: remove this Home Office's affiliation with a church.
+ * The church's dashboard immediately stops seeing this org.
+ */
+export const unaffiliateFromChurch = mutation({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const { user } = await requireSession(ctx, args.sessionToken);
+    const member = await ctx.db
+      .query("members")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+    if (!member) throw new Error("You don't belong to an organization yet.");
+    if (member.role !== "ceo") throw new Error("Only the CEO can remove church affiliation.");
+    await ctx.db.patch(member.orgId, {
+      churchId: undefined,
+      churchAffiliatedAt: undefined,
+    });
+    return { ok: true };
   },
 });
 

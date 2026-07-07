@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Church Access — Covenant</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Cardo:ital,wght@0,400;0,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --bg:#0D1729;--paper:#182238;--paper2:#1D2A48;--text:#F6F2E8;--text2:#D2B99B;--text3:#9A8264;
+    --gold:#B48A1E;--gold-bright:#D2A83E;--border:#374765;--border2:#556A8E;
+    --coral:#9C4859;--teal:#2B6438;
+  }
+  body{
+    font-family:'DM Sans','Inter','Helvetica Neue',system-ui,sans-serif;
+    background:var(--bg);color:var(--text);
+    line-height:1.55;min-height:100vh;
+    background-image:
+      radial-gradient(circle at 20% 30%,rgba(180,138,30,.05) 0%,transparent 40%),
+      radial-gradient(circle at 80% 70%,rgba(116,41,41,.035) 0%,transparent 40%);
+  }
+  /* Sign-in card */
+  .signin-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;}
+  .signin-card{max-width:440px;width:100%;padding:2.5rem 2rem;background:var(--paper);
+    border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 36px rgba(0,0,0,.35);}
+  .brand{display:flex;align-items:center;gap:.5rem;justify-content:center;margin-bottom:1.6rem;}
+  .cross{color:var(--gold);font-size:1.4rem;}
+  .brand h1{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.55rem;letter-spacing:.005em;}
+  h2{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.75rem;text-align:center;margin-bottom:.4rem;}
+  .sub{font-size:.82rem;color:var(--text2);text-align:center;margin-bottom:1.8rem;letter-spacing:.06em;text-transform:uppercase;}
+  label{display:block;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text2);margin-bottom:.4rem;}
+  input{width:100%;padding:11px 14px;background:rgba(246,242,232,.04);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:inherit;font-size:14px;outline:none;transition:border-color .2s;}
+  input:focus{border-color:var(--gold);}
+  .field + .field{margin-top:1rem;}
+  button{width:100%;margin-top:1.4rem;padding:13px;background:var(--gold);color:#0D1729;border:none;border-radius:5px;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:transform .18s,box-shadow .18s,opacity .18s;}
+  button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(180,138,30,.28);}
+  button:disabled{opacity:.5;cursor:wait;}
+  .msg{margin-top:1.2rem;padding:.8rem 1rem;border-radius:5px;font-size:.85rem;line-height:1.5;}
+  .msg.err{background:rgba(156,72,89,.16);border-left:3px solid var(--coral);color:#e8b0bb;}
+  .foot{margin-top:1.6rem;text-align:center;font-size:.78rem;color:var(--text2);font-style:italic;}
+  .foot a{color:var(--gold);text-decoration:none;}
+  .verse{font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold);font-size:.9rem;text-align:center;margin-top:1.4rem;letter-spacing:.02em;}
+
+  /* Dashboard */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 2rem;border-bottom:1px solid var(--border);background:var(--paper);}
+  .topbar-brand{display:flex;align-items:center;gap:.55rem;}
+  .topbar-brand h1{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.4rem;letter-spacing:.005em;}
+  .topbar-brand .sub{font-family:inherit;font-size:.68rem;letter-spacing:.24em;color:var(--text3);text-transform:uppercase;margin:0;padding-left:.6rem;border-left:1px solid var(--border);}
+  .topbar-right{display:flex;align-items:center;gap:1rem;}
+  .who{font-size:.78rem;color:var(--text2);text-align:right;line-height:1.35;}
+  .who strong{color:var(--text);}
+  .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);padding:7px 14px;border-radius:5px;font-family:inherit;font-size:12px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:border-color .18s,color .18s;width:auto;margin:0;}
+  .btn-ghost:hover{border-color:var(--gold);color:var(--gold);box-shadow:none;transform:none;}
+  .content{max-width:1180px;margin:0 auto;padding:2rem;}
+  .section-title{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.3rem;margin-bottom:.9rem;letter-spacing:.005em;color:var(--text);}
+  .section-sub{font-size:.78rem;color:var(--text3);letter-spacing:.02em;margin-bottom:1.2rem;}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem;}
+  .stat{background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:1rem 1.15rem;position:relative;overflow:hidden;}
+  .stat::before{content:'';position:absolute;top:0;left:0;width:100%;height:2px;background:var(--gold);opacity:.5;}
+  .stat-label{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:12.5px;color:var(--text2);letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px;}
+  .stat-value{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:500;color:var(--text);line-height:1.05;font-feature-settings:"tnum";}
+  .stat-sub{font-size:11.5px;color:var(--text3);margin-top:4px;letter-spacing:.02em;}
+
+  .chart-card{background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:1rem 1.15rem;margin-bottom:2rem;}
+  .chart-svg{width:100%;height:auto;display:block;max-height:140px;}
+  .chart-svg-tick{font-size:9px;fill:var(--text3);font-family:'DM Sans',sans-serif;}
+  .chart-svg-label{font-size:10px;fill:var(--text2);font-family:'DM Sans',sans-serif;letter-spacing:.02em;}
+
+  /* HO table */
+  .ho-table{background:var(--paper);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  .ho-row{display:grid;grid-template-columns:2fr 1fr 1fr 1.2fr 1.2fr 32px;align-items:center;padding:.85rem 1.15rem;gap:1rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
+  .ho-row.hdr{background:rgba(180,138,30,.06);cursor:default;font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);}
+  .ho-row:not(.hdr):hover{background:rgba(180,138,30,.05);}
+  .ho-name{font-weight:500;color:var(--text);}
+  .ho-num{font-family:inherit;font-feature-settings:"tnum";font-size:.9rem;color:var(--text2);}
+  .ho-num strong{color:var(--text);}
+  .ho-chev{font-size:14px;color:var(--text3);transition:transform .18s;}
+  .ho-row.expanded .ho-chev{transform:rotate(90deg);color:var(--gold);}
+  .ho-detail{grid-column:1/-1;padding:1.1rem 0 .35rem;font-size:.88rem;color:var(--text2);border-top:1px dashed var(--border);}
+  .ho-detail h4{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.05rem;color:var(--text);margin:0 0 .5rem;letter-spacing:.005em;}
+  .ho-detail .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem;}
+  .ho-detail table{width:100%;border-collapse:collapse;font-size:.82rem;}
+  .ho-detail th{text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);}
+  .ho-detail td{padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.5);color:var(--text2);}
+  .ho-detail td.name{color:var(--text);}
+  .pct-badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:500;letter-spacing:.02em;background:rgba(43,100,56,.18);color:#a8d6b3;}
+  .pct-badge.low{background:rgba(156,72,89,.18);color:#e8b0bb;}
+  .pct-badge.mid{background:rgba(180,138,30,.15);color:var(--gold-bright);}
+  .empty-state{padding:2rem 1rem;text-align:center;color:var(--text3);font-style:italic;}
+  .empty-hint{margin-top:.6rem;font-style:normal;font-size:.8rem;letter-spacing:.02em;}
+  .empty-hint code{font-family:'SFMono-Regular',Consolas,monospace;background:rgba(180,138,30,.12);padding:2px 6px;border-radius:3px;color:var(--gold-bright);}
+  /* Signed-in view begins hidden until we know the session's real */
+  #dash-view{display:none;}
+</style>
+</head>
+<body>
+
+<!-- SIGN-IN VIEW -->
+<div id="signin-view" class="signin-wrap">
+  <div class="signin-card">
+    <div class="brand"><span class="cross">✝</span><h1>Covenant · Church Access</h1></div>
+    <h2>Master account sign-in</h2>
+    <p class="sub">FOR CHURCHES OVERSEEING HOME OFFICES</p>
+    <form id="signin-form">
+      <div class="field">
+        <label for="church-email">Email</label>
+        <input type="email" id="church-email" required autocomplete="email"/>
+      </div>
+      <div class="field">
+        <label for="church-password">Password</label>
+        <input type="password" id="church-password" required autocomplete="current-password"/>
+      </div>
+      <button type="submit" id="church-signin-btn">Sign in</button>
+    </form>
+    <div class="msg err" id="signin-err" style="display:none;"></div>
+    <p class="verse">"Feed my sheep." — John 21:17</p>
+    <div class="foot">Home Office CEO? Go to <a href="/signin.html">/signin.html</a> instead.</div>
+  </div>
+</div>
+
+<!-- DASHBOARD VIEW -->
+<div id="dash-view">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <span class="cross">✝</span>
+      <h1 id="church-name">Loading…</h1>
+      <span class="sub">Church Access</span>
+    </div>
+    <div class="topbar-right">
+      <div class="who">
+        <strong id="church-email-display"></strong><br/>
+        Invite code: <code id="church-invite-code" style="background:rgba(180,138,30,.12);padding:1px 6px;border-radius:3px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;color:var(--gold-bright);"></code>
+      </div>
+      <button class="btn-ghost" id="signout-btn">Sign out</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div id="stats" class="stat-grid"></div>
+    <div class="chart-card">
+      <div class="section-title" style="margin-bottom:.35rem;">Remittances — last 12 months</div>
+      <div class="section-sub">Total received across every affiliated Home Office, per month.</div>
+      <div id="remit-chart"></div>
+    </div>
+
+    <div class="section-title" style="margin-top:.5rem;">Affiliated Home Offices</div>
+    <div class="section-sub">Click any row to see partners, clients, and this month's devotion + attendance.</div>
+    <div id="ho-table" class="ho-table"></div>
+  </div>
+</div>
+
+<script type="module">
+  const CONVEX_URL = 'https://standing-quail-556.convex.cloud';
+  const SESSION_KEY = 'covenantChurchSession';
+
+  const { ConvexClient } = await import('https://esm.sh/convex@1.17/browser');
+  const client = new ConvexClient(CONVEX_URL);
+
+  // ─── Session state ──────────────────────────────────────
+  let sessionToken = localStorage.getItem(SESSION_KEY) || null;
+
+  function fmt(n){ if (typeof n !== 'number' || !isFinite(n)) return '—'; return '₱' + n.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function fmtInt(n){ return (n || 0).toLocaleString(); }
+
+  // ─── Views ──────────────────────────────────────────────
+  function showSignin(){
+    document.getElementById('signin-view').style.display = '';
+    document.getElementById('dash-view').style.display = 'none';
+  }
+  function showDash(){
+    document.getElementById('signin-view').style.display = 'none';
+    document.getElementById('dash-view').style.display = '';
+  }
+
+  // ─── Sign-in flow ───────────────────────────────────────
+  document.getElementById('signin-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('church-email').value.trim();
+    const password = document.getElementById('church-password').value;
+    const btn = document.getElementById('church-signin-btn');
+    const err = document.getElementById('signin-err');
+    err.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    try {
+      const res = await client.mutation('church:signInChurch', { email, password });
+      sessionToken = res.sessionToken;
+      localStorage.setItem(SESSION_KEY, sessionToken);
+      await bootDashboard();
+    } catch (e) {
+      err.textContent = e.message || 'Sign-in failed.';
+      err.style.display = '';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Sign in';
+    }
+  });
+
+  document.getElementById('signout-btn').addEventListener('click', async () => {
+    try { await client.mutation('church:signOutChurch', { sessionToken }); } catch {}
+    localStorage.removeItem(SESSION_KEY);
+    sessionToken = null;
+    showSignin();
+  });
+
+  // ─── SVG chart helpers ──────────────────────────────────
+  function svgBar(bars, color){
+    const W = 720, H = 140, padL = 30, padR = 10, padT = 10, padB = 22;
+    const cw = W - padL - padR, ch = H - padT - padB;
+    const n = bars.length || 1;
+    const gap = 6;
+    const barW = Math.max(2, (cw - gap*(n-1)) / n);
+    const max = Math.max(1, ...bars.map(b => b.value || 0));
+    const rects = bars.map((b, i) => {
+      const x = padL + i*(barW + gap);
+      const bh = Math.max(1, (b.value/max)*ch);
+      const y = padT + ch - bh;
+      return '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+barW.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="1.5" fill="'+color+'" opacity="'+(b.value>0?0.9:0.15)+'"><title>'+b.label+': '+fmt(b.value)+'</title></rect>';
+    }).join('');
+    const labels = bars.map((b, i) => {
+      const x = padL + i*(barW + gap) + barW/2;
+      return '<text class="chart-svg-tick" x="'+x.toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+b.label+'</text>';
+    }).join('');
+    const yTop = padT+4, yMid = padT+ch/2+4, yBot = padT+ch+4;
+    const axis = '<line x1="'+padL+'" x2="'+(W-padR)+'" y1="'+(padT+ch)+'" y2="'+(padT+ch)+'" stroke="var(--border)" stroke-width="0.5"/>' +
+                 '<line x1="'+padL+'" x2="'+(W-padR)+'" y1="'+(padT+ch/2)+'" y2="'+(padT+ch/2)+'" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.5"/>';
+    return '<svg class="chart-svg" viewBox="0 0 '+W+' '+H+'">'+axis+rects+labels+'</svg>';
+  }
+
+  // ─── Boot ───────────────────────────────────────────────
+  async function bootDashboard(){
+    if (!sessionToken) { showSignin(); return; }
+    try {
+      const me = await client.query('church:getMyChurch', { sessionToken });
+      if (!me) { localStorage.removeItem(SESSION_KEY); sessionToken = null; showSignin(); return; }
+      showDash();
+      document.getElementById('church-name').textContent = me.name;
+      document.getElementById('church-email-display').textContent = me.email;
+      document.getElementById('church-invite-code').textContent = me.inviteCode;
+      await loadOverview();
+      await loadHOTable();
+    } catch (e) {
+      console.error('[church] boot failed:', e);
+      localStorage.removeItem(SESSION_KEY);
+      sessionToken = null;
+      showSignin();
+    }
+  }
+
+  async function loadOverview(){
+    const o = await client.query('church:overview', { sessionToken });
+    const monthShort = (k) => {
+      const [y, m] = k.split('-').map(Number);
+      return new Date(y, m-1, 1).toLocaleString('default', { month: 'short' });
+    };
+    const bars = o.remitByMonth.map(x => ({ label: monthShort(x.month), value: x.value }));
+    document.getElementById('remit-chart').innerHTML = svgBar(bars, 'var(--gold)');
+    document.getElementById('stats').innerHTML = `
+      <div class="stat"><div class="stat-label">Affiliated Home Offices</div><div class="stat-value">${fmtInt(o.affiliatedCount)}</div><div class="stat-sub">Sharing reports with your church</div></div>
+      <div class="stat"><div class="stat-label">Total remitted</div><div class="stat-value">${fmt(o.totalRemitted)}</div><div class="stat-sub">All-time, all Home Offices</div></div>
+      <div class="stat"><div class="stat-label">Still owed</div><div class="stat-value">${fmt(o.totalOwed)}</div><div class="stat-sub">Active obligations across HOs</div></div>
+      <div class="stat"><div class="stat-label">Ministry footprint</div><div class="stat-value">${fmtInt(o.activePartners)}</div><div class="stat-sub">Active partners · ${fmtInt(o.totalClients)} clients</div></div>
+    `;
+  }
+
+  async function loadHOTable(){
+    const rows = await client.query('church:byHomeOffice', { sessionToken });
+    const wrap = document.getElementById('ho-table');
+    if (!rows.length) {
+      wrap.innerHTML = `<div class="empty-state">
+        No Home Offices have affiliated with your church yet.
+        <div class="empty-hint">Share your invite code — <code id="empty-code"></code> — with a Home Office CEO. They can paste it in Settings → Church affiliation.</div>
+      </div>`;
+      // Populate the invite code in the empty state
+      const codeEl = document.getElementById('empty-code');
+      const me = await client.query('church:getMyChurch', { sessionToken });
+      if (me && codeEl) codeEl.textContent = me.inviteCode;
+      return;
+    }
+    const hdr = `<div class="ho-row hdr">
+      <div>Home Office</div>
+      <div>Partners</div>
+      <div>Clients</div>
+      <div>Remitted</div>
+      <div>Owed</div>
+      <div></div>
+    </div>`;
+    const body = rows.map((r, i) => `
+      <div class="ho-row" data-idx="${i}" data-orgid="${r.orgId}">
+        <div class="ho-name">${r.name}</div>
+        <div class="ho-num"><strong>${fmtInt(r.activePartners)}</strong>${r.totalPartners !== r.activePartners ? ' <span style="color:var(--text3);">/ '+fmtInt(r.totalPartners)+'</span>' : ''}</div>
+        <div class="ho-num"><strong>${fmtInt(r.activeClients)}</strong>${r.totalClients !== r.activeClients ? ' <span style="color:var(--text3);">/ '+fmtInt(r.totalClients)+'</span>' : ''}</div>
+        <div class="ho-num" style="color:#a8d6b3;">${fmt(r.totalRemitted)}</div>
+        <div class="ho-num" style="color:${r.totalOwed>0.01?'#e8b0bb':'var(--text3)'};">${fmt(r.totalOwed)}</div>
+        <div class="ho-chev">›</div>
+      </div>
+    `).join('');
+    wrap.innerHTML = hdr + body;
+    // Wire click-to-expand
+    wrap.querySelectorAll('.ho-row:not(.hdr)').forEach(el => {
+      el.addEventListener('click', () => toggleExpand(el));
+    });
+  }
+
+  async function toggleExpand(el){
+    if (el.classList.contains('expanded')) {
+      // Collapse
+      el.classList.remove('expanded');
+      const next = el.nextElementSibling;
+      if (next && next.classList.contains('ho-detail-wrap')) next.remove();
+      return;
+    }
+    // Expand — collapse siblings first for a single-open-at-a-time UX
+    document.querySelectorAll('.ho-row.expanded').forEach(sib => {
+      sib.classList.remove('expanded');
+      const wnext = sib.nextElementSibling;
+      if (wnext && wnext.classList.contains('ho-detail-wrap')) wnext.remove();
+    });
+    el.classList.add('expanded');
+    const orgId = el.dataset.orgid;
+    // Insert a loading placeholder immediately so the click feels responsive
+    const placeholder = document.createElement('div');
+    placeholder.className = 'ho-detail-wrap';
+    placeholder.innerHTML = `<div class="ho-detail" style="padding:1.1rem 1.15rem;">Loading detail…</div>`;
+    el.parentNode.insertBefore(placeholder, el.nextSibling);
+    try {
+      const d = await client.query('church:homeOfficeDetail', { sessionToken, orgId });
+      placeholder.innerHTML = renderDetail(d);
+    } catch (e) {
+      placeholder.innerHTML = `<div class="ho-detail" style="padding:1.1rem 1.15rem;color:#e8b0bb;">Could not load detail: ${e.message || e}</div>`;
+    }
+  }
+
+  function pctBadge(pct){
+    if (pct == null) return '<span class="pct-badge" style="background:rgba(154,130,100,.15);color:var(--text3);">—</span>';
+    const cls = pct >= 80 ? '' : (pct >= 50 ? 'mid' : 'low');
+    return `<span class="pct-badge ${cls}">${pct}%</span>`;
+  }
+
+  function renderDetail(d){
+    const monthLabel = (() => {
+      const [y, m] = d.monthKey.split('-').map(Number);
+      return new Date(y, m-1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+    })();
+    const partnersHtml = d.partners.length
+      ? `<table>
+          <thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Devotion</th><th>Attendance</th></tr></thead>
+          <tbody>${d.partners.map(p => `
+            <tr>
+              <td class="name">${p.name}</td>
+              <td>${p.role || '—'}</td>
+              <td>${p.status}</td>
+              <td>${pctBadge(p.devotionPct)}${p.devotionDaysLogged > 0 ? ` <span style="color:var(--text3);font-size:11px;">${p.devotionDays}/${p.devotionDaysLogged}d</span>` : ''}</td>
+              <td>${pctBadge(p.attendancePct)}</td>
+            </tr>
+          `).join('')}</tbody>
+        </table>`
+      : `<div style="color:var(--text3);font-style:italic;padding:.4rem 0;">No partners recorded.</div>`;
+
+    const clientsHtml = d.clients.length
+      ? `<table>
+          <thead><tr><th>Name</th><th>Type</th><th>Status</th></tr></thead>
+          <tbody>${d.clients.map(c => `
+            <tr>
+              <td class="name">${c.name}</td>
+              <td>${c.type}</td>
+              <td>${c.status}</td>
+            </tr>
+          `).join('')}</tbody>
+        </table>`
+      : `<div style="color:var(--text3);font-style:italic;padding:.4rem 0;">No clients recorded.</div>`;
+
+    const remitsHtml = d.recentRemits.length
+      ? `<table>
+          <thead><tr><th>Date</th><th style="text-align:right;">Amount</th><th>Mode</th><th>Ref</th></tr></thead>
+          <tbody>${d.recentRemits.map(r => `
+            <tr>
+              <td class="name">${r.dt}</td>
+              <td style="text-align:right;font-feature-settings:'tnum';">${fmt(r.amount)}</td>
+              <td>${r.mode}</td>
+              <td style="color:var(--text3);font-style:italic;">${r.reference || '—'}</td>
+            </tr>
+          `).join('')}</tbody>
+        </table>`
+      : `<div style="color:var(--text3);font-style:italic;padding:.4rem 0;">No remittances yet.</div>`;
+
+    return `<div class="ho-detail" style="padding:1.1rem 1.15rem;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div style="background:var(--paper2);border:1px solid var(--border);border-radius:5px;padding:.75rem 1rem;">
+          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--text2);font-size:.85rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px;">Team devotion — ${monthLabel}</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--text);font-feature-settings:'tnum';">${d.teamDevotionPct != null ? d.teamDevotionPct + '%' : '—'}</div>
+        </div>
+        <div style="background:var(--paper2);border:1px solid var(--border);border-radius:5px;padding:.75rem 1rem;">
+          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--text2);font-size:.85rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px;">Team attendance — ${monthLabel}</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--text);font-feature-settings:'tnum';">${d.teamAttendancePct != null ? d.teamAttendancePct + '%' : '—'}</div>
+        </div>
+      </div>
+      <div class="row">
+        <div style="grid-column:1/3;">
+          <h4>Partners (${d.partners.length})</h4>
+          ${partnersHtml}
+        </div>
+        <div>
+          <h4>Clients (${d.clients.length})</h4>
+          ${clientsHtml}
+        </div>
+      </div>
+      <div>
+        <h4>Recent remittances</h4>
+        ${remitsHtml}
+      </div>
+    </div>`;
+  }
+
+  // ─── Init ───────────────────────────────────────────────
+  if (sessionToken) {
+    await bootDashboard();
+  } else {
+    showSignin();
+  }
+</script>
+</body>
+</html>

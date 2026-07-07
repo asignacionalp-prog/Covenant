@@ -2281,6 +2281,25 @@ body{
         </div>
       </div>
 
+      <div class="card" id="church-card" style="border:1px solid var(--border);">
+        <div class="card-section-title">Church affiliation</div>
+        <div class="info-box" style="background:rgba(180,138,30,.06);border-left-color:var(--gold);">
+          <strong>Reporting to a church?</strong> Paste the church's invite code and this Home Office's aggregate + personnel data will appear in that church's dashboard. Individual salary and payment amounts stay private to you.
+        </div>
+        <div id="church-status" style="margin:1rem 0;font-size:13px;color:var(--text2);"></div>
+        <div class="f2" style="margin-top:1rem;">
+          <div class="fr">
+            <label>Church invite code</label>
+            <input type="text" id="church-invite-input" placeholder="e.g. TRUEVINE-9F2A" style="text-transform:uppercase;letter-spacing:.04em;font-family:'SFMono-Regular',Consolas,monospace;"/>
+          </div>
+          <div class="fr" style="display:flex;align-items:flex-end;gap:8px;">
+            <button class="btn btn-dark" onclick="affiliateChurch()">Affiliate</button>
+            <button class="btn btn-red" onclick="unaffiliateChurch()" id="church-unaffiliate-btn" style="display:none;">Remove affiliation</button>
+          </div>
+        </div>
+        <div id="church-msg" style="margin-top:.8rem;font-size:13px;font-style:italic;"></div>
+      </div>
+
       <div class="card" id="migration-card" style="border:1px solid var(--gold-soft);">
         <div class="card-section-title">Migration &amp; Bulk Import</div>
         <div class="info-box" style="background:rgba(201,162,39,.06);border-left-color:var(--gold);">
@@ -8054,6 +8073,81 @@ function renderSettings(){
     safe(() => { document.getElementById('cfg-api-key').value = S.apiKey || ''; }, 'cfg-api-key');
   }
   safe(renderTimeTrackerPins, 'renderTimeTrackerPins');
+  // Only the CEO can affiliate this Home Office with a church.
+  safe(() => {
+    const card = document.getElementById('church-card');
+    if (card) card.style.display = isCeo ? '' : 'none';
+    if (isCeo) renderChurchAffiliation();
+  }, 'church-card');
+}
+
+// ─── Church affiliation ─────────────────────────────────
+// Fetches current affiliation from Convex (via the bridge's getMyOrg
+// query) and renders the status. Buttons call the affiliate /
+// unaffiliate mutations directly through the bridge.
+
+async function renderChurchAffiliation(){
+  const statusEl = document.getElementById('church-status');
+  const unafBtn = document.getElementById('church-unaffiliate-btn');
+  const inputEl = document.getElementById('church-invite-input');
+  if (!statusEl || !window.__covClient || !window.__covSessionToken) {
+    if (statusEl) statusEl.innerHTML = '<em>Sign-in required to load affiliation status.</em>';
+    return;
+  }
+  try {
+    const me = await window.__covClient.query('orgs:getMyOrg', { sessionToken: window.__covSessionToken });
+    if (me && me.church) {
+      statusEl.innerHTML = 'Currently affiliated with <strong style="color:var(--gold);">' + me.church.name +
+        '</strong> (invite code <code style="background:rgba(180,138,30,.12);padding:1px 6px;border-radius:3px;font-family:\'SFMono-Regular\',Consolas,monospace;font-size:12px;color:var(--gold);">' + me.church.inviteCode + '</code>).';
+      if (unafBtn) unafBtn.style.display = '';
+      if (inputEl) { inputEl.value = ''; inputEl.placeholder = 'Enter a different code to re-affiliate'; }
+    } else {
+      statusEl.innerHTML = '<em>Not currently affiliated with any church. Paste a church\'s invite code below to opt in.</em>';
+      if (unafBtn) unafBtn.style.display = 'none';
+    }
+  } catch (e) {
+    statusEl.innerHTML = '<em style="color:var(--coral);">Could not load affiliation status: ' + (e && e.message || e) + '</em>';
+  }
+}
+
+async function affiliateChurch(){
+  const inputEl = document.getElementById('church-invite-input');
+  const msgEl = document.getElementById('church-msg');
+  const code = (inputEl.value || '').trim().toUpperCase();
+  if (!code) { msgEl.textContent = 'Enter the church\'s invite code first.'; msgEl.style.color = 'var(--coral)'; return; }
+  if (!window.__covClient || !window.__covSessionToken) {
+    msgEl.textContent = 'Bridge not ready — refresh the page and try again.';
+    msgEl.style.color = 'var(--coral)';
+    return;
+  }
+  msgEl.textContent = 'Affiliating…'; msgEl.style.color = 'var(--text2)';
+  try {
+    const res = await window.__covClient.mutation('orgs:affiliateWithChurch', { sessionToken: window.__covSessionToken, inviteCode: code });
+    msgEl.textContent = 'Affiliated with ' + res.churchName + '. Their dashboard will now include your Home Office.';
+    msgEl.style.color = 'var(--teal)';
+    await renderChurchAffiliation();
+  } catch (e) {
+    msgEl.textContent = e && e.message || String(e);
+    msgEl.style.color = 'var(--coral)';
+  }
+}
+
+async function unaffiliateChurch(){
+  const msgEl = document.getElementById('church-msg');
+  if (!confirm('Remove this Home Office\'s church affiliation? The church will immediately stop seeing your data.')) return;
+  if (!window.__covClient || !window.__covSessionToken) {
+    msgEl.textContent = 'Bridge not ready — refresh the page and try again.';
+    msgEl.style.color = 'var(--coral)';
+    return;
+  }
+  try {
+    await window.__covClient.mutation('orgs:unaffiliateFromChurch', { sessionToken: window.__covSessionToken });
+    msgEl.textContent = 'Affiliation removed.'; msgEl.style.color = 'var(--teal)';
+    await renderChurchAffiliation();
+  } catch (e) {
+    msgEl.textContent = e && e.message || String(e);
+    msgEl.style.color = 'var(--coral)';
+  }
 }
 
 // ============================================================
@@ -13767,6 +13861,10 @@ applyAnimation();
     return;
   }
   const client = new ConvexClient(CONVEX_URL);
+  // Exposed for feature code (church affiliation, etc.) that needs to
+  // call Convex directly outside the diff-sync flush cycle.
+  window.__covClient = client;
+  window.__covSessionToken = sessionToken;
 
   // ─── HYDRATE S FROM CONVEX ───────────────────────────────
   let snapshot;
