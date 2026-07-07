@@ -571,6 +571,54 @@ body.theme-dark .btn-link{color:var(--gold-pale);}
 .acc-blue::before{background:var(--sapphire);}
 .acc-coral::before{background:var(--burgundy);}
 .acc-green::before{background:var(--emerald);}
+
+/* Dashboard chart card — clickable tile */
+.dash-card{
+  background:var(--paper);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:1.15rem 1.25rem 1rem;
+  box-shadow:var(--shadow);
+  cursor:pointer;
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  position:relative;
+  overflow:hidden;
+  min-height:200px;
+  display:flex;flex-direction:column;
+}
+.dash-card::before{
+  content:'';position:absolute;top:0;left:0;width:100%;height:2px;
+  background:var(--gold);opacity:.55;
+  transition:opacity .18s ease;
+}
+.dash-card:hover{
+  transform:translateY(-2px);
+  border-color:var(--border2);
+  box-shadow:var(--shadow-md);
+}
+.dash-card:hover::before{opacity:1;}
+.dash-card-hdr{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:1rem;margin-bottom:.75rem;
+}
+.dash-card-title{
+  font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;
+  font-size:19px;color:var(--text);letter-spacing:-.005em;
+  line-height:1.15;
+}
+.dash-card-sub{
+  font-size:12.5px;font-weight:500;color:var(--text2);
+  letter-spacing:.01em;margin-top:4px;font-feature-settings:"tnum";
+}
+.dash-card-arrow{
+  color:var(--text3);font-size:16px;line-height:1;
+  transition:color .18s ease, transform .18s ease;
+}
+.dash-card:hover .dash-card-arrow{color:var(--gold);transform:translateX(2px);}
+.dash-svg{width:100%;height:auto;display:block;}
+.dash-svg-tick{font-size:10px;fill:var(--text3);font-family:'DM Sans',sans-serif;}
+.dash-svg-label{font-size:11px;fill:var(--text2);font-family:'DM Sans',sans-serif;letter-spacing:.02em;}
+.dash-svg-value{font-size:11px;fill:var(--text);font-family:'DM Sans',sans-serif;font-weight:500;font-feature-settings:"tnum";}
 .acc-purple::before{background:var(--purple);}
 .acc-gray::before{background:var(--text3);opacity:.5;}
 
@@ -1632,11 +1680,66 @@ body{
     <div id="view-dashboard" class="view active">
       <div class="page-hdr"><div><div class="page-title">Dashboard</div><div class="page-sub" id="dash-date"></div></div></div>
       <div id="verse-of-day" class="verse-card"></div>
-      <div class="stat-grid" id="dash-stats"></div>
+
+      <!-- Row 1: two wide chart cards -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-        <div class="card"><div class="card-title">Attendance this month</div><div id="dash-att"></div></div>
-        <div class="card"><div class="card-title">Devotion this month</div><div id="dash-dev"></div></div>
+        <div class="dash-card" onclick="dashNav('payments')" title="Click to view Payments">
+          <div class="dash-card-hdr">
+            <div>
+              <div class="dash-card-title">Payments received</div>
+              <div class="dash-card-sub" id="dash-pay-sub"></div>
+            </div>
+            <div class="dash-card-arrow">→</div>
+          </div>
+          <div id="dash-pay-chart"></div>
+        </div>
+        <div class="dash-card" onclick="dashNav('salaries')" title="Click to view Salaries">
+          <div class="dash-card-hdr">
+            <div>
+              <div class="dash-card-title">Salaries paid</div>
+              <div class="dash-card-sub" id="dash-sal-sub"></div>
+            </div>
+            <div class="dash-card-arrow">→</div>
+          </div>
+          <div id="dash-sal-chart"></div>
+        </div>
       </div>
+
+      <!-- Row 2: three smaller chart cards -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+        <div class="dash-card" onclick="dashNav('obligations')" title="Click to view Obligations">
+          <div class="dash-card-hdr">
+            <div>
+              <div class="dash-card-title">Obligations owed</div>
+              <div class="dash-card-sub" id="dash-obl-sub"></div>
+            </div>
+            <div class="dash-card-arrow">→</div>
+          </div>
+          <div id="dash-obl-chart"></div>
+        </div>
+        <div class="dash-card" onclick="dashNav('remittance')" title="Click to view Remittances">
+          <div class="dash-card-hdr">
+            <div>
+              <div class="dash-card-title">Remittances</div>
+              <div class="dash-card-sub" id="dash-rem-sub"></div>
+            </div>
+            <div class="dash-card-arrow">→</div>
+          </div>
+          <div id="dash-rem-chart"></div>
+        </div>
+        <div class="dash-card" onclick="dashNav('devotion')" title="Click to view Devotion">
+          <div class="dash-card-hdr">
+            <div>
+              <div class="dash-card-title">Team wellness</div>
+              <div class="dash-card-sub" id="dash-well-sub"></div>
+            </div>
+            <div class="dash-card-arrow">→</div>
+          </div>
+          <div id="dash-well-chart"></div>
+        </div>
+      </div>
+
+      <!-- Row 3: pending obligations shortlist + recent payroll -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
         <div class="card"><div class="card-title">Pending obligations</div><div id="dash-obl"></div></div>
         <div class="card"><div class="card-title">Recent payroll</div><div id="dash-payroll"></div></div>
@@ -3180,19 +3283,235 @@ function seedAtt(){
 // ============================================================
 // DASHBOARD
 // ============================================================
+// ─── DASHBOARD CHART HELPERS ─────────────────────────────
+// All charts are self-contained inline SVG so they inherit palette
+// via CSS vars (currentColor / fill=var(--gold)). No external libs.
+
+// Programmatic sidebar navigation — mirrors navTo() without needing
+// a nav-item element to click. Used by dash-card onclick handlers.
+function dashNav(view){
+  const el = document.querySelector('.nav-item[data-view="' + view + '"]');
+  if (el) { navTo(el); return; }
+  // Fallback if the sidebar item is not in the DOM for this role
+  showView(view);
+}
+
+// Vertical bar chart. `bars` is [{label, value}]. `opts.color` is a
+// CSS color string; defaults to var(--gold). Returns an SVG string.
+function svgBarChart(bars, opts){
+  opts = opts || {};
+  const W = 480, H = 150, padL = 8, padR = 8, padT = 12, padB = 22;
+  const cw = W - padL - padR;
+  const ch = H - padT - padB;
+  const n = bars.length || 1;
+  const gap = 4;
+  const barW = Math.max(2, (cw - gap*(n-1)) / n);
+  const max = Math.max(1, ...bars.map(b => b.value || 0));
+  const color = opts.color || 'var(--gold)';
+  const yFor = v => padT + ch - (v/max)*ch;
+  const rects = bars.map((b, i) => {
+    const x = padL + i*(barW + gap);
+    const bh = Math.max(1, (b.value/max)*ch);
+    const y = padT + ch - bh;
+    return '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+barW.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="1.5" fill="'+color+'" opacity="'+ (b.value>0?0.85:0.15) +'"><title>'+ (b.label||'') +': ' + fmt(b.value||0) + '</title></rect>';
+  }).join('');
+  // Label every other bar to prevent crowding on 12-month charts
+  const step = n > 8 ? 2 : 1;
+  const xLabels = bars.map((b, i) => {
+    if (i % step !== 0) return '';
+    const x = padL + i*(barW + gap) + barW/2;
+    return '<text class="dash-svg-tick" x="'+x.toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+ (b.label||'') +'</text>';
+  }).join('');
+  const axis = '<line x1="'+padL+'" x2="'+(W-padR)+'" y1="'+(padT+ch)+'" y2="'+(padT+ch)+'" stroke="var(--border)" stroke-width="0.5"/>';
+  return '<svg class="dash-svg" viewBox="0 0 '+W+' '+H+'" role="img">'+axis+rects+xLabels+'</svg>';
+}
+
+// Donut chart. `segments` is [{label, value, color}]. Returns SVG string.
+function svgDonut(segments, opts){
+  opts = opts || {};
+  const W = 240, H = 150;
+  const cx = 70, cy = H/2, rOut = 55, rIn = 34;
+  const total = segments.reduce((a, s) => a + Math.max(0, s.value||0), 0);
+  const center = opts.centerLabel || '';
+  const centerSub = opts.centerSub || '';
+  if (total <= 0) {
+    return '<svg class="dash-svg" viewBox="0 0 '+W+' '+H+'"><circle cx="'+cx+'" cy="'+cy+'" r="'+rOut+'" fill="none" stroke="var(--border)" stroke-width="'+(rOut-rIn)+'"/><text x="'+cx+'" y="'+(cy+4)+'" text-anchor="middle" class="dash-svg-label" font-style:italic>—</text></svg>';
+  }
+  let angle = -Math.PI/2; // start at 12 o'clock
+  const arcs = segments.map(s => {
+    const v = Math.max(0, s.value||0);
+    if (v <= 0) return '';
+    const frac = v/total;
+    const a2 = angle + frac * Math.PI * 2;
+    const large = frac > 0.5 ? 1 : 0;
+    const x1 = cx + rOut*Math.cos(angle), y1 = cy + rOut*Math.sin(angle);
+    const x2 = cx + rOut*Math.cos(a2),    y2 = cy + rOut*Math.sin(a2);
+    const x3 = cx + rIn *Math.cos(a2),    y3 = cy + rIn *Math.sin(a2);
+    const x4 = cx + rIn *Math.cos(angle), y4 = cy + rIn *Math.sin(angle);
+    const path = 'M '+x1.toFixed(2)+' '+y1.toFixed(2)+' A '+rOut+' '+rOut+' 0 '+large+' 1 '+x2.toFixed(2)+' '+y2.toFixed(2)+' L '+x3.toFixed(2)+' '+y3.toFixed(2)+' A '+rIn+' '+rIn+' 0 '+large+' 0 '+x4.toFixed(2)+' '+y4.toFixed(2)+' Z';
+    angle = a2;
+    return '<path d="'+path+'" fill="'+(s.color||'var(--gold)')+'" opacity="0.9"><title>'+s.label+': '+fmt(v)+'</title></path>';
+  }).join('');
+  const centerHtml = center
+    ? '<text x="'+cx+'" y="'+(cy-2)+'" text-anchor="middle" class="dash-svg-value" font-size="14" font-weight="600">'+center+'</text>' +
+      (centerSub ? '<text x="'+cx+'" y="'+(cy+13)+'" text-anchor="middle" class="dash-svg-tick">'+centerSub+'</text>' : '')
+    : '';
+  // Legend on the right
+  const legendX = 155;
+  const legend = segments.filter(s => (s.value||0) > 0).slice(0, 4).map((s, i) => {
+    const y = 30 + i*22;
+    return '<rect x="'+legendX+'" y="'+(y-8)+'" width="9" height="9" rx="1.5" fill="'+(s.color||'var(--gold)')+'"/>' +
+           '<text x="'+(legendX+14)+'" y="'+(y-1)+'" class="dash-svg-label">'+s.label+'</text>';
+  }).join('');
+  return '<svg class="dash-svg" viewBox="0 0 '+W+' '+H+'" role="img">'+arcs+centerHtml+legend+'</svg>';
+}
+
+// Line/area chart for 2 series. `labels` = x labels, `series` = [{name, values, color}].
+function svgLineChart(labels, series, opts){
+  opts = opts || {};
+  const W = 240, H = 150, padL = 20, padR = 10, padT = 14, padB = 22;
+  const cw = W - padL - padR, ch = H - padT - padB;
+  const n = labels.length;
+  const max = 100; // percentages
+  const xFor = i => padL + (n<=1 ? cw/2 : (i/(n-1))*cw);
+  const yFor = v => padT + ch - (Math.max(0,Math.min(100,v))/max)*ch;
+  const axis = '<line x1="'+padL+'" x2="'+(W-padR)+'" y1="'+(padT+ch)+'" y2="'+(padT+ch)+'" stroke="var(--border)" stroke-width="0.5"/>' +
+               '<line x1="'+padL+'" x2="'+(W-padR)+'" y1="'+(padT+ch/2)+'" y2="'+(padT+ch/2)+'" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.6"/>' +
+               '<text class="dash-svg-tick" x="'+(padL-4)+'" y="'+(padT+4)+'" text-anchor="end">100</text>' +
+               '<text class="dash-svg-tick" x="'+(padL-4)+'" y="'+(padT+ch/2+4)+'" text-anchor="end">50</text>' +
+               '<text class="dash-svg-tick" x="'+(padL-4)+'" y="'+(padT+ch+4)+'" text-anchor="end">0</text>';
+  const lines = series.map(s => {
+    const pts = s.values.map((v, i) => xFor(i).toFixed(1)+','+yFor(v).toFixed(1)).join(' ');
+    const dots = s.values.map((v, i) => '<circle cx="'+xFor(i).toFixed(1)+'" cy="'+yFor(v).toFixed(1)+'" r="2.5" fill="'+s.color+'"><title>'+s.name+' — '+labels[i]+': '+v+'%</title></circle>').join('');
+    return '<polyline points="'+pts+'" fill="none" stroke="'+s.color+'" stroke-width="1.75"/>'+dots;
+  }).join('');
+  const xLabels = labels.map((l, i) => '<text class="dash-svg-tick" x="'+xFor(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle">'+l+'</text>').join('');
+  const legendItems = series.map((s, i) => {
+    const y = 12 + i*13;
+    return '<line x1="'+(padL)+'" x2="'+(padL+16)+'" y1="'+y+'" y2="'+y+'" stroke="'+s.color+'" stroke-width="1.75"/>' +
+           '<text x="'+(padL+22)+'" y="'+(y+3.5)+'" class="dash-svg-label">'+s.name+'</text>';
+  }).join('');
+  return '<svg class="dash-svg" viewBox="0 0 '+W+' '+H+'" role="img">'+axis+lines+xLabels+legendItems+'</svg>';
+}
+
 function renderDashboard(){
   document.getElementById('dash-date').textContent=new Date().toLocaleString('default',{month:'long',year:'numeric'});
   renderVerseOfDay();
-  const tp=S.payments.reduce((a,p)=>a+php(p.am,p.cu,p.rt),0);
-  const ts=S.salaries.reduce((a,s)=>a+php(s.am,s.cu,s.rt),0);
-  const to=S.obls.reduce((a,o)=>a+o.bal,0);
-  const tr2=S.logs.reduce((a,l)=>a+l.am,0);
-  document.getElementById('dash-stats').innerHTML=`
-    <div class="stat-card acc-blue"><div class="stat-label">Total received</div><div class="stat-value">${fmt(tp)}</div></div>
-    <div class="stat-card acc-teal"><div class="stat-label">Total salaries</div><div class="stat-value">${fmt(ts)}</div></div>
-    <div class="stat-card acc-coral"><div class="stat-label">Obligations owed</div><div class="stat-value">${fmt(to)}</div></div>
-    <div class="stat-card acc-gold"><div class="stat-label">Total remitted</div><div class="stat-value">${fmt(tr2)}</div></div>
-  `;
+
+  // ── Compute the last-12-months month keys (and last 6) ───
+  const now = new Date();
+  const monthKeys = [];
+  const monthLabels = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthKeys.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+    monthLabels.push(d.toLocaleString('default',{month:'short'}));
+  }
+  const last6Keys = monthKeys.slice(-6);
+  const last6Labels = monthLabels.slice(-6);
+
+  // ── Payments per month (PHP-equivalent) ──────────────────
+  const paymentsByMonth = Object.fromEntries(monthKeys.map(k => [k, 0]));
+  S.payments.forEach(p => { if (paymentsByMonth[p.pe] != null) paymentsByMonth[p.pe] += php(p.am, p.cu, p.rt); });
+  const payBars = monthKeys.map((k, i) => ({ label: monthLabels[i], value: paymentsByMonth[k] }));
+  const tp = S.payments.reduce((a,p)=>a+php(p.am,p.cu,p.rt),0);
+  const currentMonthKey = monthKeys[monthKeys.length-1];
+  const tpMonth = paymentsByMonth[currentMonthKey] || 0;
+  document.getElementById('dash-pay-sub').innerHTML = '<strong>' + fmt(tp) + '</strong> · <span style="color:var(--text3);">' + fmt(tpMonth) + ' this month</span>';
+  document.getElementById('dash-pay-chart').innerHTML = svgBarChart(payBars, { color: 'var(--gold)' });
+
+  // ── Salaries per month ───────────────────────────────────
+  const salariesByMonth = Object.fromEntries(monthKeys.map(k => [k, 0]));
+  S.salaries.forEach(s => { if (salariesByMonth[s.pe] != null) salariesByMonth[s.pe] += php(s.am, s.cu, s.rt); });
+  const salBars = monthKeys.map((k, i) => ({ label: monthLabels[i], value: salariesByMonth[k] }));
+  const ts = S.salaries.reduce((a,s)=>a+php(s.am,s.cu,s.rt),0);
+  const tsMonth = salariesByMonth[currentMonthKey] || 0;
+  document.getElementById('dash-sal-sub').innerHTML = '<strong>' + fmt(ts) + '</strong> · <span style="color:var(--text3);">' + fmt(tsMonth) + ' this month</span>';
+  document.getElementById('dash-sal-chart').innerHTML = svgBarChart(salBars, { color: 'var(--teal)' });
+
+  // ── Obligations donut (balance by type, only unarchived) ─
+  const oblBalByType = { firstfruit: 0, tithe: 0, church: 0, 'partner-tithe': 0 };
+  S.obls.filter(o => !o.archived).forEach(o => {
+    if (oblBalByType[o.ty] != null) oblBalByType[o.ty] += o.bal;
+  });
+  const oblSegments = [
+    { label: 'Firstfruit', value: oblBalByType.firstfruit, color: 'var(--gold)' },
+    { label: 'Tithe',      value: oblBalByType.tithe,      color: 'var(--sapphire)' },
+    { label: 'Church',     value: oblBalByType.church,     color: 'var(--teal)' },
+    { label: 'Partner',    value: oblBalByType['partner-tithe'], color: 'var(--purple)' },
+  ];
+  const to = oblSegments.reduce((a, s) => a + s.value, 0);
+  document.getElementById('dash-obl-sub').innerHTML = '<strong>' + fmt(to) + '</strong> owed';
+  document.getElementById('dash-obl-chart').innerHTML = svgDonut(oblSegments, { centerLabel: fmt(Math.round(to)), centerSub: 'owed' });
+
+  // ── Remittances per month (last 6) ───────────────────────
+  const remitByMonth = Object.fromEntries(monthKeys.map(k => [k, 0]));
+  S.logs.forEach(l => { const k = l.dt ? l.dt.slice(0,7) : null; if (k && remitByMonth[k] != null) remitByMonth[k] += l.am; });
+  const remBars = last6Keys.map((k, i) => ({ label: last6Labels[i], value: remitByMonth[k] || 0 }));
+  const tr2 = S.logs.reduce((a,l)=>a+l.am,0);
+  const trMonth = remitByMonth[currentMonthKey] || 0;
+  document.getElementById('dash-rem-sub').innerHTML = '<strong>' + fmt(tr2) + '</strong> · <span style="color:var(--text3);">' + fmt(trMonth) + ' this month</span>';
+  document.getElementById('dash-rem-chart').innerHTML = svgBarChart(remBars, { color: 'var(--sapphire)' });
+
+  // ── Team wellness — attendance & devotion % per month ────
+  const wellness = last6Keys.map((k) => {
+    const [yy, mm] = k.split('-').map(Number);
+    const dim = new Date(yy, mm, 0).getDate();
+    let attTotal = 0, attLogged = 0;
+    let devTotal = 0, devLogged = 0;
+    const today = td();
+    for (let d = 1; d <= dim; d++) {
+      const ds = yy + '-' + String(mm).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+      if (ds > today) continue;
+      const dow = new Date(yy, mm-1, d).getDay();
+      const isWorkday = dow >= 1 && dow <= 5;
+      S.partners.forEach(p => {
+        if (!wasActiveOn(p, ds)) return;
+        const r = gA(p.id, ds);
+        if (isWorkday) {
+          attTotal++;
+          if (r && r.st !== 'absent' && r.st !== 'nowork') attLogged++;
+        }
+        if (r && r.dv) {
+          devTotal++;
+          if (r.dv === 'yes') devLogged++;
+        }
+      });
+    }
+    return {
+      att: attTotal ? Math.round(attLogged/attTotal*100) : 0,
+      dev: devTotal ? Math.round(devLogged/devTotal*100) : 0,
+    };
+  });
+  const attNow = wellness[wellness.length-1].att;
+  const devNow = wellness[wellness.length-1].dev;
+  document.getElementById('dash-well-sub').innerHTML = '<strong>Att ' + attNow + '%</strong> · <strong>Dev ' + devNow + '%</strong>';
+  document.getElementById('dash-well-chart').innerHTML = svgLineChart(last6Labels, [
+    { name: 'Attendance', values: wellness.map(w => w.att), color: 'var(--gold)' },
+    { name: 'Devotion',   values: wellness.map(w => w.dev), color: 'var(--teal)' },
+  ]);
+
+  // ── Row 3: pending obligations shortlist + recent payroll ─
+  const pending = S.obls.filter(o => o.bal > 0.01 && !o.archived).sort((a, b) => b.bal - a.bal).slice(0, 6);
+  document.getElementById('dash-obl').innerHTML = pending.length
+    ? pending.map(o => {
+        const who = o.ty === 'partner-tithe'
+          ? (gP(o.ptnId)?.fn || 'Partner') + ' ' + (gP(o.ptnId)?.ln || '')
+          : (gC(o.ci)?.nm || 'Client');
+        return '<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:.5px solid var(--border);">' +
+               '<span style="color:var(--text2);">' + o.lb + ' · ' + who + ' · ' + o.pe + '</span>' +
+               '<span style="color:var(--coral);font-weight:500;">' + fmt(o.bal) + '</span></div>';
+      }).join('')
+    : '<div style="font-size:12.5px;color:var(--text2);font-style:italic;">All obligations are current — well done.</div>';
+
+  const recentRuns=S.runs.filter(r=>r.status==='posted').slice(-3).reverse();
+  document.getElementById('dash-payroll').innerHTML=recentRuns.length?recentRuns.map(r=>'<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:.5px solid var(--border);"><span>' + fl(r.freq) + ' · ' + r.label + '</span><span style="color:var(--teal);font-weight:500;">' + fmt(r.lines.reduce((a,l)=>a+l.net,0)) + '</span></div>').join(''):'<div style="font-size:12.5px;color:var(--text2);font-style:italic;">No posted payrolls yet.</div>';
+
+  // Skip the rest of the legacy dashboard builders below.
+  return;
+}
+
+function _oldRenderDashboardBody(){
   const mo=nm();const[y,m]=mo.split('-').map(Number);const ts2=td();const dim=new Date(y,m,0).getDate();
   const wdays=[],adays=[];
   for(let d=1;d<=dim;d++){const ds=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;if(ds<=ts2){adays.push(ds);if(new Date(y,m-1,d).getDay()>=1&&new Date(y,m-1,d).getDay()<=5)wdays.push(ds);}}
