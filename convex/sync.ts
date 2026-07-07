@@ -280,6 +280,7 @@ export const syncPaymentsDiff = mutation({
           source: str(p.source),
           note: str(p.note),
           invoiceId: typeof p.invoiceId === "number" ? p.invoiceId : undefined,
+          inc: num(p.inc),
         },
       });
     }

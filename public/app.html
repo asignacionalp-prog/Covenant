@@ -2326,7 +2326,7 @@ body{
 <div id="modal-payment" class="modal-overlay">
   <div class="modal">
     <h3>Record payment</h3>
-    <div class="fr"><label>Client</label><select id="pay-cl"></select></div>
+    <div class="fr"><label>Client</label><select id="pay-cl" onchange="payPreviewEquiv()"></select></div>
     <div class="f2">
       <div class="fr"><label>Amount</label><input type="number" id="pay-am" oninput="payPreviewEquiv()" step="0.01"/></div>
       <div class="fr"><label>Currency</label><select id="pay-cu" onchange="toggleRow('pay-rate-row',this);payOnCurrencyChange()"><option>PHP</option><option>USD</option><option>EUR</option><option>GBP</option><option>SGD</option><option>AUD</option></select></div>
@@ -2339,6 +2339,13 @@ body{
     <div class="f2">
       <div class="fr"><label>Date</label><input type="date" id="pay-dt"/></div>
       <div class="fr"><label>Period</label><input type="month" id="pay-pe"/></div>
+    </div>
+    <div class="fr">
+      <label>Raise / increase portion <span id="pay-inc-hint" style="font-weight:400;color:var(--text2);font-size:11px;font-style:italic;"></span></label>
+      <input type="number" id="pay-inc" oninput="payPreviewEquiv()" step="0.01" placeholder="0.00"/>
+      <div style="font-size:11px;font-style:italic;color:var(--text2);margin-top:4px;line-height:1.5;">
+        If this payment includes a raise from a prior amount, enter the raise portion here (in the payment's currency). Firstfruit is the first of any increase — the raise portion becomes a firstfruit obligation on top of the regular tithe/church on the baseline. Leave 0 for regular payments.
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('modal-payment')">Cancel</button>
@@ -4607,6 +4614,8 @@ function openNewPayment() {
   document.getElementById('pay-rt').value = '';
   document.getElementById('pay-dt').value = td();
   document.getElementById('pay-pe').value = nm();
+  document.getElementById('pay-inc').value = '';
+  const incHint = document.getElementById('pay-inc-hint'); if (incHint) incHint.textContent = '';
   document.getElementById('pay-rate-row').style.display = 'none';
   const hint = document.getElementById('pay-rt-hint'); if (hint) hint.textContent = '';
   const preview = document.getElementById('pay-rt-preview'); if (preview) preview.innerHTML = '';
@@ -4630,6 +4639,7 @@ function openEditPayment(id) {
   document.getElementById('pay-rt').value = p.rt;
   document.getElementById('pay-dt').value = p.dt;
   document.getElementById('pay-pe').value = p.pe;
+  document.getElementById('pay-inc').value = p.inc || '';
   // Show/hide rate row based on currency
   document.getElementById('pay-rate-row').style.display = p.cu === 'PHP' ? 'none' : 'block';
   // Update hint and preview for current rate
@@ -4715,12 +4725,34 @@ function payPreviewEquiv(){
   const cu=document.getElementById('pay-cu').value;
   const rt=cu==='PHP'?1:parseFloat(document.getElementById('pay-rt').value)||0;
   const preview=document.getElementById('pay-rt-preview');
-  if(!preview)return;
-  if(cu==='PHP'||am<=0||rt<=0){preview.textContent='';return;}
-  const phpEquiv=am*rt;
-  const b=FX_BOUNDS[cu];
-  const outOfBounds=b&&(rt<b.min||rt>b.max);
-  preview.innerHTML=`${am.toLocaleString()} ${cu} \u00d7 ${rt} = <strong style="color:${outOfBounds?'var(--coral,#7C2D2D)':'var(--text)'}">\u20b1${phpEquiv.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>`+(outOfBounds?` <span style="color:var(--coral,#7C2D2D);">\u26A0 rate looks off (typical ~${b.typical})</span>`:'');
+  if(preview){
+    if(cu==='PHP'||am<=0||rt<=0){preview.textContent='';}
+    else {
+      const phpEquiv=am*rt;
+      const b=FX_BOUNDS[cu];
+      const outOfBounds=b&&(rt<b.min||rt>b.max);
+      preview.innerHTML=`${am.toLocaleString()} ${cu} \u00d7 ${rt} = <strong style="color:${outOfBounds?'var(--coral,#7C2D2D)':'var(--text)'}">\u20b1${phpEquiv.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong>`+(outOfBounds?` <span style="color:var(--coral,#7C2D2D);">\u26A0 rate looks off (typical ~${b.typical})</span>`:'');
+    }
+  }
+  // Raise-detection hint: if the CEO enters an amount that exceeds
+  // the highest prior payment from this client (in the same currency,
+  // ignoring the row being edited), suggest treating the delta as
+  // firstfruit. This is a HINT \u2014 the actual raise portion still comes
+  // from the pay-inc field; we don't auto-fill so the CEO stays in
+  // control.
+  const incHint=document.getElementById('pay-inc-hint');
+  if(!incHint)return;
+  const ci=parseInt(document.getElementById('pay-cl').value);
+  if(!ci||!am||am<=0){incHint.textContent='';return;}
+  const priorMax=S.payments
+    .filter(p=>p.ci===ci&&p.cu===cu&&p.id!==S.editPayId)
+    .reduce((m,p)=>Math.max(m,p.am||0),0);
+  if(priorMax>0&&am>priorMax){
+    const delta=(am-priorMax).toFixed(2);
+    incHint.textContent=` \u2014 Prior max ${priorMax.toLocaleString()} ${cu}; delta ${delta} ${cu} looks like a raise.`;
+  } else {
+    incHint.textContent='';
+  }
 }
 
 function savePayment(){
@@ -4738,17 +4770,23 @@ function savePayment(){
   }
   const dt=document.getElementById('pay-dt').value;
   const pe=document.getElementById('pay-pe').value;
+  // Raise/increase portion (in payment currency, same units as am).
+  // Blank/invalid → 0. Clamped to [0, am] so a typo can't produce a
+  // negative firstfruit or one larger than the payment itself.
+  let inc = parseFloat(document.getElementById('pay-inc').value);
+  if (!Number.isFinite(inc) || inc < 0) inc = 0;
+  if (inc > am) inc = am;
   if (S.editPayId) {
     // Editing existing manual payment
     const p = S.payments.find(x => x.id === S.editPayId);
     if (p && !p.invoiceId) {
-      Object.assign(p, {ci, am, cu, rt, dt, pe});
+      Object.assign(p, {ci, am, cu, rt, dt, pe, inc});
     }
     S.editPayId = null;
     const titleEl = document.querySelector('#modal-payment h3');
     if (titleEl) titleEl.textContent = 'Record payment';
   } else {
-    S.payments.push({id:S.nid.py++,ci,am,cu,rt,dt,pe});
+    S.payments.push({id:S.nid.py++,ci,am,cu,rt,dt,pe,inc});
   }
   closeModal('modal-payment');computeAll();renderPayments();
 }
@@ -5249,22 +5287,42 @@ function computeAll(){
       const b = gB(c.bid);
       if(!b || b.type === 'product') return; // skip if no business or product type
       // Net for this client only: payments − ACTUAL labor cost (gross − attendance) of allocated partners
-      const pays = S.payments.filter(p => p.ci === c.id && p.pe === pe).reduce((a, p) => a + php(p.am, p.cu, p.rt), 0);
+      const clientPayments = S.payments.filter(p => p.ci === c.id && p.pe === pe);
+      const pays = clientPayments.reduce((a, p) => a + php(p.am, p.cu, p.rt), 0);
       const sals = S.salaries.filter(s => s.ci === c.id && s.pe === pe).reduce((a, s) => a + salaryClientCost(s), 0);
       const net = pays - sals;
-      if(net <= 0) return;
+      // Sum any CEO-declared raise portions for this client × period,
+      // converted to PHP. The delta between old and new payment is
+      // firstfruit (first of any increase); the baseline stays on the
+      // regular tithe/church path.
+      const incTot = clientPayments.reduce((a, p) => a + (p.inc ? php(p.inc, p.cu, p.rt) : 0), 0);
+      const bid = c.bid || null;
+
+      // Firstfruit-on-increase obligation lives alongside tithe/church.
+      // Emitted only when incTot > 0 so no-raise periods stay clean.
+      if (incTot > 0) {
+        gOO(`ff-inc-${c.id}-${pe}`, {ty:'firstfruit', lb:'Firstfruit (increase)', pe, ci:c.id, bid, tot:incTot});
+      }
+
+      // The raise portion is already accounted for as firstfruit above,
+      // so subtract it before computing tithe/church on the remaining
+      // baseline. Guard against overcorrection when payments < inc
+      // (edge case: CEO fat-fingered a raise > payment; savePayment
+      // clamps but existing data may pre-date that guard).
+      const baselineNet = Math.max(0, net - incTot);
+      if(baselineNet <= 0) return;
+
       const el = c.ty === 'full-time' || c.ty === 'part-time';
       const fp = firstPaymentPeriod(c.id);
       // Migration rule: if client is flagged migrated, the first Covenant payment is NOT firstfruit
       // (CEO already gave firstfruits in real life before migration). January reset still applies.
       const isFirstCovenantPayment = (fp === pe);
       const isFF = el && (isJan || (isFirstCovenantPayment && !c.migrated));
-      const bid = c.bid || null;
       if(isFF){
-        gOO(`ff-${c.id}-${pe}`, {ty:'firstfruit', lb:'Firstfruit', pe, ci:c.id, bid, tot:net});
+        gOO(`ff-${c.id}-${pe}`, {ty:'firstfruit', lb:'Firstfruit', pe, ci:c.id, bid, tot:baselineNet});
       } else {
-        gOO(`ti-${c.id}-${pe}`, {ty:'tithe', lb:`Tithe (${S.cfg.tithe}%)`, pe, ci:c.id, bid, tot:net*(S.cfg.tithe/100)});
-        gOO(`cp-${c.id}-${pe}`, {ty:'church', lb:`Church Project (${S.cfg.cp}%)`, pe, ci:c.id, bid, tot:net*(S.cfg.cp/100)});
+        gOO(`ti-${c.id}-${pe}`, {ty:'tithe', lb:`Tithe (${S.cfg.tithe}%)`, pe, ci:c.id, bid, tot:baselineNet*(S.cfg.tithe/100)});
+        gOO(`cp-${c.id}-${pe}`, {ty:'church', lb:`Church Project (${S.cfg.cp}%)`, pe, ci:c.id, bid, tot:baselineNet*(S.cfg.cp/100)});
       }
     });
 

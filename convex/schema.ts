@@ -252,6 +252,16 @@ export default defineSchema({
     source: v.optional(v.string()),
     note: v.optional(v.string()),
     invoiceId: v.optional(v.union(v.number(), v.id("invoices"))),
+    /**
+     * "Increase" portion of this payment — the CEO's declared raise
+     * amount, in the payment's own currency (same units as `am`).
+     * Theologically: firstfruit is the first of any increase, so
+     * when a client's payment goes up, that delta is tracked as a
+     * firstfruit obligation on top of the normal tithe/church on
+     * the baseline. See computeAll for how this is applied.
+     * Optional (defaults to 0) so pre-feature payments still validate.
+     */
+    inc: v.optional(v.number()),
   })
     .index("by_org", ["orgId"])
     .index("by_org_period", ["orgId", "pe"])
