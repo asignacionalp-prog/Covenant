@@ -13260,6 +13260,88 @@ applyAnimation();
     __syncHashes[entityKey] = newHash;
   }
 
+  // ─── PASSWORD HASHING (client-side PBKDF2) ───────────────
+  // Must produce EXACTLY the format server-side hashPassword() emits:
+  //   pbkdf2$<iterations>$<saltB64>$<hashB64>
+  // so signInWithPassword can verify hashes we set here.
+  const __PBKDF2_ITERATIONS = 100000;
+  const __PBKDF2_SALT_BYTES = 16;
+  const __PBKDF2_HASH_BYTES = 32;
+
+  function __bytesToBase64(bytes) {
+    let s = '';
+    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  }
+
+  async function __hashPasswordClient(password) {
+    if (typeof password !== 'string' || password.length < 6) return null;
+    const salt = crypto.getRandomValues(new Uint8Array(__PBKDF2_SALT_BYTES));
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(password),
+      'PBKDF2',
+      false,
+      ['deriveBits'],
+    );
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt: salt, iterations: __PBKDF2_ITERATIONS, hash: 'SHA-256' },
+      key,
+      __PBKDF2_HASH_BYTES * 8,
+    );
+    return 'pbkdf2$' + __PBKDF2_ITERATIONS + '$' +
+      __bytesToBase64(salt) + '$' +
+      __bytesToBase64(new Uint8Array(bits));
+  }
+
+  // Track the last plaintext we hashed for each email so we can skip
+  // re-hashing (100K PBKDF2 iterations) when a user's password hasn't
+  // actually changed since last sync. Plaintext lives only in memory.
+  const __lastHashedPlaintext = new Map();
+
+  /**
+   * Specialised sync for users: hashes any new/changed password
+   * client-side and sends passwordHash (never plaintext) to
+   * syncMembers. Falls back to __syncWholeObject when nothing changed
+   * so we get the same skip-when-unchanged behaviour.
+   */
+  async function __syncUsers(usersArr) {
+    const items = [];
+    for (const u of (usersArr || [])) {
+      if (!u || !u.em) continue;
+      const emailKey = String(u.em).trim().toLowerCase();
+      const plaintext = typeof u.pw === 'string' ? u.pw : '';
+      let passwordHash = null;
+      if (plaintext && plaintext.length >= 6) {
+        if (__lastHashedPlaintext.get(emailKey) === plaintext) {
+          // Same plaintext as we already synced — skip re-hash and
+          // don't send passwordHash so the server doesn't touch it.
+        } else {
+          passwordHash = await __hashPasswordClient(plaintext);
+          __lastHashedPlaintext.set(emailKey, plaintext);
+        }
+      }
+      items.push({
+        id: u.id,
+        _memberId: u._memberId,
+        fn: u.fn,
+        ln: u.ln,
+        em: u.em,
+        role: u.role,
+        // passwordHash only present when the CEO just set or changed
+        // this user's password. Server upserts users.passwordHash iff
+        // this field is present + non-null.
+        ...(passwordHash ? { passwordHash } : {}),
+      });
+    }
+    // Hash of the stripped payload (no plaintext) so we don't re-send
+    // when nothing changed AND no fresh password was hashed.
+    const newHash = __h(items);
+    if (__syncHashes.users === newHash) return;
+    await client.mutation('sync:syncMembers', { sessionToken, items });
+    __syncHashes.users = newHash;
+  }
+
   async function flushNow() {
     saveTimer = null;
     if (saveInFlight) { savePending = true; return; }
@@ -13273,7 +13355,7 @@ applyAnimation();
       // the database. I/O scales with edit volume, not data volume.
       const tasks = [
         __syncWholeObject('cfg',   S.cfg,   'sync:syncOrgConfig', 'cfg'),
-        __syncWholeObject('users', S.users, 'sync:syncMembers',   'items'),
+        __syncUsers(S.users),
         __syncDiffEntity('businesses',            S.businesses,            'sync:syncBusinessesDiff'),
         __syncDiffEntity('partners',              S.partners,              'sync:syncPartnersDiff'),
         __syncDiffEntity('clients',               S.clients,               'sync:syncClientsDiff'),

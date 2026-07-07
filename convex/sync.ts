@@ -734,6 +734,37 @@ export const syncMembers = mutation({
       const fn = String(u.fn || "").trim() || "—";
       const ln = String(u.ln || "").trim() || "—";
 
+      // Client hashes the password before sending. Presence of this
+      // field means "CEO just set or changed this user's password —
+      // upsert users.passwordHash so signInWithPassword works." Absence
+      // means "leave the existing hash alone" (which is critical: we
+      // don't want a routine sync wiping a password someone set from
+      // their own /settings screen).
+      const passwordHash =
+        typeof u.passwordHash === "string" && u.passwordHash.startsWith("pbkdf2$")
+          ? u.passwordHash
+          : null;
+      if (passwordHash) {
+        const userRow = await ctx.db
+          .query("users")
+          .withIndex("by_email", (q) => q.eq("email", em))
+          .unique();
+        const now = Date.now();
+        if (userRow) {
+          await ctx.db.patch(userRow._id, {
+            passwordHash,
+            passwordSetAt: now,
+          });
+        } else {
+          await ctx.db.insert("users", {
+            email: em,
+            createdAt: now,
+            passwordHash,
+            passwordSetAt: now,
+          });
+        }
+      }
+
       // Prefer matching by the stable _memberId the client preserved
       // through the bridge (see data:listAll synthesizing it). Fall
       // back to email for items that don't have one (newly added by
@@ -783,36 +814,44 @@ export const syncMembers = mutation({
         });
         finalEmails.add(em);
 
-        // Mint a magic-link token and schedule the invite email so
-        // the new admin can actually sign in. This only fires on the
-        // FIRST insert — subsequent syncs find the row by email or
-        // _memberId and patch instead, so no duplicate sends.
-        const token = generateInviteToken();
-        const now = Date.now();
-        await ctx.db.insert("authTokens", {
-          email: em,
-          token,
-          expiresAt: now + INVITE_TOKEN_LIFETIME_MS,
-          createdAt: now,
-        });
-        // Look up the inviter's display name from their member row
-        // (the `users` table only stores email/password, not name).
-        const inviterRow = existing.find(
-          (m) => (m.em || "").trim().toLowerCase() === callerEmail,
-        );
-        const inviterName =
-          inviterRow
-            ? `${inviterRow.fn || ""} ${inviterRow.ln || ""}`.trim()
-            : "";
-        await ctx.scheduler.runAfter(
-          0,
-          internal.email.sendMemberInvite,
-          {
+        // Only send an invite email if the CEO did NOT set a password
+        // for this admin. When passwordHash is present we already
+        // created a users row above, so they can sign in directly with
+        // email + password — no email needed. This also protects
+        // against Gmail/SMTP outages breaking the CEO's ability to
+        // onboard teammates.
+        if (!passwordHash) {
+          // Mint a magic-link token and schedule the invite email so
+          // the new admin can actually sign in. This only fires on the
+          // FIRST insert — subsequent syncs find the row by email or
+          // _memberId and patch instead, so no duplicate sends.
+          const token = generateInviteToken();
+          const now = Date.now();
+          await ctx.db.insert("authTokens", {
             email: em,
             token,
-            inviterName: inviterName || "Your team",
-          },
-        );
+            expiresAt: now + INVITE_TOKEN_LIFETIME_MS,
+            createdAt: now,
+          });
+          // Look up the inviter's display name from their member row
+          // (the `users` table only stores email/password, not name).
+          const inviterRow = existing.find(
+            (m) => (m.em || "").trim().toLowerCase() === callerEmail,
+          );
+          const inviterName =
+            inviterRow
+              ? `${inviterRow.fn || ""} ${inviterRow.ln || ""}`.trim()
+              : "";
+          await ctx.scheduler.runAfter(
+            0,
+            internal.email.sendMemberInvite,
+            {
+              email: em,
+              token,
+              inviterName: inviterName || "Your team",
+            },
+          );
+        }
       }
     }
 

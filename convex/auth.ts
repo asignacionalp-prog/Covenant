@@ -329,6 +329,28 @@ export const signInWithPassword = mutation({
       createdAt: now,
     });
     await ctx.db.patch(user._id, { lastSignInAt: now });
+
+    // If this user was invited (CEO added them in /app.html and
+    // synced their passwordHash) their members row still has no
+    // userId — link it now so getMyOrg / listAll can find their org
+    // on this session's first data call. Mirror what
+    // consumeMagicLink does on first sign-in.
+    const pendingMember = await ctx.db
+      .query("members")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("em"), email),
+          q.eq(q.field("userId"), undefined),
+        ),
+      )
+      .first();
+    if (pendingMember) {
+      await ctx.db.patch(pendingMember._id, {
+        userId: user._id,
+        joinedAt: now,
+      });
+    }
+
     return { sessionToken };
   },
 });
