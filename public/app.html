@@ -3186,6 +3186,37 @@ function partnersActiveOn(dateStr) {
   return S.partners.filter(p => wasActiveOn(p, d));
 }
 
+/**
+ * Same idea for clients. Clients only have `st` today (no
+ * deactivatedAt yet), so this behaves the same as `st === 'active'`
+ * — but going through a helper means the day we add `deactivatedAt`
+ * to clients, every dropdown starts respecting it for free.
+ */
+function wasClientActiveOn(c, dateStr) {
+  if (!c) return false;
+  if (c.st === 'active') return true;
+  if (!c.deactivatedAt) return false;
+  if (!dateStr) return false;
+  return dateStr <= c.deactivatedAt;
+}
+function clientsActiveOn(dateStr) {
+  const d = dateStr || td();
+  return S.clients.filter(c => wasClientActiveOn(c, d));
+}
+
+/**
+ * Small helper for form-time dropdowns: read a date input's current
+ * value if the user has filled it in, otherwise fall back to today.
+ * Lets dropdowns like "which client for this payment" react to the
+ * date the user is entering — critical for editing historical rows
+ * where an inactive party WAS active at the time.
+ */
+function _formDate(inputId) {
+  const el = document.getElementById(inputId);
+  const v = el && el.value;
+  return v || td();
+}
+
 // Stash for the deactivation modal — which partner is being deactivated.
 let __pendingDeactivatePid = null;
 
@@ -4235,11 +4266,15 @@ function renderDevotion(){
   const allDays=[];
   for(let d=1;d<=dim;d++){const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const dow=new Date(y,mo-1,d).getDay();allDays.push({d,ds,dow,isW:dow===0||dow===6,isFut:ds>ts2});}
   const loggable=allDays.filter(x=>!x.isFut);
+  // Only show partners who were active for at least part of this
+  // month — anyone deactivated BEFORE the month starts is hidden.
+  const firstDay = `${y}-${String(mo).padStart(2,'0')}-01`;
+  const visiblePartners = S.partners.filter(p => wasActiveOn(p, firstDay));
   let tDone=0,tLog=0;
-  S.partners.forEach(p=>{loggable.forEach(({ds})=>{const r=gA(p.id,ds);if(r&&r.dv){tLog++;if(r.dv==='yes')tDone++;}});});
+  visiblePartners.forEach(p=>{loggable.forEach(({ds})=>{const r=gA(p.id,ds);if(r&&r.dv){tLog++;if(r.dv==='yes')tDone++;}});});
   const tPct=tLog>0?Math.round(tDone/tLog*100):0;
-  document.getElementById('dev-stats').innerHTML=`<div class="stat-card acc-green"><div class="stat-label">Team devotion rate</div><div class="stat-value">${tPct}%</div><div class="stat-sub">${tDone}/${tLog} days logged</div></div><div class="stat-card acc-blue"><div class="stat-label">Days in month</div><div class="stat-value">${dim}</div><div class="stat-sub">incl. weekends</div></div><div class="stat-card acc-gold"><div class="stat-label">Partners</div><div class="stat-value">${S.partners.length}</div></div>`;
-  document.getElementById('dev-content').innerHTML=S.partners.map(p=>{
+  document.getElementById('dev-stats').innerHTML=`<div class="stat-card acc-green"><div class="stat-label">Team devotion rate</div><div class="stat-value">${tPct}%</div><div class="stat-sub">${tDone}/${tLog} days logged</div></div><div class="stat-card acc-blue"><div class="stat-label">Days in month</div><div class="stat-value">${dim}</div><div class="stat-sub">incl. weekends</div></div><div class="stat-card acc-gold"><div class="stat-label">Partners</div><div class="stat-value">${visiblePartners.length}</div></div>`;
+  document.getElementById('dev-content').innerHTML=visiblePartners.map(p=>{
     const done=loggable.filter(({ds})=>{const r=gA(p.id,ds);return r&&r.dv==='yes';}).length;
     const pct=loggable.length?Math.round(done/loggable.length*100):0;
     let streak=0;for(let i=loggable.length-1;i>=0;i--){const r=gA(p.id,loggable[i].ds);if(r&&r.dv==='yes')streak++;else break;}
@@ -4276,15 +4311,18 @@ function renderSundayService(){
     allDays.push({d,ds,dow,isSun:dow===0,isFut:ds>ts2});
   }
   const sundays=allDays.filter(x=>x.isSun&&!x.isFut);
+  // Hide partners deactivated before this month started.
+  const firstDay = `${y}-${String(mo).padStart(2,'0')}-01`;
+  const visiblePartners = S.partners.filter(p => wasActiveOn(p, firstDay));
   // Team rate
   let tDone=0,tLog=0;
-  S.partners.forEach(p=>{sundays.forEach(({ds})=>{const r=gA(p.id,ds);if(r&&r.ss){tLog++;if(r.ss==='yes')tDone++;}});});
+  visiblePartners.forEach(p=>{sundays.forEach(({ds})=>{const r=gA(p.id,ds);if(r&&r.ss){tLog++;if(r.ss==='yes')tDone++;}});});
   const tPct=tLog>0?Math.round(tDone/tLog*100):0;
   document.getElementById('ss-stats').innerHTML=
     `<div class="stat-card acc-purple"><div class="stat-label">Team Sunday rate</div><div class="stat-value">${tPct}%</div><div class="stat-sub">${tDone}/${tLog} Sundays logged</div></div>`+
     `<div class="stat-card acc-blue"><div class="stat-label">Sundays in month</div><div class="stat-value">${sundays.length}</div><div class="stat-sub">past or today</div></div>`+
-    `<div class="stat-card acc-gold"><div class="stat-label">Partners</div><div class="stat-value">${S.partners.length}</div></div>`;
-  document.getElementById('ss-content').innerHTML=S.partners.map(p=>{
+    `<div class="stat-card acc-gold"><div class="stat-label">Partners</div><div class="stat-value">${visiblePartners.length}</div></div>`;
+  document.getElementById('ss-content').innerHTML=visiblePartners.map(p=>{
     const done=sundays.filter(({ds})=>{const r=gA(p.id,ds);return r&&r.ss==='yes';}).length;
     const pct=sundays.length?Math.round(done/sundays.length*100):0;
     // Streak: consecutive most-recent Sundays attended
@@ -4323,14 +4361,17 @@ function renderChurchActivities(){
   const allDays=[];
   for(let d=1;d<=dim;d++){const ds=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const dow=new Date(y,mo-1,d).getDay();allDays.push({d,ds,dow,isW:dow===0||dow===6,isFut:ds>ts2});}
   const loggable=allDays.filter(x=>!x.isFut);
+  // Hide partners deactivated before this month started.
+  const firstDay = `${y}-${String(mo).padStart(2,'0')}-01`;
+  const visiblePartners = S.partners.filter(p => wasActiveOn(p, firstDay));
   let tDone=0,tLog=0;
-  S.partners.forEach(p=>{loggable.forEach(({ds})=>{const r=gA(p.id,ds);if(r&&r.ca){tLog++;if(r.ca==='yes')tDone++;}});});
+  visiblePartners.forEach(p=>{loggable.forEach(({ds})=>{const r=gA(p.id,ds);if(r&&r.ca){tLog++;if(r.ca==='yes')tDone++;}});});
   const tPct=tLog>0?Math.round(tDone/tLog*100):0;
   document.getElementById('ca-stats').innerHTML=
     `<div class="stat-card acc-teal"><div class="stat-label">Team participation rate</div><div class="stat-value">${tPct}%</div><div class="stat-sub">${tDone}/${tLog} days logged</div></div>`+
     `<div class="stat-card acc-blue"><div class="stat-label">Days in month</div><div class="stat-value">${dim}</div><div class="stat-sub">incl. weekends</div></div>`+
-    `<div class="stat-card acc-gold"><div class="stat-label">Partners</div><div class="stat-value">${S.partners.length}</div></div>`;
-  document.getElementById('ca-content').innerHTML=S.partners.map(p=>{
+    `<div class="stat-card acc-gold"><div class="stat-label">Partners</div><div class="stat-value">${visiblePartners.length}</div></div>`;
+  document.getElementById('ca-content').innerHTML=visiblePartners.map(p=>{
     const done=loggable.filter(({ds})=>{const r=gA(p.id,ds);return r&&r.ca==='yes';}).length;
     const pct=loggable.length?Math.round(done/loggable.length*100):0;
     let streak=0;for(let i=loggable.length-1;i>=0;i--){const r=gA(p.id,loggable[i].ds);if(r&&r.ca==='yes')streak++;else break;}
@@ -4383,7 +4424,10 @@ function openEditClient(id){
   document.getElementById('cl-modal-title').textContent='Edit client';
   document.getElementById('cl-nm').value=c.nm||'';document.getElementById('cl-pos').value=c.pos||'';
   document.getElementById('cl-bid').innerHTML=bizOptions(c.bid);
-  document.getElementById('cl-pt').innerHTML='<option value="">-- None --</option>'+S.partners.map(p=>`<option value="${p.id}">${p.fn} ${p.ln}</option>`).join('');
+  // Use the client's start date so an inactive-now partner who was
+  // active when the client was onboarded still shows up (otherwise
+  // the currently-assigned partner could vanish from the dropdown).
+  document.getElementById('cl-pt').innerHTML='<option value="">-- None --</option>'+partnersActiveOn(c.sd || td()).map(p=>`<option value="${p.id}">${p.fn} ${p.ln}</option>`).join('');
   document.getElementById('cl-pt').value=c.pid||'';
   document.getElementById('cl-ty').value=c.ty||'full-time';document.getElementById('cl-cu').value=c.cu||'PHP';
   document.getElementById('cl-sd').value=c.sd||'';
@@ -4549,14 +4593,14 @@ function renderPayments(){
     }
     return `<tr${rateOff?' style="background:rgba(124,45,45,.04);"':''}><td><input type="checkbox" data-batch-scope="payments" data-batch-id="${p.id}" onchange="batchToggle('payments',${p.id},this.checked)" style="cursor:pointer;"/></td><td>${p.dt}</td><td>${c?c.nm:'—'}</td><td>${p.am.toLocaleString()} ${p.cu}${rateBadge}</td><td>${p.cu}${rateOff?` <span style="font-size:11px;color:var(--coral,#7C2D2D);">@${p.rt}</span>`:''}</td><td class="r" style="font-weight:500;${rateOff?'color:var(--coral,#7C2D2D);':''}">${fmt(phpEquiv)}</td><td>${p.pe}</td><td>${invCol}</td><td style="display:flex;gap:6px;">${actions}</td></tr>`;
   }).join('')||'<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text2);">No payments recorded.</td></tr>';
-  document.getElementById('pay-cl').innerHTML='<option value="">-- Select client --</option>'+S.clients.map(c=>`<option value="${c.id}">${c.nm}</option>`).join('');
+  document.getElementById('pay-cl').innerHTML='<option value="">-- Select client --</option>'+clientsActiveOn(td()).map(c=>`<option value="${c.id}">${c.nm}</option>`).join('');
   document.getElementById('pay-dt').value=td();
 }
 
 // Open the payment modal pre-filled for editing a manual payment
 function openNewPayment() {
   S.editPayId = null;
-  document.getElementById('pay-cl').innerHTML='<option value="">-- Select client --</option>'+S.clients.map(c=>`<option value="${c.id}">${c.nm}</option>`).join('');
+  document.getElementById('pay-cl').innerHTML='<option value="">-- Select client --</option>'+clientsActiveOn(td()).map(c=>`<option value="${c.id}">${c.nm}</option>`).join('');
   document.getElementById('pay-cl').value = '';
   document.getElementById('pay-am').value = '';
   document.getElementById('pay-cu').value = 'PHP';
@@ -4576,7 +4620,10 @@ function openEditPayment(id) {
   if (!p) return;
   if (p.invoiceId) { alert('This payment came from an invoice. Edit it via the source invoice instead.'); return; }
   S.editPayId = id;
-  document.getElementById('pay-cl').innerHTML='<option value="">-- Select client --</option>'+S.clients.map(c=>`<option value="${c.id}">${c.nm}</option>`).join('');
+  // Edit context: the payment already has a date, so filter clients
+  // to whoever was active on that date. Otherwise editing a historical
+  // payment whose client is now inactive would silently blank it out.
+  document.getElementById('pay-cl').innerHTML='<option value="">-- Select client --</option>'+clientsActiveOn(p.dt).map(c=>`<option value="${c.id}">${c.nm}</option>`).join('');
   document.getElementById('pay-cl').value = p.ci;
   document.getElementById('pay-am').value = p.am;
   document.getElementById('pay-cu').value = p.cu;
@@ -4742,7 +4789,7 @@ function renderSalaries(){
   // deactivation date is before today are hidden, but anyone deactivated
   // today or later is still selectable.
   document.getElementById('sal-pt').innerHTML='<option value="">-- Select partner --</option>'+partnersActiveOn(td()).map(p=>`<option value="${p.id}">${p.fn} ${p.ln}</option>`).join('');
-  document.getElementById('sal-cl').innerHTML='<option value="">-- General --</option>'+S.clients.map(c=>`<option value="${c.id}">${c.nm}</option>`).join('');
+  document.getElementById('sal-cl').innerHTML='<option value="">-- General --</option>'+clientsActiveOn(td()).map(c=>`<option value="${c.id}">${c.nm}</option>`).join('');
   document.getElementById('sal-dt').value=td();document.getElementById('sal-pe').value=nm();
   document.getElementById('sal-att-info').style.display='none';
   document.getElementById('sal-preview').innerHTML='<span style="color:var(--text2);">Select a partner to preview.</span>';
@@ -4978,9 +5025,11 @@ function openEditSalary(id){
   }
   if (S.cu?.role !== 'ceo') { alert('Only the CEO can edit salary records.'); return; }
   S.editSalaryId = id;
-  // Populate the form
-  document.getElementById('sal-pt').innerHTML = '<option value="">-- Select partner --</option>' + S.partners.map(p => `<option value="${p.id}">${p.fn} ${p.ln}</option>`).join('');
-  document.getElementById('sal-cl').innerHTML = '<option value="">-- General --</option>' + S.clients.map(c => `<option value="${c.id}">${c.nm}</option>`).join('');
+  // Populate the form, filtering by the salary's own date so anyone
+  // active at the time (even if now inactive) can still be selected.
+  const salDate = s.dt || td();
+  document.getElementById('sal-pt').innerHTML = '<option value="">-- Select partner --</option>' + partnersActiveOn(salDate).map(p => `<option value="${p.id}">${p.fn} ${p.ln}</option>`).join('');
+  document.getElementById('sal-cl').innerHTML = '<option value="">-- General --</option>' + clientsActiveOn(salDate).map(c => `<option value="${c.id}">${c.nm}</option>`).join('');
   document.getElementById('sal-pt').value = s.pid;
   document.getElementById('sal-am').value = s.am;
   document.getElementById('sal-cu').value = s.cu;
@@ -6548,7 +6597,11 @@ function recomputeDraft(runId){
   if (!confirm('Recompute this draft?\n\n• Pulls current hourly rates and attendance for the period\n• Adds any newly active partners that joined since last generation\n• Resets gross, regular pay, OT pay, late/absence deduction\n• PRESERVES: custom additions, custom deductions (loans, advances, etc.), client allocation, manual SSS/PhilHealth/Pag-IBIG overrides, AND any partners you previously excluded from this run\n\nClick OK to recompute, Cancel to leave as-is.')) return;
 
   const pb = { start: run.start, end: run.end };
-  const activeIds = new Set(S.partners.filter(p => p.st === 'active').map(p => p.id));
+  // Payroll uses "active on the first day of the period" — anyone
+  // deactivated BEFORE the period started is skipped, but someone
+  // deactivated mid-period is still included (their attendance +
+  // rate history will limit the amount to what they actually earned).
+  const activeIds = new Set(S.partners.filter(p => wasActiveOn(p, pb.start)).map(p => p.id));
   // Per-run excluded list — partners deliberately removed for this run only.
   const excluded = new Set(run.excludedPids || []);
 
@@ -6556,8 +6609,8 @@ function recomputeDraft(runId){
   const existingByPid = new Map();
   run.lines.forEach(l => existingByPid.set(l.pid, l));
 
-  // Build new lines for active partners (skip any deliberately excluded ones)
-  const newLines = S.partners.filter(p => p.st === 'active' && !excluded.has(p.id)).map(p => {
+  // Build new lines for partners active in this period (skip any deliberately excluded).
+  const newLines = S.partners.filter(p => wasActiveOn(p, pb.start) && !excluded.has(p.id)).map(p => {
     const sd = pSalDetail(p, pb.start, pb.end);
     const attD = cAttDeduct(p.id, pb.start, pb.end);
     const expectedGross = (sd.gross || 0) + (attD || 0);
@@ -6666,7 +6719,11 @@ function includePartnerInRun(runId, pid){
 function generatePayrollRun(){
   const pb=getRunBounds();if(!pb){alert('Complete period dates.');return;}
   const paydate=document.getElementById('run-paydate').value;const notes=document.getElementById('run-notes').value.trim();
-  const lines=S.partners.filter(p=>p.st==='active').map(p=>{
+  // Include anyone active on the period start — partners deactivated
+  // BEFORE this run's start date are skipped; someone deactivated
+  // mid-period is still included so their partial-period pay is
+  // captured correctly.
+  const lines=S.partners.filter(p=>wasActiveOn(p, pb.start)).map(p=>{
     const sd=pSalDetail(p,pb.start,pb.end);
     const attD=cAttDeduct(p.id,pb.start,pb.end);  // value in PHP: lost_minutes/60 × hourly rate
     // Make gross = "expected gross if full attendance" so deductions are visible.
@@ -6943,9 +7000,13 @@ function reverseAndRegenerate(id){
     });
   });
 
-  // Step 2: Generate a fresh draft for the same period
+  // Step 2: Generate a fresh draft for the same period. Use the
+  // original run's start as the active-on date so we regenerate the
+  // same partner set (someone deactivated between the original run
+  // and now shouldn't get dropped from a fresh draft that's still
+  // supposed to cover the same period).
   const draftId = S.nid.r++;
-  const newLines = S.partners.filter(p => p.st === 'active').map(p => {
+  const newLines = S.partners.filter(p => wasActiveOn(p, r.start)).map(p => {
     const sd = pSalDetail(p, r.start, r.end);
     const attD = cAttDeduct(p.id, r.start, r.end);
     const expectedGross = (sd.gross || 0) + (attD || 0);
@@ -11739,9 +11800,14 @@ function openInvoiceForm(id) {
   __invEditId = id || null;
   __invLines = [];
 
-  // Populate client select
+  // Populate client select. For an edit we filter by the invoice's
+  // own issue date so a client that was active when the invoice was
+  // written still appears; for a new invoice, "today" is the natural
+  // choice.
   const cs = document.getElementById('inv-client');
-  cs.innerHTML = '<option value="">— Select client —</option>' + S.clients.filter(c => c.st === 'active').map(c => `<option value="${c.id}">${c.nm}</option>`).join('');
+  const invForCtx = id ? S.invoices.find(x => x.id === id) : null;
+  const ctxDate = invForCtx && invForCtx.issueDt ? invForCtx.issueDt : td();
+  cs.innerHTML = '<option value="">— Select client —</option>' + clientsActiveOn(ctxDate).map(c => `<option value="${c.id}">${c.nm}</option>`).join('');
 
   if (id) {
     const inv = S.invoices.find(x => x.id === id);
