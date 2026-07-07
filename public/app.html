@@ -23,61 +23,64 @@
    gilded missals, and the gravitas of sacred typography.
    ========================================================= */
 :root{
-  /* Light theme — Parchment / Illuminated Manuscript */
-  --bg:#F4EDD9;
-  --bg2:#EBE2C5;
-  --bg3:#E2D6B0;
-  --paper:#FBF6E4;
-  --white:#FFFCF0;
-  --text:#1A1410;
-  --text2:#5C4A2D;
-  --text3:#8C7853;
-  --border:#D4C690;
-  --border2:#B89F5C;
-  --rule:#C9A227;
+  /* Light theme — Refined Parchment
+     Cooler cream + antique gold + deeper ink. Less yellowish
+     "illuminated manuscript" feel, more "consulting firm that
+     opens meetings with prayer." */
+  --bg:#F6F2E8;              /* soft cream, less saturated than #F4EDD9 */
+  --bg2:#ECE4D2;
+  --bg3:#DFD4B8;
+  --paper:#FBF8EF;
+  --white:#FFFEF8;
+  --text:#171310;            /* deep ink with a whisper of warmth */
+  --text2:#544838;
+  --text3:#867A62;
+  --border:#D2C7A9;
+  --border2:#B29B6C;
+  --rule:#B0871E;
 
-  /* Sacred palette */
-  --navy:#1A2842;          /* deep ecclesiastical blue */
-  --navy-deep:#0E1830;
-  --gold:#C9A227;          /* illuminated gold */
-  --gold-bright:#E0B83A;
-  --gold-pale:#F0D879;
-  --gold-lt:#F5E9A8;
-  --burgundy:#7C2D2D;      /* oxblood / cardinal */
-  --teal:#1F5F4D;          /* cathedral teal */
-  --sapphire:#1E3A5F;      /* stained glass blue */
-  --emerald:#2F6B3F;
-  --rose:#A14B5F;
-  --coral:#B8442A;
+  /* Sacred palette — quieter, more antique */
+  --navy:#182238;            /* deep ecclesiastical blue */
+  --navy-deep:#0D1729;
+  --gold:#B48A1E;            /* antique illuminated gold — deeper, less mustardy */
+  --gold-bright:#D2A83E;
+  --gold-pale:#E6C87A;
+  --gold-lt:#F1E0AC;
+  --burgundy:#742929;
+  --teal:#1D5A48;
+  --sapphire:#1B355A;
+  --emerald:#2B6438;
+  --rose:#9C4859;
+  --coral:#B03E24;
 
   /* Status accents */
-  --green:#2F6B3F;
-  --amber:#A77B1E;
+  --green:#2B6438;
+  --amber:#9A7318;
   --red:#8B2929;
-  --purple:#4B3477;
+  --purple:#463273;
 
   /* Geometry */
   --radius:6px;
   --radius-sm:4px;
   --radius-lg:10px;
-  --shadow:0 1px 2px rgba(74,52,18,.08), 0 2px 6px rgba(74,52,18,.04);
-  --shadow-md:0 6px 18px rgba(74,52,18,.14), 0 2px 4px rgba(74,52,18,.08);
-  --shadow-gold:0 0 0 1px rgba(201,162,39,.3), 0 4px 14px rgba(201,162,39,.18);
+  --shadow:0 1px 2px rgba(64,44,14,.07), 0 2px 6px rgba(64,44,14,.035);
+  --shadow-md:0 6px 18px rgba(64,44,14,.12), 0 2px 4px rgba(64,44,14,.07);
+  --shadow-gold:0 0 0 1px rgba(180,138,30,.28), 0 4px 14px rgba(180,138,30,.16);
 }
 
 /* DARK THEME — Cathedral Interior / Stained Glass */
 body.theme-dark{
-  --bg:#0E1830;
-  --bg2:#162342;
-  --bg3:#1F2E50;
-  --paper:#1A2842;
-  --white:#1F2E50;
-  --text:#F4EDD9;
-  --text2:#C9A78D;
-  --text3:#9B8268;
-  --border:#3A4A6E;
-  --border2:#5A6E94;
-  --rule:#C9A227;
+  --bg:#0D1729;
+  --bg2:#141F3B;
+  --bg3:#1D2A48;
+  --paper:#182238;
+  --white:#1D2A48;
+  --text:#F6F2E8;
+  --text2:#D2B99B;
+  --text3:#9A8264;
+  --border:#374765;
+  --border2:#556A8E;
+  --rule:#B48A1E;
   --shadow:0 1px 2px rgba(0,0,0,.3), 0 2px 6px rgba(0,0,0,.2);
   --shadow-md:0 6px 18px rgba(0,0,0,.4), 0 2px 4px rgba(0,0,0,.25);
 }
@@ -85,16 +88,20 @@ body.theme-dark{
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{
   height:100%;
-  font-family:'Cardo','EB Garamond',Georgia,serif;
-  font-size:15.5px;
+  /* Primary UI font — DM Sans for corporate polish across tables,
+     forms, buttons, body text. Serif is retained on demand for
+     display headings (Cormorant Garamond), scriptural accents
+     (Cardo), and anywhere a class explicitly opts back in. */
+  font-family:'DM Sans','Inter','Helvetica Neue','Segoe UI',system-ui,sans-serif;
+  font-size:14.5px;
   color:var(--text);
   background:var(--bg);
   background-image:
-    radial-gradient(circle at 20% 30%, rgba(201,162,39,.04) 0%, transparent 40%),
-    radial-gradient(circle at 80% 70%, rgba(124,45,45,.03) 0%, transparent 40%);
-  font-feature-settings:"kern","liga","onum","pnum";
-  letter-spacing:.005em;
-  line-height:1.65;
+    radial-gradient(circle at 20% 30%, rgba(180,138,30,.035) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(116,41,41,.025) 0%, transparent 40%);
+  font-feature-settings:"kern","liga","tnum","cv11";
+  letter-spacing:.002em;
+  line-height:1.55;
   position:relative;
 }
 
