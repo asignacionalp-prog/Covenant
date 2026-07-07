@@ -1887,10 +1887,7 @@ body{
       </div>
       <div id="batch-toolbar-payments" style="display:none;"></div>
       <div class="tbl-card">
-        <table><thead><tr>
-          <th style="width:32px;"><input type="checkbox" id="batch-select-all-payments" onchange="batchToggleAll('payments', Array.from(document.querySelectorAll('[data-batch-scope=payments]')).map(c=>parseInt(c.dataset.batchId)), this.checked)" title="Select all" style="cursor:pointer;"/></th>
-          <th>Date</th><th>Client</th><th>Amount</th><th>Currency</th><th class="r">PHP equiv.</th><th>Period</th><th>Invoice</th><th></th>
-        </tr></thead>
+        <table><thead id="payments-thead"></thead>
         <tbody id="payments-tbody"></tbody></table>
       </div>
     </div>
@@ -1920,7 +1917,7 @@ body{
         </div>
       </div>
       <div class="tbl-card">
-        <table><thead><tr><th>#</th><th>Client</th><th>Issue date</th><th>Due date</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead>
+        <table><thead id="invoices-thead"></thead>
         <tbody id="invoices-tbody"></tbody></table>
       </div>
     </div>
@@ -2048,7 +2045,7 @@ body{
       </div>
       <div class="stat-grid" id="remit-stats"></div>
       <div class="tbl-card">
-        <table><thead><tr><th>Date</th><th class="r">Amount (PHP)</th><th>Mode</th><th>By</th><th>Reference</th><th>Applied to</th><th></th></tr></thead>
+        <table><thead id="remit-thead"></thead>
         <tbody id="remit-tbody"></tbody></table>
       </div>
     </div>
@@ -4796,8 +4793,83 @@ function removeCred(cid,idx){const c=gC(cid);if(!c||!c.creds)return;c.creds.spli
 // ============================================================
 // PAYMENTS
 // ============================================================
+// ─── Sortable-table helper ───────────────────────────────────
+// Per-table sort state persisted in localStorage so preferences
+// survive refresh. Each render function that opts in populates a
+// <thead> block with sortableTh(...) headers and sorts rows via
+// applyTableSort(). Clicking a header cycles asc → desc → asc for
+// that column and re-renders just that table.
+(function initTableSort(){
+  try { window.__tableSort = JSON.parse(localStorage.getItem('covTableSort') || '{}'); }
+  catch { window.__tableSort = {}; }
+})();
+function _persistTableSort(){
+  try { localStorage.setItem('covTableSort', JSON.stringify(window.__tableSort||{})); } catch {}
+}
+function toggleTableSort(tableKey, colKey, rerenderFn){
+  window.__tableSort = window.__tableSort || {};
+  const cur = window.__tableSort[tableKey];
+  let dir = 'asc';
+  if (cur && cur.key === colKey) dir = cur.dir === 'asc' ? 'desc' : 'asc';
+  window.__tableSort[tableKey] = { key: colKey, dir };
+  _persistTableSort();
+  if (typeof window[rerenderFn] === 'function') window[rerenderFn]();
+}
+function sortableTh(tableKey, colKey, label, opts){
+  opts = opts || {};
+  const cur = window.__tableSort && window.__tableSort[tableKey];
+  const active = cur && cur.key === colKey;
+  const arrow = active ? (cur.dir === 'asc' ? ' ▲' : ' ▼') : '';
+  const cls = opts.className ? ` class="${opts.className}"` : '';
+  const style = 'cursor:pointer;user-select:none;' + (opts.style || '');
+  const rerender = opts.rerender || 'noop';
+  return `<th${cls} style="${style}" onclick="toggleTableSort('${tableKey}','${colKey}','${rerender}')" title="Click to sort">${label}${arrow}</th>`;
+}
+function applyTableSort(rows, tableKey, colGetters, fallback){
+  const s = (window.__tableSort && window.__tableSort[tableKey]) || fallback;
+  if (!s || !s.key) return rows;
+  const getter = colGetters[s.key];
+  if (!getter) return rows;
+  const dir = s.dir === 'desc' ? -1 : 1;
+  return rows.slice().sort((a, b) => {
+    const av = getter(a);
+    const bv = getter(b);
+    if (av === bv) return 0;
+    if (av == null) return 1;                 // nulls sink to the bottom
+    if (bv == null) return -1;
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+}
+
 function renderPayments(){
-  document.getElementById('payments-tbody').innerHTML=S.payments.slice().reverse().map(p=>{
+  // Populate the sortable header row. Keeps the checkbox column
+  // static (it needs a live onchange handler that references DOM by
+  // data-batch-scope) and makes every content column click-to-sort.
+  const thead = document.getElementById('payments-thead');
+  if (thead) {
+    thead.innerHTML = '<tr>' +
+      '<th style="width:32px;"><input type="checkbox" id="batch-select-all-payments" onchange="batchToggleAll(\'payments\', Array.from(document.querySelectorAll(\'[data-batch-scope=payments]\')).map(c=>parseInt(c.dataset.batchId)), this.checked)" title="Select all" style="cursor:pointer;"/></th>' +
+      sortableTh('payments','date','Date',{rerender:'renderPayments'}) +
+      sortableTh('payments','client','Client',{rerender:'renderPayments'}) +
+      sortableTh('payments','amount','Amount',{rerender:'renderPayments'}) +
+      sortableTh('payments','currency','Currency',{rerender:'renderPayments'}) +
+      sortableTh('payments','php','PHP equiv.',{rerender:'renderPayments',className:'r'}) +
+      sortableTh('payments','period','Period',{rerender:'renderPayments'}) +
+      sortableTh('payments','invoice','Invoice',{rerender:'renderPayments'}) +
+      '<th></th></tr>';
+  }
+  // Default: newest first (matches the pre-sort behavior).
+  const sorted = applyTableSort(S.payments, 'payments', {
+    date: p => p.dt,
+    client: p => { const c = gC(p.ci); return c ? c.nm : ''; },
+    amount: p => php(p.am, p.cu, p.rt), // sort by PHP-equivalent so mixed currencies compare fairly
+    currency: p => p.cu,
+    php: p => php(p.am, p.cu, p.rt),
+    period: p => p.pe,
+    invoice: p => { const inv = p.invoiceId ? S.invoices.find(x => x.id === p.invoiceId) : null; return inv ? inv.num : ''; },
+  }, { key: 'date', dir: 'desc' });
+  document.getElementById('payments-tbody').innerHTML=sorted.map(p=>{
     const c=gC(p.ci);
     const inv = p.invoiceId ? S.invoices.find(x => x.id === p.invoiceId) : null;
     const invCol = inv ? `<span class="badge bdg-purple" style="cursor:pointer;" onclick="viewInvoice(${inv.id})" title="View source invoice">${inv.num}</span>` : '<span style="color:var(--text3);font-style:italic;">—</span>';
@@ -6113,7 +6185,25 @@ function renderRemittance(){
   poolEl.innerHTML=(poolHtml?`<div style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600;margin:1rem 0 .75rem;">Obligation pools</div>${poolHtml}`:'')+creditLedgerHtml+(poolHtml||creditLedgerHtml?`<div style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600;margin:1.5rem 0 .75rem;">Remittance log</div>`:'');
 
   const isCeo = S.cu?.role === 'ceo';
-  document.getElementById('remit-tbody').innerHTML=S.logs.slice().reverse().map(l=>{
+  // Populate the sortable-header row and pick the sorted view of logs.
+  const remitThead = document.getElementById('remit-thead');
+  if (remitThead) {
+    remitThead.innerHTML = '<tr>' +
+      sortableTh('remit','dt','Date',{rerender:'renderRemittance'}) +
+      sortableTh('remit','am','Amount (PHP)',{rerender:'renderRemittance',className:'r'}) +
+      sortableTh('remit','mo','Mode',{rerender:'renderRemittance'}) +
+      sortableTh('remit','by','By',{rerender:'renderRemittance'}) +
+      sortableTh('remit','rf','Reference',{rerender:'renderRemittance'}) +
+      '<th>Applied to</th><th></th></tr>';
+  }
+  const sortedLogs = applyTableSort(S.logs, 'remit', {
+    dt: l => l.dt,
+    am: l => l.am,
+    mo: l => l.mo,
+    by: l => l.by,
+    rf: l => l.rf,
+  }, { key: 'dt', dir: 'desc' });
+  document.getElementById('remit-tbody').innerHTML=sortedLogs.map(l=>{
     const poolSummary=l.poolAl?l.poolAl.map(p=>`${p.label} ${fmt(p.am)}${p.excess>0.01?` <span style="color:var(--gold);">(+${fmt(p.excess)} credit)</span>`:''}`).join(', '):
       (l.al||[]).map(a=>{const o=S.obls.find(x=>x.id===a.oi);return o?o.lb+' '+fmt(a.am):''}).filter(Boolean).join(', ')||'—';
     const creditNote=l.creditUsed>0?`<div style="font-size:12px;color:var(--gold);font-style:italic;">Used ${fmt(l.creditUsed)} credit</div>`:'';
@@ -12039,7 +12129,29 @@ function renderInvoices() {
   let invs = S.invoices.slice();
   if (fs) invs = invs.filter(i => invComputedStatus(i) === fs);
   if (fcv) invs = invs.filter(i => i.ci === parseInt(fcv));
-  invs.sort((a, b) => (b.issueDt || '').localeCompare(a.issueDt || ''));
+
+  // Sortable-header thead. Preserves the filter-then-sort ordering
+  // by applying user-chosen sort AFTER filters. Falls back to issue
+  // date desc when no sort has been set — matches prior behavior.
+  const invThead = document.getElementById('invoices-thead');
+  if (invThead) {
+    invThead.innerHTML = '<tr>' +
+      sortableTh('invoices','num','#',{rerender:'renderInvoices'}) +
+      sortableTh('invoices','client','Client',{rerender:'renderInvoices'}) +
+      sortableTh('invoices','issueDt','Issue date',{rerender:'renderInvoices'}) +
+      sortableTh('invoices','dueDt','Due date',{rerender:'renderInvoices'}) +
+      sortableTh('invoices','amount','Amount',{rerender:'renderInvoices',className:'r'}) +
+      sortableTh('invoices','status','Status',{rerender:'renderInvoices'}) +
+      '<th></th></tr>';
+  }
+  invs = applyTableSort(invs, 'invoices', {
+    num: i => i.num || '',
+    client: i => { const c = gC(i.ci); return c ? c.nm : ''; },
+    issueDt: i => i.issueDt || '',
+    dueDt: i => i.dueDt || '',
+    amount: i => invPhpTotal(i),  // sort by PHP-equivalent for mixed-currency lists
+    status: i => invComputedStatus(i),
+  }, { key: 'issueDt', dir: 'desc' });
 
   // Stats
   const all = S.invoices;
