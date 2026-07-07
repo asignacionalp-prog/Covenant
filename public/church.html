@@ -68,6 +68,29 @@
   .chart-svg-tick{font-size:9px;fill:var(--text3);font-family:'DM Sans',sans-serif;}
   .chart-svg-label{font-size:10px;fill:var(--text2);font-family:'DM Sans',sans-serif;letter-spacing:.02em;}
 
+  /* Toolbar (search + filters at the top of each tab) */
+  .toolbar{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;}
+  .toolbar input,.toolbar select{background:rgba(246,242,232,.04);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:5px;font-family:inherit;font-size:.85rem;width:auto;margin:0;min-width:180px;}
+  .toolbar input:focus,.toolbar select:focus{border-color:var(--gold);outline:none;}
+  .toolbar input[type="search"]{padding-left:2rem;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%23D2B99B" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16" y2="16"/></svg>');background-repeat:no-repeat;background-position:.55rem center;background-size:14px;}
+  .toolbar .count{font-size:.78rem;color:var(--text3);letter-spacing:.02em;margin-left:auto;font-feature-settings:"tnum";}
+  .toolbar select{cursor:pointer;}
+
+  /* Summary bar — small aggregate stats above a data table */
+  .sumbar{display:flex;gap:1rem;flex-wrap:wrap;padding:.85rem 1rem;background:rgba(180,138,30,.05);border:1px solid var(--border);border-radius:5px;margin-bottom:1rem;}
+  .sumbar .item{display:flex;flex-direction:column;gap:2px;min-width:120px;}
+  .sumbar .item-lbl{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:.72rem;color:var(--text2);letter-spacing:.14em;text-transform:uppercase;}
+  .sumbar .item-val{font-family:'Cormorant Garamond',serif;font-size:1.15rem;color:var(--text);font-feature-settings:"tnum";line-height:1.1;}
+
+  /* Sortable column headers */
+  .data-tbl th[data-sort]{cursor:pointer;user-select:none;transition:color .15s;}
+  .data-tbl th[data-sort]:hover{color:var(--gold);}
+  .data-tbl th.sorted{color:var(--gold-bright);}
+
+  /* Auto-highlight for low-performing HO cards on the Health tab */
+  .health-ho.low-perf{border-left:3px solid var(--coral);}
+  .health-ho.high-perf{border-left:3px solid var(--teal);}
+
   /* Tabs */
   .tabs{display:flex;gap:.15rem;margin-bottom:1.5rem;border-bottom:1px solid var(--border);flex-wrap:wrap;}
   .tab{background:none;border:none;color:var(--text2);padding:.65rem 1.1rem;font-family:inherit;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;position:relative;margin-bottom:-1px;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;font-weight:500;}
@@ -202,6 +225,10 @@
 
       <div class="section-title" style="margin-top:.5rem;">Affiliated Home Offices</div>
       <div class="section-sub">Click any row to see partners, clients, and this month's devotion + attendance.</div>
+      <div class="toolbar">
+        <input type="search" id="ho-search" placeholder="Search Home Offices…"/>
+        <span class="count" id="ho-count"></span>
+      </div>
       <div id="ho-table" class="ho-table"></div>
     </div>
 
@@ -209,6 +236,23 @@
     <div id="tab-clients" class="tab-panel">
       <div class="section-title">Clients across all affiliated Home Offices</div>
       <div class="section-sub">Everyone your Home Offices serve, with engagement type. No payment amounts.</div>
+      <div id="clients-sumbar" class="sumbar"></div>
+      <div class="toolbar">
+        <input type="search" id="clients-search" placeholder="Search client or Home Office name…"/>
+        <select id="clients-ho-filter"><option value="">All Home Offices</option></select>
+        <select id="clients-type-filter">
+          <option value="">All types</option>
+          <option value="full-time">Full-time</option>
+          <option value="part-time">Part-time</option>
+          <option value="gig">Gig</option>
+        </select>
+        <select id="clients-status-filter">
+          <option value="">All statuses</option>
+          <option value="active">Active only</option>
+          <option value="inactive">Inactive only</option>
+        </select>
+        <span class="count" id="clients-count"></span>
+      </div>
       <div id="clients-tbl" class="data-tbl"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
     </div>
 
@@ -216,11 +260,28 @@
     <div id="tab-obligations" class="tab-panel">
       <div class="section-title">Obligations across all affiliated Home Offices</div>
       <div class="section-sub">Firstfruits, tithes, church-project remittances, and partner tithes — what's been remitted and what's still owed.</div>
-      <div style="margin-bottom:1rem;display:flex;gap:.4rem;flex-wrap:wrap;" id="obl-filter">
-        <button class="tab" data-obl-filter="all" style="border:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;margin-bottom:0;padding:.4rem .85rem;font-size:.7rem;">All</button>
-        <button class="tab" data-obl-filter="pending" style="border:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;margin-bottom:0;padding:.4rem .85rem;font-size:.7rem;">Pending</button>
-        <button class="tab" data-obl-filter="partial" style="border:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;margin-bottom:0;padding:.4rem .85rem;font-size:.7rem;">Partial</button>
-        <button class="tab" data-obl-filter="remitted" style="border:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;margin-bottom:0;padding:.4rem .85rem;font-size:.7rem;">Remitted</button>
+      <div id="obl-sumbar" class="sumbar"></div>
+      <div class="toolbar">
+        <input type="search" id="obl-search" placeholder="Search HO, party, label…"/>
+        <select id="obl-ho-filter"><option value="">All Home Offices</option></select>
+        <select id="obl-type-filter">
+          <option value="">All types</option>
+          <option value="firstfruit">Firstfruit</option>
+          <option value="tithe">Tithe</option>
+          <option value="church">Church Project</option>
+          <option value="partner-tithe">Partner Tithe</option>
+        </select>
+        <select id="obl-status-filter">
+          <option value="all">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="partial">Partial</option>
+          <option value="remitted">Remitted</option>
+          <option value="archived">Archived</option>
+        </select>
+        <select id="obl-period-filter">
+          <option value="">All periods</option>
+        </select>
+        <span class="count" id="obligations-count"></span>
       </div>
       <div id="obligations-tbl" class="data-tbl"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
     </div>
@@ -228,11 +289,23 @@
     <!-- Health tab -->
     <div id="tab-health" class="tab-panel">
       <div class="section-title">Home Office ministry health</div>
-      <div class="section-sub">Team devotion rate, Sunday-service attendance, and church-activities participation per Home Office. Click any row for per-partner detail.</div>
-      <div class="month-picker">
+      <div class="section-sub">Team devotion rate, Sunday-service attendance, and church-activities participation per Home Office. Cards below 50% are auto-flagged so you can spot them fast. Click "Show partners" for per-partner detail.</div>
+      <div id="health-sumbar" class="sumbar"></div>
+      <div class="toolbar">
+        <input type="search" id="health-search" placeholder="Search Home Office…"/>
         Month:
         <input type="month" id="health-month"/>
-        <span style="color:var(--text3);font-size:.78rem;">All percentages are among logged workdays for active partners.</span>
+        Sort by:
+        <select id="health-sort">
+          <option value="name">Name (A→Z)</option>
+          <option value="devotion-asc">Devotion (lowest first)</option>
+          <option value="devotion-desc">Devotion (highest first)</option>
+          <option value="sunday-asc">Sunday service (lowest first)</option>
+          <option value="sunday-desc">Sunday service (highest first)</option>
+          <option value="activities-asc">Activities (lowest first)</option>
+          <option value="activities-desc">Activities (highest first)</option>
+        </select>
+        <span class="count" id="health-count"></span>
       </div>
       <div id="health-view" class="health-hos"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
     </div>
@@ -358,18 +431,33 @@
     `;
   }
 
-  async function loadHOTable(){
-    const rows = await client.query('church:byHomeOffice', { sessionToken });
+  let _hoCache = null;
+  let _hoSearch = '';
+
+  function renderHOTable(){
     const wrap = document.getElementById('ho-table');
-    if (!rows.length) {
+    const countEl = document.getElementById('ho-count');
+    if (!_hoCache) return;
+    if (!_hoCache.length) {
       wrap.innerHTML = `<div class="empty-state">
         No Home Offices have affiliated with your church yet.
         <div class="empty-hint">Share your invite code — <code id="empty-code"></code> — with a Home Office CEO. They can paste it in Settings → Church affiliation.</div>
       </div>`;
-      // Populate the invite code in the empty state
       const codeEl = document.getElementById('empty-code');
-      const me = await client.query('church:getMyChurch', { sessionToken });
-      if (me && codeEl) codeEl.textContent = me.inviteCode;
+      const me = document.getElementById('church-invite-code');
+      if (me && codeEl) codeEl.textContent = me.textContent;
+      if (countEl) countEl.textContent = '';
+      return;
+    }
+    const q = _hoSearch.trim().toLowerCase();
+    const filtered = q
+      ? _hoCache.filter(r => r.name.toLowerCase().includes(q))
+      : _hoCache;
+    if (countEl) countEl.textContent = q
+      ? `${filtered.length} of ${_hoCache.length} shown`
+      : `${_hoCache.length} Home Office${_hoCache.length === 1 ? '' : 's'}`;
+    if (!filtered.length) {
+      wrap.innerHTML = '<div class="empty-state">No Home Offices match your search.</div>';
       return;
     }
     const hdr = `<div class="ho-row hdr">
@@ -380,7 +468,7 @@
       <div>Owed</div>
       <div></div>
     </div>`;
-    const body = rows.map((r, i) => `
+    const body = filtered.map((r, i) => `
       <div class="ho-row" data-idx="${i}" data-orgid="${r.orgId}">
         <div class="ho-name">${r.name}</div>
         <div class="ho-num"><strong>${fmtInt(r.activePartners)}</strong>${r.totalPartners !== r.activePartners ? ' <span style="color:var(--text3);">/ '+fmtInt(r.totalPartners)+'</span>' : ''}</div>
@@ -391,11 +479,21 @@
       </div>
     `).join('');
     wrap.innerHTML = hdr + body;
-    // Wire click-to-expand
     wrap.querySelectorAll('.ho-row:not(.hdr)').forEach(el => {
       el.addEventListener('click', () => toggleExpand(el));
     });
   }
+
+  async function loadHOTable(){
+    _hoCache = await client.query('church:byHomeOffice', { sessionToken });
+    renderHOTable();
+  }
+
+  // Wire the Overview search box
+  document.getElementById('ho-search').addEventListener('input', (e) => {
+    _hoSearch = e.target.value;
+    renderHOTable();
+  });
 
   async function toggleExpand(el){
     if (el.classList.contains('expanded')) {
@@ -529,49 +627,204 @@
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
+  // ─── Small helpers used by tables ───────────────────────
+  function typeTag(t){
+    const key = (t || '').toLowerCase();
+    const cls = key === 'part-time' ? 'pt' : key === 'gig' ? 'gig' : '';
+    return `<span class="type-tag ${cls}">${t || '—'}</span>`;
+  }
+  function statusTagClient(s){
+    return `<span class="type-tag ${s === 'inactive' ? 'inactive' : ''}">${s}</span>`;
+  }
+  function statusTagObl(s){
+    return `<span class="status-tag ${s}">${s}</span>`;
+  }
+  function fillHoSelect(selectEl, hoNames){
+    const cur = selectEl.value;
+    const opts = ['<option value="">All Home Offices</option>'].concat(
+      hoNames.map(n => `<option value="${n}">${n}</option>`)
+    );
+    selectEl.innerHTML = opts.join('');
+    if (hoNames.includes(cur)) selectEl.value = cur;
+  }
+  function uniqueSorted(list){
+    return Array.from(new Set(list)).sort((a, b) => a.localeCompare(b));
+  }
+  // Sort helpers — cycle asc → desc → asc; render arrows on active header
+  function nextDir(cur, key){
+    if (!cur || cur.key !== key) return 'asc';
+    return cur.dir === 'asc' ? 'desc' : 'asc';
+  }
+  function sortRows(rows, sortState, colGetters){
+    if (!sortState || !sortState.key) return rows;
+    const getter = colGetters[sortState.key];
+    if (!getter) return rows;
+    const dir = sortState.dir === 'desc' ? -1 : 1;
+    return rows.slice().sort((a, b) => {
+      const av = getter(a), bv = getter(b);
+      if (av === bv) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+      return String(av).localeCompare(String(bv)) * dir;
+    });
+  }
+  function sortHeader(key, label, sortState, opts){
+    opts = opts || {};
+    const active = sortState && sortState.key === key;
+    const arrow = active ? (sortState.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    const cls = (opts.className || '') + (active ? ' sorted' : '');
+    return `<th data-sort="${key}"${cls?` class="${cls}"`:''}>${label}${arrow}</th>`;
+  }
+
   // ─── Clients tab ────────────────────────────────────────
+  let _clientsCache = null;
+  let _clientsFilters = { search: '', ho: '', type: '', status: '' };
+  let _clientsSort = { key: 'orgName', dir: 'asc' };
+
+  function renderClients(){
+    const wrap = document.getElementById('clients-tbl');
+    const countEl = document.getElementById('clients-count');
+    const sumEl = document.getElementById('clients-sumbar');
+    if (!_clientsCache) return;
+    if (!_clientsCache.length) {
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No clients recorded across your affiliated Home Offices yet.</div>';
+      if (countEl) countEl.textContent = '';
+      if (sumEl) sumEl.innerHTML = '';
+      return;
+    }
+    // Summary
+    const total = _clientsCache.length;
+    const ft = _clientsCache.filter(c => c.type === 'full-time').length;
+    const pt = _clientsCache.filter(c => c.type === 'part-time').length;
+    const gig = _clientsCache.filter(c => c.type === 'gig').length;
+    const active = _clientsCache.filter(c => c.status === 'active').length;
+    sumEl.innerHTML =
+      `<div class="item"><div class="item-lbl">Total</div><div class="item-val">${fmtInt(total)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Active</div><div class="item-val">${fmtInt(active)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Full-time</div><div class="item-val">${fmtInt(ft)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Part-time</div><div class="item-val">${fmtInt(pt)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Gig</div><div class="item-val">${fmtInt(gig)}</div></div>`;
+
+    // Apply filters
+    const q = (_clientsFilters.search || '').trim().toLowerCase();
+    let filtered = _clientsCache.filter(r => {
+      if (_clientsFilters.ho && r.orgName !== _clientsFilters.ho) return false;
+      if (_clientsFilters.type && r.type !== _clientsFilters.type) return false;
+      if (_clientsFilters.status && r.status !== _clientsFilters.status) return false;
+      if (q) {
+        const hay = (r.name + ' ' + r.orgName).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    // Sort
+    filtered = sortRows(filtered, _clientsSort, {
+      orgName: r => r.orgName,
+      name: r => r.name,
+      type: r => r.type,
+      status: r => r.status,
+    });
+    if (countEl) countEl.textContent = `${filtered.length} of ${total} shown`;
+    if (!filtered.length) {
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No clients match your search + filters.</div>';
+      return;
+    }
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        ${sortHeader('orgName','Home Office',_clientsSort)}
+        ${sortHeader('name','Client',_clientsSort)}
+        ${sortHeader('type','Type',_clientsSort)}
+        ${sortHeader('status','Status',_clientsSort)}
+      </tr></thead>
+      <tbody>${filtered.map(r => `
+        <tr>
+          <td>${r.orgName}</td>
+          <td class="name">${r.name}</td>
+          <td>${typeTag(r.type)}</td>
+          <td>${statusTagClient(r.status)}</td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+    // Wire sortable headers
+    wrap.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sort;
+        _clientsSort = { key, dir: nextDir(_clientsSort, key) };
+        renderClients();
+      });
+    });
+  }
+
   async function loadClients(){
     const wrap = document.getElementById('clients-tbl');
     try {
-      const rows = await client.query('church:allClients', { sessionToken });
-      if (!rows.length) {
-        wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No clients recorded across your affiliated Home Offices yet.</div>';
-        return;
-      }
-      const typeTag = (t) => {
-        const key = (t || '').toLowerCase();
-        const cls = key === 'part-time' ? 'pt' : key === 'gig' ? 'gig' : '';
-        return `<span class="type-tag ${cls}">${t || '—'}</span>`;
-      };
-      const statusTag = (s) => `<span class="type-tag ${s === 'inactive' ? 'inactive' : ''}">${s}</span>`;
-      wrap.innerHTML = `<table>
-        <thead><tr><th>Home Office</th><th>Client</th><th>Type</th><th>Status</th></tr></thead>
-        <tbody>${rows.map(r => `
-          <tr>
-            <td>${r.orgName}</td>
-            <td class="name">${r.name}</td>
-            <td>${typeTag(r.type)}</td>
-            <td>${statusTag(r.status)}</td>
-          </tr>
-        `).join('')}</tbody>
-      </table>`;
+      _clientsCache = await client.query('church:allClients', { sessionToken });
+      fillHoSelect(document.getElementById('clients-ho-filter'), uniqueSorted(_clientsCache.map(c => c.orgName)));
+      renderClients();
     } catch (e) {
       wrap.innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
     }
   }
 
+  // Wire Clients toolbar
+  document.getElementById('clients-search').addEventListener('input', (e) => { _clientsFilters.search = e.target.value; renderClients(); });
+  document.getElementById('clients-ho-filter').addEventListener('change', (e) => { _clientsFilters.ho = e.target.value; renderClients(); });
+  document.getElementById('clients-type-filter').addEventListener('change', (e) => { _clientsFilters.type = e.target.value; renderClients(); });
+  document.getElementById('clients-status-filter').addEventListener('change', (e) => { _clientsFilters.status = e.target.value; renderClients(); });
+
   // ─── Obligations tab ────────────────────────────────────
+  let _oblFilters = { search: '', ho: '', type: '', status: 'all', period: '' };
+  let _oblSort = { key: 'period', dir: 'desc' };
+
   function renderObligations(){
     const wrap = document.getElementById('obligations-tbl');
+    const countEl = document.getElementById('obligations-count');
+    const sumEl = document.getElementById('obl-sumbar');
     if (!_obligationsCache) return;
-    const filtered = _obligationsFilter === 'all'
-      ? _obligationsCache
-      : _obligationsCache.filter(o => o.status === _obligationsFilter);
+    // Summary (over the full cache, not the filtered view)
+    const totalOwed = _obligationsCache.filter(o => !o.archived).reduce((a, o) => a + (o.balance || 0), 0);
+    const totalCommitted = _obligationsCache.filter(o => !o.archived).reduce((a, o) => a + (o.total || 0), 0);
+    const byType = {};
+    for (const o of _obligationsCache) {
+      if (o.archived) continue;
+      byType[o.type] = (byType[o.type] || 0) + o.balance;
+    }
+    sumEl.innerHTML =
+      `<div class="item"><div class="item-lbl">Total owed</div><div class="item-val" style="color:#e8b0bb;">${fmt(totalOwed)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Total committed</div><div class="item-val">${fmt(totalCommitted)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Firstfruit</div><div class="item-val">${fmt(byType.firstfruit || 0)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Tithe</div><div class="item-val">${fmt(byType.tithe || 0)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Church Project</div><div class="item-val">${fmt(byType.church || 0)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Partner tithe</div><div class="item-val">${fmt(byType['partner-tithe'] || 0)}</div></div>`;
+
+    // Apply filters
+    const q = (_oblFilters.search || '').trim().toLowerCase();
+    let filtered = _obligationsCache.filter(o => {
+      if (_oblFilters.ho && o.orgName !== _oblFilters.ho) return false;
+      if (_oblFilters.type && o.type !== _oblFilters.type) return false;
+      if (_oblFilters.status !== 'all' && o.status !== _oblFilters.status) return false;
+      if (_oblFilters.period && o.period !== _oblFilters.period) return false;
+      if (q) {
+        const hay = (o.orgName + ' ' + o.label + ' ' + (o.partnerName || '') + ' ' + (o.clientName || '')).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    filtered = sortRows(filtered, _oblSort, {
+      orgName: o => o.orgName,
+      label: o => o.label,
+      period: o => o.period,
+      party: o => o.partnerName || o.clientName || '',
+      total: o => o.total,
+      balance: o => o.balance,
+      status: o => o.status,
+    });
+    if (countEl) countEl.textContent = `${filtered.length} of ${_obligationsCache.length} shown`;
     if (!filtered.length) {
-      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No obligations match this filter.</div>';
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No obligations match your search + filters.</div>';
       return;
     }
-    const statusTag = (s) => `<span class="status-tag ${s}">${s}</span>`;
     const partyLabel = (o) => {
       if (o.partnerName) return `<span style="color:var(--text3);font-style:italic;">Partner:</span> ${o.partnerName}`;
       if (o.clientName) return `<span style="color:var(--text3);font-style:italic;">Client:</span> ${o.clientName}`;
@@ -579,13 +832,13 @@
     };
     wrap.innerHTML = `<table>
       <thead><tr>
-        <th>Home Office</th>
-        <th>Type</th>
-        <th>Period</th>
-        <th>Party</th>
-        <th class="r">Owed</th>
-        <th class="r">Balance</th>
-        <th>Status</th>
+        ${sortHeader('orgName','Home Office',_oblSort)}
+        ${sortHeader('label','Type',_oblSort)}
+        ${sortHeader('period','Period',_oblSort)}
+        ${sortHeader('party','Party',_oblSort)}
+        ${sortHeader('total','Owed',_oblSort,{className:'r'})}
+        ${sortHeader('balance','Balance',_oblSort,{className:'r'})}
+        ${sortHeader('status','Status',_oblSort)}
       </tr></thead>
       <tbody>${filtered.map(o => `
         <tr>
@@ -595,37 +848,173 @@
           <td>${partyLabel(o)}</td>
           <td class="r">${fmt(o.total)}</td>
           <td class="r" style="color:${o.balance > 0.01 ? '#e8b0bb' : '#a8d6b3'};">${fmt(o.balance)}</td>
-          <td>${statusTag(o.status)}</td>
+          <td>${statusTagObl(o.status)}</td>
         </tr>
       `).join('')}</tbody>
     </table>`;
+    wrap.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sort;
+        _oblSort = { key, dir: nextDir(_oblSort, key) };
+        renderObligations();
+      });
+    });
   }
 
   async function loadObligations(){
     const wrap = document.getElementById('obligations-tbl');
     try {
       _obligationsCache = await client.query('church:allObligations', { sessionToken });
+      fillHoSelect(document.getElementById('obl-ho-filter'), uniqueSorted(_obligationsCache.map(o => o.orgName)));
+      // Populate period filter
+      const periods = uniqueSorted(_obligationsCache.map(o => o.period).filter(Boolean)).reverse();
+      const perSel = document.getElementById('obl-period-filter');
+      const curPer = perSel.value;
+      perSel.innerHTML = '<option value="">All periods</option>' + periods.map(p => `<option value="${p}">${p}</option>`).join('');
+      if (periods.includes(curPer)) perSel.value = curPer;
       renderObligations();
     } catch (e) {
       wrap.innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
     }
   }
 
-  // Highlight the first filter chip on load; wire clicks
-  document.querySelectorAll('#obl-filter [data-obl-filter]').forEach(btn => {
-    if (btn.dataset.oblFilter === 'all') btn.classList.add('active');
-    btn.addEventListener('click', () => {
-      _obligationsFilter = btn.dataset.oblFilter;
-      document.querySelectorAll('#obl-filter [data-obl-filter]').forEach(b => b.classList.toggle('active', b === btn));
-      renderObligations();
-    });
-  });
+  // Wire Obligations toolbar
+  document.getElementById('obl-search').addEventListener('input', (e) => { _oblFilters.search = e.target.value; renderObligations(); });
+  document.getElementById('obl-ho-filter').addEventListener('change', (e) => { _oblFilters.ho = e.target.value; renderObligations(); });
+  document.getElementById('obl-type-filter').addEventListener('change', (e) => { _oblFilters.type = e.target.value; renderObligations(); });
+  document.getElementById('obl-status-filter').addEventListener('change', (e) => { _oblFilters.status = e.target.value; renderObligations(); });
+  document.getElementById('obl-period-filter').addEventListener('change', (e) => { _oblFilters.period = e.target.value; renderObligations(); });
 
   // ─── Health tab ─────────────────────────────────────────
   function pctCell(pct){
     if (pct == null) return '<span class="pct-badge" style="background:rgba(154,130,100,.15);color:var(--text3);">—</span>';
     const cls = pct >= 80 ? '' : (pct >= 50 ? 'mid' : 'low');
     return `<span class="pct-badge ${cls}">${pct}%</span>`;
+  }
+
+  let _healthCache = null;
+  let _healthSearch = '';
+  let _healthSort = 'name';
+
+  function renderHealth(){
+    const wrap = document.getElementById('health-view');
+    const countEl = document.getElementById('health-count');
+    const sumEl = document.getElementById('health-sumbar');
+    if (!_healthCache) return;
+    if (!_healthCache.length) {
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No Home Offices are affiliated yet.</div>';
+      if (countEl) countEl.textContent = '';
+      if (sumEl) sumEl.innerHTML = '';
+      return;
+    }
+    // Church-wide averages (weighted by partner count for fair aggregation).
+    const avg = (key) => {
+      let num = 0, den = 0;
+      for (const r of _healthCache) {
+        if (r[key] == null) continue;
+        num += r[key] * r.activePartners;
+        den += r.activePartners;
+      }
+      return den > 0 ? Math.round(num / den) : null;
+    };
+    const chDev = avg('devotionPct');
+    const chSun = avg('sundayServicePct');
+    const chAct = avg('churchActivitiesPct');
+    const lowCount = _healthCache.filter(r => (r.devotionPct != null && r.devotionPct < 50) || (r.sundayServicePct != null && r.sundayServicePct < 50) || (r.churchActivitiesPct != null && r.churchActivitiesPct < 50)).length;
+    sumEl.innerHTML =
+      `<div class="item"><div class="item-lbl">Home Offices</div><div class="item-val">${fmtInt(_healthCache.length)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Church devotion</div><div class="item-val">${chDev != null ? chDev + '%' : '—'}</div></div>` +
+      `<div class="item"><div class="item-lbl">Church Sunday</div><div class="item-val">${chSun != null ? chSun + '%' : '—'}</div></div>` +
+      `<div class="item"><div class="item-lbl">Church activities</div><div class="item-val">${chAct != null ? chAct + '%' : '—'}</div></div>` +
+      `<div class="item"><div class="item-lbl">Needing attention</div><div class="item-val" style="color:${lowCount > 0 ? '#e8b0bb' : 'inherit'};">${fmtInt(lowCount)}</div></div>`;
+
+    // Filter
+    const q = _healthSearch.trim().toLowerCase();
+    let filtered = q ? _healthCache.filter(r => r.orgName.toLowerCase().includes(q)) : _healthCache.slice();
+
+    // Sort — nulls sink so "lowest first" pulls real low performers to the top
+    // instead of hiding behind unlogged HOs.
+    const dirKey = _healthSort;
+    if (dirKey === 'name') {
+      filtered.sort((a, b) => a.orgName.localeCompare(b.orgName));
+    } else {
+      const [metric, dir] = dirKey.split('-');
+      const field = metric === 'devotion' ? 'devotionPct' : metric === 'sunday' ? 'sundayServicePct' : 'churchActivitiesPct';
+      const mult = dir === 'desc' ? -1 : 1;
+      filtered.sort((a, b) => {
+        const av = a[field], bv = b[field];
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        return (av - bv) * mult;
+      });
+    }
+
+    if (countEl) countEl.textContent = `${filtered.length} of ${_healthCache.length} shown`;
+    if (!filtered.length) {
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No Home Offices match your search.</div>';
+      return;
+    }
+
+    const classifyCard = (r) => {
+      const pcts = [r.devotionPct, r.sundayServicePct, r.churchActivitiesPct].filter(v => v != null);
+      if (!pcts.length) return '';
+      const min = Math.min(...pcts);
+      if (min < 50) return 'low-perf';
+      if (Math.min(...pcts) >= 80) return 'high-perf';
+      return '';
+    };
+
+    wrap.innerHTML = filtered.map((r, i) => `
+      <div class="health-ho ${classifyCard(r)}" data-idx="${i}">
+        <div class="health-ho-hdr">
+          <div>
+            <div class="health-ho-name">${r.orgName}</div>
+            <div style="font-size:.78rem;color:var(--text3);letter-spacing:.02em;margin-top:2px;">${r.activePartners} active partner${r.activePartners === 1 ? '' : 's'} · ${r.monthKey}</div>
+          </div>
+          <button class="health-toggle" onclick="toggleHealthDetail(this)">Show partners ▾</button>
+        </div>
+        <div class="health-metrics">
+          <div class="health-metric">
+            <div class="health-metric-label">Devotion</div>
+            <div class="health-metric-value">${r.devotionPct != null ? r.devotionPct + '%' : '—'}</div>
+            <div class="health-metric-sub">Daily walk with God</div>
+          </div>
+          <div class="health-metric">
+            <div class="health-metric-label">Sunday service</div>
+            <div class="health-metric-value">${r.sundayServicePct != null ? r.sundayServicePct + '%' : '—'}</div>
+            <div class="health-metric-sub">Corporate worship</div>
+          </div>
+          <div class="health-metric">
+            <div class="health-metric-label">Church activities</div>
+            <div class="health-metric-value">${r.churchActivitiesPct != null ? r.churchActivitiesPct + '%' : '—'}</div>
+            <div class="health-metric-sub">Serving in ministry</div>
+          </div>
+        </div>
+        <div class="health-partners">
+          <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+            <thead>
+              <tr>
+                <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Partner</th>
+                <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Role</th>
+                <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Devotion</th>
+                <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Sunday</th>
+                <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Activities</th>
+              </tr>
+            </thead>
+            <tbody>${r.partners.map(p => `
+              <tr>
+                <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);color:var(--text);">${p.name}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);color:var(--text2);">${p.role || '—'}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);">${pctCell(p.devotionPct)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);">${pctCell(p.sundayServicePct)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);">${pctCell(p.churchActivitiesPct)}</td>
+              </tr>
+            `).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+    `).join('');
   }
 
   async function loadHealth(){
@@ -636,67 +1025,16 @@
       monthInput.value = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
     }
     try {
-      const rows = await client.query('church:health', { sessionToken, monthKey: monthInput.value });
-      if (!rows.length) {
-        wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No Home Offices are affiliated yet.</div>';
-        return;
-      }
-      wrap.innerHTML = rows.map((r, i) => `
-        <div class="health-ho" data-idx="${i}">
-          <div class="health-ho-hdr">
-            <div>
-              <div class="health-ho-name">${r.orgName}</div>
-              <div style="font-size:.78rem;color:var(--text3);letter-spacing:.02em;margin-top:2px;">${r.activePartners} active partner${r.activePartners === 1 ? '' : 's'} · ${r.monthKey}</div>
-            </div>
-            <button class="health-toggle" onclick="toggleHealthDetail(this)">Show partners ▾</button>
-          </div>
-          <div class="health-metrics">
-            <div class="health-metric">
-              <div class="health-metric-label">Devotion</div>
-              <div class="health-metric-value">${r.devotionPct != null ? r.devotionPct + '%' : '—'}</div>
-              <div class="health-metric-sub">Daily walk with God</div>
-            </div>
-            <div class="health-metric">
-              <div class="health-metric-label">Sunday service</div>
-              <div class="health-metric-value">${r.sundayServicePct != null ? r.sundayServicePct + '%' : '—'}</div>
-              <div class="health-metric-sub">Corporate worship</div>
-            </div>
-            <div class="health-metric">
-              <div class="health-metric-label">Church activities</div>
-              <div class="health-metric-value">${r.churchActivitiesPct != null ? r.churchActivitiesPct + '%' : '—'}</div>
-              <div class="health-metric-sub">Serving in ministry</div>
-            </div>
-          </div>
-          <div class="health-partners">
-            <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Partner</th>
-                  <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Role</th>
-                  <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Devotion</th>
-                  <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Sunday</th>
-                  <th style="text-align:left;font-weight:500;color:var(--text3);padding:6px 8px;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--border);">Activities</th>
-                </tr>
-              </thead>
-              <tbody>${r.partners.map(p => `
-                <tr>
-                  <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);color:var(--text);">${p.name}</td>
-                  <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);color:var(--text2);">${p.role || '—'}</td>
-                  <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);">${pctCell(p.devotionPct)}</td>
-                  <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);">${pctCell(p.sundayServicePct)}</td>
-                  <td style="padding:6px 8px;border-bottom:1px solid rgba(55,71,101,.4);">${pctCell(p.churchActivitiesPct)}</td>
-                </tr>
-              `).join('')}</tbody>
-            </table>
-          </div>
-        </div>
-      `).join('');
+      _healthCache = await client.query('church:health', { sessionToken, monthKey: monthInput.value });
+      renderHealth();
     } catch (e) {
       wrap.innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
     }
   }
 
-  // Reload health on month change
+  // Wire Health toolbar
+  document.getElementById('health-search').addEventListener('input', (e) => { _healthSearch = e.target.value; renderHealth(); });
+  document.getElementById('health-sort').addEventListener('change', (e) => { _healthSort = e.target.value; renderHealth(); });
   document.getElementById('health-month').addEventListener('change', loadHealth);
 
   // Global — exposed for inline onclick above
