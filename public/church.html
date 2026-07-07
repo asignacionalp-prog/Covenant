@@ -166,12 +166,19 @@
 
   // ─── Views ──────────────────────────────────────────────
   function showSignin(){
-    document.getElementById('signin-view').style.display = '';
+    // Signin-view uses display:flex (via .signin-wrap). Set it
+    // explicitly so we override the "display:none" state left
+    // over from a previous showDash().
+    document.getElementById('signin-view').style.display = 'flex';
     document.getElementById('dash-view').style.display = 'none';
   }
   function showDash(){
+    // Setting display to '' (empty string) removes the inline style
+    // and lets the CSS rule #dash-view{display:none;} win — which
+    // means the dashboard stays hidden after sign-in. Set 'block'
+    // explicitly to actually show it.
     document.getElementById('signin-view').style.display = 'none';
-    document.getElementById('dash-view').style.display = '';
+    document.getElementById('dash-view').style.display = 'block';
   }
 
   // ─── Sign-in flow ───────────────────────────────────────
