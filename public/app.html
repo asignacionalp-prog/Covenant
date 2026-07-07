@@ -1721,6 +1721,7 @@ body{
           </div>
           <div id="pf-tithe-preview" style="display:none;" class="tithe-preview"></div>
         </div>
+        <div id="pf-rate-schedule-wrap" style="margin-top:1rem;"></div>
         <div id="pf-rate-history-wrap" style="margin-top:1rem;"></div>
         <div id="pf-payroll-history-wrap" style="margin-top:1rem;"></div>
       </div>
@@ -2463,6 +2464,43 @@ body{
 </div>
 
 <!-- Additional pay (top-up, bonus, allowance) -->
+<!-- Rate schedule change (mid-period raise / adjustment) -->
+<div id="modal-rate-change" class="modal-overlay">
+  <div class="modal">
+    <h3 id="rc-title">Add rate change</h3>
+    <div class="info-box" style="font-size:12px;line-height:1.6;">
+      <strong>Prorated payroll.</strong> Rate changes take effect on the date you set below. Payroll runs that span the effective date automatically prorate: earlier days use the previous rate; days from this date forward use the new one.
+      Leave any field blank to keep it unchanged from prior effective values.
+    </div>
+    <div class="fr">
+      <label>Effective from *</label>
+      <input type="date" id="rc-effective"/>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>New monthly salary</label><input type="number" id="rc-sa" min="0" step="0.01" placeholder="Leave blank if unchanged"/></div>
+      <div class="fr"><label>New hourly rate</label><input type="number" id="rc-hr" min="0" step="0.01" placeholder="Leave blank if unchanged"/></div>
+    </div>
+    <div class="f2">
+      <div class="fr"><label>New expected hrs/day</label><input type="number" id="rc-eh" min="1" max="24" step="0.5" placeholder="Leave blank if unchanged"/></div>
+      <div class="fr"><label>New tithe %</label><input type="number" id="rc-tp" min="0" max="100" step="0.01" placeholder="Leave blank if unchanged"/></div>
+    </div>
+    <div style="font-size:11px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin:1rem 0 .5rem;">Statutory contributions (optional)</div>
+    <div class="f3">
+      <div class="fr"><label>SSS</label><input type="number" id="rc-gd-sss" min="0" step="0.01" placeholder="Unchanged"/></div>
+      <div class="fr"><label>PhilHealth</label><input type="number" id="rc-gd-ph" min="0" step="0.01" placeholder="Unchanged"/></div>
+      <div class="fr"><label>Pag-IBIG</label><input type="number" id="rc-gd-pg" min="0" step="0.01" placeholder="Unchanged"/></div>
+    </div>
+    <div class="fr">
+      <label>Note (optional)</label>
+      <input id="rc-note" placeholder="e.g. Annual raise, promotion, contract renewal…"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-rate-change')">Cancel</button>
+      <button class="btn btn-dark" onclick="saveRateChange()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-additional" class="modal-overlay">
   <div class="modal">
     <h3 id="ad-title">Additional pay</h3>
@@ -2740,42 +2778,86 @@ function sA(pid,ds,v){S.att[attKey(pid,ds)]=v;}
 // Returns { worked, regular, ot, lateUT, absentMins, halfMins, leaveMins, lateUTMins, otMins }
 // All values in minutes. "worked" = regular + ot (the billable hours).
 // Late/UT minutes are subtracted from regular. Absent/half/leave/nowork handled per status.
+/**
+ * Effective compensation for a partner on a given date. Applies the
+ * baseline (top-level p.sa/hr/eh/tp/gd) plus every rateSchedule entry
+ * whose effectiveFrom <= dateStr, in ascending order, so later
+ * overrides win.
+ *
+ * Returns a shallow copy — safe to mutate at the caller. Missing
+ * fields in a schedule entry mean "inherit prior effective value".
+ *
+ * Note: p.rateHistory (a separate field) is an audit log of past
+ * partner-form saves; it does NOT drive computation. Only
+ * p.rateSchedule is consulted here.
+ */
+function rateOn(p, dateStr){
+  if(!p) return {};
+  const effective = {
+    sa: p.sa, hr: p.hr, eh: p.eh, tp: p.tp,
+    gd: p.gd ? {...p.gd} : undefined,
+    cu: p.cu,
+  };
+  const history = (p.rateSchedule || [])
+    .filter(e => e && typeof e.effectiveFrom === 'string' && e.effectiveFrom <= dateStr)
+    .slice()
+    .sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom));
+  for (const e of history) {
+    if (e.sa != null) effective.sa = e.sa;
+    if (e.hr != null) effective.hr = e.hr;
+    if (e.eh != null) effective.eh = e.eh;
+    if (e.tp != null) effective.tp = e.tp;
+    if (e.gd) effective.gd = { ...(effective.gd || {}), ...e.gd };
+  }
+  return effective;
+}
+
 function cWorkedMinutesDetail(pid,start,end){
-  const p=gP(pid);if(!p)return {worked:0,regular:0,ot:0,lateUTMins:0,absentMins:0,halfMins:0,leaveMins:0,otMins:0,workdays:0,lateUTDays:0,absentDays:0,halfDays:0,leaveDays:0,noworkDays:0};
-  const eh=p.eh||8;const expectedMin=eh*60;
+  const p=gP(pid);if(!p)return {worked:0,regular:0,ot:0,lateUTMins:0,absentMins:0,halfMins:0,leaveMins:0,otMins:0,workdays:0,lateUTDays:0,absentDays:0,halfDays:0,leaveDays:0,noworkDays:0,regularPay:0,otPay:0,lostPay:0};
   let regular=0,ot=0,lateUTMins=0,absentMins=0,halfMins=0,leaveMins=0,otMins=0;
+  let regularPay=0,otPay=0,lostPay=0;
   let workdays=0,lateUTDays=0,absentDays=0,halfDays=0,leaveDays=0,noworkDays=0;
   const d=new Date(start),e=new Date(end);
   while(d<=e){
     if(d.getDay()>=1&&d.getDay()<=5){
       workdays++;
       const ds=d.toISOString().split('T')[0];const r=gA(pid,ds);
+      // Effective rate for THIS day — respects any mid-period changes
+      // from p.rateHistory. Falls back to baseline (p.eh, p.hr) when
+      // no history entries apply yet.
+      const rate=rateOn(p,ds);
+      const eh=rate.eh||8;
+      const hr=rate.hr||0;
+      const expectedMin=eh*60;
       if(r){
         const lm=r.lm||0,um=r.um||0,om=r.om||0;
         if(r.st==='absent'){
           absentDays++;absentMins+=expectedMin;
-          // 0 worked
+          lostPay+=expectedMin/60*hr;
         } else if(r.st==='half'){
           halfDays++;halfMins+=expectedMin/2;
-          regular+=expectedMin/2; // worked half the day
+          regular+=expectedMin/2;
+          regularPay+=(expectedMin/2)/60*hr;
+          lostPay+=(expectedMin/2)/60*hr;
         } else if(r.st==='leave'){
           leaveDays++;leaveMins+=expectedMin;
-          regular+=expectedMin; // counted as full paid
+          regular+=expectedMin;
+          regularPay+=expectedMin/60*hr;
         } else if(r.st==='nowork'){
           noworkDays++;
-          // Not counted at all (not a workday in scheduling terms)
           workdays--;
         } else {
           // 'present'
           if(lm>0||um>0)lateUTDays++;
           lateUTMins+=lm+um;
-          regular+=Math.max(0,expectedMin-lm-um);
-          if(om>0){ot+=om;otMins+=om;}
+          const workedMin=Math.max(0,expectedMin-lm-um);
+          regular+=workedMin;
+          regularPay+=workedMin/60*hr;
+          lostPay+=(lm+um)/60*hr;
+          if(om>0){ot+=om;otMins+=om;otPay+=om/60*hr;}
         }
-      } else {
-        // No log = nothing recorded; counted as worked? Treat as no-record-zero (safer for payroll integrity)
-        // Don't add to regular automatically — force user to log explicitly.
       }
+      // No log = nothing recorded — do not auto-fill (payroll integrity).
     }
     d.setDate(d.getDate()+1);
   }
@@ -2783,17 +2865,19 @@ function cWorkedMinutesDetail(pid,start,end){
     worked: regular + ot,
     regular, ot,
     lateUTMins, absentMins, halfMins, leaveMins, otMins,
-    workdays, lateUTDays, absentDays, halfDays, leaveDays, noworkDays
+    workdays, lateUTDays, absentDays, halfDays, leaveDays, noworkDays,
+    // Peso values, already prorated per-day using each day's effective hr.
+    regularPay: Math.round(regularPay*100)/100,
+    otPay: Math.round(otPay*100)/100,
+    lostPay: Math.round(lostPay*100)/100,
   };
 }
 
-// Backwards-compat: returns lost-pesos for late/UT/absent/half (for display only — gross now computed from worked hours)
+// Attendance deduction in pesos. Uses the per-day lost pay computed
+// inside cWorkedMinutesDetail so a mid-period hourly-rate change
+// prices absent/late/UT minutes at the rate effective on each day.
 function cAttDeduct(pid,start,end){
-  const p=gP(pid);if(!p)return 0;
-  const det=cWorkedMinutesDetail(pid,start,end);
-  // Total minutes "lost" relative to a full attendance = absent + half_short + lateUT
-  const lost=det.absentMins + det.halfMins + det.lateUTMins;
-  return Math.round(lost/60*(p.hr||0)*100)/100;
+  return cWorkedMinutesDetail(pid,start,end).lostPay;
 }
 
 function cAttDeductMonth(pid,period){
@@ -3347,6 +3431,7 @@ function openEditPartner(id){
   document.getElementById('pf-qr-label').value=p.qrLabel||'';
   pfRenderQrPreview();
   pfSuggestHourly();pfPreviewTithe();
+  pfRenderRateSchedule(p);
   pfRenderRateHistory(p);
   pfRenderPayrollHistory(p);
   pfRenderDocsPanel(p);
@@ -3360,6 +3445,7 @@ function clearPf(){
   document.getElementById('pf-tithe-row').style.display='none';document.getElementById('pf-tithe-preview').style.display='none';
   document.getElementById('pf-hr-sug').textContent='';
   const msg=document.getElementById('pf-msg');msg.style.display='none';
+  const rs=document.getElementById('pf-rate-schedule-wrap');if(rs)rs.innerHTML='';
   const rh=document.getElementById('pf-rate-history-wrap');if(rh)rh.innerHTML='';
   const ph=document.getElementById('pf-payroll-history-wrap');if(ph)ph.innerHTML='';
   const dc=document.getElementById('pf-docs-card');if(dc)dc.style.display='none';
@@ -3489,11 +3575,146 @@ function savePartner(){
   else{data.id=S.nid.p++;S.partners.push(data);}
   computeAll();
   // Refresh rate history display if editing
-  if(S.editPid){const updated=gP(S.editPid);if(updated){pfRenderRateHistory(updated);pfRenderDocsPanel(updated);}}
+  if(S.editPid){const updated=gP(S.editPid);if(updated){pfRenderRateSchedule(updated);pfRenderRateHistory(updated);pfRenderDocsPanel(updated);}}
   const msg=document.getElementById('pf-msg');
   msg.className='ok-box';msg.textContent=S.editPid?'Partner updated successfully.':'Partner saved successfully.';msg.style.display='block';
   document.getElementById('view-partner-form').scrollTop=0;
   setTimeout(()=>msg.style.display='none',3000);
+}
+
+// ── Rate schedule (forward-looking, drives prorated payroll) ─────
+// Distinct from the audit-log-style pfRenderRateHistory below.
+// Each entry: {effectiveFrom, sa?, hr?, eh?, tp?, gd?, note?}.
+// rateOn(p, dateStr) reads this to produce day-by-day payroll math.
+
+let __rcEditIdx = null;
+
+function pfRenderRateSchedule(p){
+  const wrap = document.getElementById('pf-rate-schedule-wrap');
+  if (!wrap) return;
+  const cu = p?.cu || 'PHP';
+  const schedule = Array.isArray(p?.rateSchedule) ? p.rateSchedule.slice() : [];
+  schedule.sort((a, b) => (a.effectiveFrom || '').localeCompare(b.effectiveFrom || ''));
+
+  const rows = schedule.map((e, i) => {
+    const changes = [];
+    if (e.sa != null) changes.push(`Salary <strong>${cu} ${Number(e.sa).toLocaleString()}</strong>`);
+    if (e.hr != null) changes.push(`Rate <strong>${cu} ${Number(e.hr)}/hr</strong>`);
+    if (e.eh != null) changes.push(`Hrs/day <strong>${Number(e.eh)}</strong>`);
+    if (e.tp != null) changes.push(`Tithe <strong>${Number(e.tp)}%</strong>`);
+    if (e.gd) {
+      const gdParts = [];
+      if (e.gd.sss != null) gdParts.push(`SSS ${Number(e.gd.sss).toLocaleString()}`);
+      if (e.gd.ph  != null) gdParts.push(`PH ${Number(e.gd.ph).toLocaleString()}`);
+      if (e.gd.pg  != null) gdParts.push(`PG ${Number(e.gd.pg).toLocaleString()}`);
+      if (gdParts.length) changes.push(gdParts.join(' · '));
+    }
+    if (!changes.length) changes.push('<em style="color:var(--text2);">No fields set</em>');
+    return `<tr>
+      <td style="font-family:'Cardo',serif;font-size:13px;white-space:nowrap;">${e.effectiveFrom || '—'}</td>
+      <td style="font-size:13px;line-height:1.7;">${changes.join('<br>')}</td>
+      <td style="font-size:12px;color:var(--text2);font-style:italic;">${e.note || ''}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" onclick="openRateChangeModal(${i})">Edit</button>
+        <button class="btn btn-sm btn-red" onclick="deleteRateChange(${i})">×</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const emptyState = `<div style="font-size:12px;color:var(--text2);font-style:italic;margin:4px 0 8px;">No scheduled rate changes. All dates use the baseline compensation above.</div>`;
+
+  wrap.innerHTML = `
+    <div class="card-section-title" style="margin-top:0;display:flex;justify-content:space-between;align-items:center;">
+      <span>Scheduled rate changes ${schedule.length ? `(${schedule.length})` : ''}</span>
+      <button class="btn btn-sm btn-dark" onclick="openRateChangeModal(null)" ${p && p.id ? '' : 'disabled title="Save the partner first"'}>+ Add rate change</button>
+    </div>
+    <div class="info-box" style="font-size:12px;background:rgba(75,52,119,.05);border-left-color:var(--purple,#4B3477);margin-bottom:.5rem;line-height:1.6;">
+      Use this when a partner's salary, hourly rate, or tithe % changes mid-period. Payroll for periods that span the effective date will automatically prorate — earlier days at the previous rate, later days at the new one.
+    </div>
+    ${schedule.length ? `<div class="tbl-card"><table>
+      <thead><tr><th style="width:120px;">Effective from</th><th>New values</th><th>Note</th><th style="width:100px;"></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>` : emptyState}
+  `;
+}
+
+function openRateChangeModal(idx){
+  if (!S.editPid) { alert('Save the partner first, then add a rate change.'); return; }
+  const p = gP(S.editPid);
+  if (!p) return;
+  __rcEditIdx = (typeof idx === 'number') ? idx : null;
+  const existing = (__rcEditIdx != null) ? (p.rateSchedule || [])[__rcEditIdx] : null;
+  document.getElementById('rc-title').textContent = existing ? 'Edit rate change' : 'Add rate change';
+  document.getElementById('rc-effective').value = existing?.effectiveFrom || td();
+  document.getElementById('rc-sa').value = existing?.sa ?? '';
+  document.getElementById('rc-hr').value = existing?.hr ?? '';
+  document.getElementById('rc-eh').value = existing?.eh ?? '';
+  document.getElementById('rc-tp').value = existing?.tp ?? '';
+  document.getElementById('rc-gd-sss').value = existing?.gd?.sss ?? '';
+  document.getElementById('rc-gd-ph').value  = existing?.gd?.ph  ?? '';
+  document.getElementById('rc-gd-pg').value  = existing?.gd?.pg  ?? '';
+  document.getElementById('rc-note').value = existing?.note || '';
+  openModal('modal-rate-change');
+}
+
+function saveRateChange(){
+  const p = gP(S.editPid);
+  if (!p) { alert('Partner not found.'); return; }
+  const effectiveFrom = document.getElementById('rc-effective').value;
+  if (!effectiveFrom) { alert('Effective date is required.'); return; }
+  // Read each optional field; treat blank as "no change to this field"
+  const readOpt = id => {
+    const v = document.getElementById(id).value;
+    if (v === '' || v == null) return undefined;
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const gdEntry = {
+    sss: readOpt('rc-gd-sss'),
+    ph:  readOpt('rc-gd-ph'),
+    pg:  readOpt('rc-gd-pg'),
+  };
+  const hasGd = gdEntry.sss != null || gdEntry.ph != null || gdEntry.pg != null;
+  const note = document.getElementById('rc-note').value.trim();
+  const entry = {
+    effectiveFrom,
+    sa: readOpt('rc-sa'),
+    hr: readOpt('rc-hr'),
+    eh: readOpt('rc-eh'),
+    tp: readOpt('rc-tp'),
+    ...(hasGd ? { gd: gdEntry } : {}),
+    ...(note ? { note } : {}),
+  };
+  // Guard: at least one field besides effectiveFrom must be set
+  const anySet = ['sa','hr','eh','tp'].some(k => entry[k] != null) || hasGd;
+  if (!anySet) { alert('Set at least one new value (salary, rate, hrs/day, tithe %, or a statutory contribution).'); return; }
+
+  if (!Array.isArray(p.rateSchedule)) p.rateSchedule = [];
+  if (__rcEditIdx != null) {
+    p.rateSchedule[__rcEditIdx] = entry;
+  } else {
+    p.rateSchedule.push(entry);
+  }
+  // Keep the array sorted so anyone iterating without re-sorting still
+  // sees changes in chronological order.
+  p.rateSchedule.sort((a, b) => (a.effectiveFrom || '').localeCompare(b.effectiveFrom || ''));
+  __rcEditIdx = null;
+  closeModal('modal-rate-change');
+  markDirty();
+  computeAll();
+  pfRenderRateSchedule(p);
+}
+
+function deleteRateChange(idx){
+  const p = gP(S.editPid);
+  if (!p || !Array.isArray(p.rateSchedule)) return;
+  const e = p.rateSchedule[idx];
+  if (!e) return;
+  if (!confirm(`Delete the rate change effective ${e.effectiveFrom}? Any payroll runs that already used it will still hold their original numbers (they're paid history), but future runs will use the prior effective values.`)) return;
+  p.rateSchedule.splice(idx, 1);
+  markDirty();
+  computeAll();
+  pfRenderRateSchedule(p);
 }
 
 // Render compensation change history audit panel on the partner form
@@ -6253,11 +6474,17 @@ function pSal(p,freq,start,end){
 // Detail version for payroll line (so we can show regular & OT separately)
 function pSalDetail(p,start,end){
   const det=cWorkedMinutesDetail(p.id,start,end);
+  // Prefer the per-day accumulator on `det` — it already respects any
+  // mid-period rate changes on the partner's rateHistory. Falls back
+  // to the flat-rate calc for older cached results that predate the
+  // prorated fields (defensive; shouldn't happen after this deploy).
   const hr=p.hr||0;
+  const regularPay=(det.regularPay!=null)?det.regularPay:Math.round(det.regular/60*hr*100)/100;
+  const otPay=(det.otPay!=null)?det.otPay:Math.round(det.ot/60*hr*100)/100;
   return {
-    regularPay: Math.round(det.regular/60*hr*100)/100,
-    otPay: Math.round(det.ot/60*hr*100)/100,
-    gross: Math.round(det.worked/60*hr*100)/100,
+    regularPay,
+    otPay,
+    gross: Math.round((regularPay+otPay)*100)/100,
     detail: det
   };
 }
@@ -6431,7 +6658,7 @@ function allLinesAllocated(run){
   return run.lines.every(l => validateAllocation(l.allocation || []).ok);
 }
 
-function recalcLine(line,p){
+function recalcLine(line,p,endDate){
   // Tithe model: tithe is computed against the partner's TAKE-HOME-EQUIVALENT
   // EARNINGS — gross minus the deductions outside their control (attendance
   // shortfalls + mandatory statutory contributions). "Other deductions"
@@ -6447,6 +6674,11 @@ function recalcLine(line,p){
   // Note: tithe is subtracted AFTER it's calculated, so it doesn't reduce
   // its own base. Other deductions still come out of net pay — they just
   // don't get to lower how much tithe is due.
+  //
+  // endDate (optional) — when this line belongs to a payroll run, pass
+  // run.end so the tithe % respects any mid-period change on the
+  // partner's rateHistory. Callers outside a run context (or on legacy
+  // callsites) may omit it; we fall back to the partner's baseline tp.
   if(line.baseGross===undefined)line.baseGross=line.gross||0;
   const addTot=(line.additions||[]).reduce((a,o)=>a+o.am,0);
   line.addTot=addTot;
@@ -6460,7 +6692,8 @@ function recalcLine(line,p){
   const pg=line.pg||0;
   // Tithe base = gross − attendance − statutory only.
   const titheBase = Math.max(0, gross - att - sss - ph - pg);
-  line.tithe = p.tc ? Math.round(titheBase * (p.tp/100) * 100) / 100 : 0;
+  const effectiveTp = endDate ? (rateOn(p, endDate).tp ?? p.tp) : p.tp;
+  line.tithe = p.tc ? Math.round(titheBase * (effectiveTp/100) * 100) / 100 : 0;
   line.net = Math.max(0, gross - att - sss - ph - pg - line.tithe - otherTot);
 }
 function onRunFreq(){
@@ -6700,7 +6933,7 @@ function recomputeDraft(runId){
         ? existing.allocation
         : defaultAllocationForPartner(p)
     };
-    recalcLine(line, p);
+    recalcLine(line, p, run.end);
     return line;
   });
 
@@ -6769,7 +7002,7 @@ function includePartnerInRun(runId, pid){
     tithe: 0, additions: [], addTot: 0, others: [], otherTot: 0, net: 0,
     allocation: defaultAllocationForPartner(p),
   };
-  recalcLine(line, p);
+  recalcLine(line, p, run.end);
   run.lines.push(line);
   renderPayrollDetail(runId);
 }
@@ -6803,7 +7036,7 @@ function generatePayrollRun(){
       tithe:0,additions:[],addTot:0,others:[],otherTot:0,net:0,
       allocation: defaultAllocationForPartner(p)
     };
-    recalcLine(line,p);return line;
+    recalcLine(line,p,pb.end);return line;
   });
   const run={id:S.nid.r++,freq:pb.freq,label:pb.label,start:pb.start,end:pb.end,paydate,notes,status:'draft',lines,createdAt:td()};
   S.runs.push(run);closeModal('modal-new-run');S.curRunId=run.id;renderPayrollDetail(run.id);showView('payroll-detail');
@@ -6888,7 +7121,7 @@ function renderPayrollDetail(id){
 function updLine(rid,pid,field,val){
   const run=S.runs.find(r=>r.id===rid);if(!run)return;
   const l=run.lines.find(x=>x.pid===pid);if(!l)return;
-  l[field]=parseFloat(val)||0;recalcLine(l,gP(pid));renderPayrollDetail(rid);
+  l[field]=parseFloat(val)||0;recalcLine(l,gP(pid),run.end);renderPayrollDetail(rid);
 }
 function toReview(id){if(confirm('Submit for CEO review? You can still return it to draft.')){{const r=S.runs.find(x=>x.id===id);if(r)r.status='review';renderPayrollDetail(id);}}
 }
@@ -7089,7 +7322,7 @@ function reverseAndRegenerate(id){
       tithe: 0, additions: [], addTot: 0, others: [], otherTot: 0, net: 0,
       allocation
     };
-    recalcLine(line, p);
+    recalcLine(line, p, r.end);
     return line;
   });
   const newDraft = {
@@ -7254,12 +7487,12 @@ function addOtherDeduction(){
   if(!lbl){alert('Enter a label.');return;}if(am<=0){alert('Enter a valid amount.');return;}
   const run=S.runs.find(r=>r.id===S.odRunId);const l=run?.lines.find(x=>x.pid===S.odPid);if(!l)return;
   if(!l.others)l.others=[];l.others.push({id:S.nid.od++,ty,lbl,am});
-  recalcLine(l,gP(S.odPid));document.getElementById('od-label').value='';document.getElementById('od-amount').value='';
+  recalcLine(l,gP(S.odPid),run.end);document.getElementById('od-label').value='';document.getElementById('od-amount').value='';
   renderOdExisting();renderPayrollDetail(S.odRunId);
 }
 function removeOd(runId,pid,idx){
   const run=S.runs.find(r=>r.id===runId);const l=run?.lines.find(x=>x.pid===pid);if(!l||!l.others)return;
-  l.others.splice(idx,1);recalcLine(l,gP(pid));renderPayrollDetail(runId);
+  l.others.splice(idx,1);recalcLine(l,gP(pid),run.end);renderPayrollDetail(runId);
 }
 
 // ============================================================
@@ -7288,13 +7521,13 @@ function addAdditional(){
   const run=S.runs.find(r=>r.id===S.adRunId);const l=run?.lines.find(x=>x.pid===S.adPid);if(!l)return;
   if(!l.additions)l.additions=[];
   l.additions.push({id:S.nid.ad++,ty,lbl,am});
-  recalcLine(l,gP(S.adPid));
+  recalcLine(l,gP(S.adPid),run.end);
   document.getElementById('ad-label').value='';document.getElementById('ad-amount').value='';
   renderAdExisting();renderPayrollDetail(S.adRunId);
 }
 function removeAdd(runId,pid,idx){
   const run=S.runs.find(r=>r.id===runId);const l=run?.lines.find(x=>x.pid===pid);if(!l||!l.additions)return;
-  l.additions.splice(idx,1);recalcLine(l,gP(pid));renderPayrollDetail(runId);
+  l.additions.splice(idx,1);recalcLine(l,gP(pid),run.end);renderPayrollDetail(runId);
 }
 // Payslip
 function viewPayslip(rid,pid){
@@ -11651,6 +11884,7 @@ function __wrapDirty(fnName) {
   'excludePartnerFromRun','includePartnerInRun',
   'confirmDeactivatePartner',
   'saveRemittanceMetadata','deleteRemittance',
+  'saveRateChange','deleteRateChange',
   'openConvictionFirstfruit','saveConvictionFirstfruit','deleteConvictionFirstfruit',
   'setSalariesView','toggleSalaryGroup','toggleOblPool','toggleOblItem'
 ].forEach(__wrapDirty);

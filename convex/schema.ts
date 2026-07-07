@@ -197,6 +197,34 @@ export default defineSchema({
     deactivatedAt: v.optional(v.string()),
     /** Free-text reason a partner was deactivated. For HR/audit. */
     deactivationReason: v.optional(v.string()),
+    /**
+     * Forward-looking schedule of rate changes. Distinct from the
+     * legacy in-memory `rateHistory` audit log (which records the
+     * timestamp of every partner-form save). Each entry is a partial
+     * snapshot — only fields the CEO changed on `effectiveFrom` need
+     * to be filled in. For any target date, the effective rate is
+     * derived by starting with the baseline (top-level p.sa/hr/eh/tp/gd)
+     * and applying every schedule entry whose effectiveFrom <= target,
+     * in ascending order.
+     *
+     * hr and eh prorate day-by-day inside payroll. sa is stored for
+     * audit/display. tp and gd use whichever is effective at the END
+     * of the payroll period (statutory contributions are inherently
+     * monthly-frequency, so per-day proration would be misleading).
+     */
+    rateSchedule: v.optional(v.array(v.object({
+      effectiveFrom: v.string(),          // YYYY-MM-DD
+      sa: v.optional(v.number()),
+      hr: v.optional(v.number()),
+      eh: v.optional(v.number()),
+      tp: v.optional(v.number()),
+      gd: v.optional(v.object({
+        sss: v.optional(v.number()),
+        ph: v.optional(v.number()),
+        pg: v.optional(v.number()),
+      })),
+      note: v.optional(v.string()),
+    }))),
   })
     .index("by_org", ["orgId"])
     .index("by_org_legacyId", ["orgId", "legacyId"]),

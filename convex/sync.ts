@@ -206,6 +206,21 @@ export const syncPartnersDiff = mutation({
           notes: str(p.notes),
           deactivatedAt: str(p.deactivatedAt),
           deactivationReason: str(p.deactivationReason),
+          rateSchedule: Array.isArray(p.rateSchedule)
+            ? p.rateSchedule
+                .filter((e: any) => e && typeof e.effectiveFrom === "string")
+                .map((e: any) => ({
+                  effectiveFrom: String(e.effectiveFrom),
+                  sa: num(e.sa),
+                  hr: num(e.hr),
+                  eh: num(e.eh),
+                  tp: num(e.tp),
+                  gd: e.gd
+                    ? { sss: num(e.gd.sss), ph: num(e.gd.ph), pg: num(e.gd.pg) }
+                    : undefined,
+                  note: str(e.note),
+                }))
+            : undefined,
         },
       });
     }
