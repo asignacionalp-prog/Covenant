@@ -897,12 +897,36 @@ body.theme-dark .ded-banner{color:var(--gold-pale);}
 .mins-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:1rem;}
 
 /* ─────────────────  DEVOTION  ─────────────────────────────── */
-/* Events strip — shown at the top of Sunday Service + Church Activities
-   trackers with any church-set or HO-local events for the month. */
+/* Events strip — kept as a fallback style; the calendar grid below
+   is now the primary view on both trackers. */
 .events-strip{background:var(--paper);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.7rem .9rem;margin-bottom:1rem;}
 .events-strip-hdr{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-bottom:.6rem;flex-wrap:wrap;}
 .events-strip-title{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;color:var(--text);letter-spacing:.005em;font-weight:500;}
 .events-strip-list{display:flex;flex-wrap:wrap;gap:.4rem;}
+
+/* Tracker month calendar — same visual language as the church-side
+   calendar, sized down slightly so it fits above the per-partner
+   attendance grids. */
+.tr-cal-hdr{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-bottom:.6rem;flex-wrap:wrap;}
+.tr-cal-title{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:15px;color:var(--text);letter-spacing:.005em;font-weight:500;}
+.tr-cal-legend{display:flex;gap:.7rem;align-items:center;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--text2);}
+.tr-cal-legend-swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle;}
+.tr-cal-legend-swatch.church{background:rgba(180,138,30,.5);border:1px solid rgba(180,138,30,.7);}
+.tr-cal-legend-swatch.local{background:rgba(85,106,142,.5);border:1px solid rgba(85,106,142,.7);}
+.tr-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:1.2rem;}
+.tr-cal-dow{background:rgba(180,138,30,.06);padding:.35rem;text-align:center;font-family:'DM Sans',sans-serif;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;}
+.tr-cal-cell{background:var(--paper);min-height:64px;padding:.3rem .4rem;position:relative;cursor:pointer;transition:background .12s;}
+.tr-cal-cell:hover{background:var(--bg2);}
+.tr-cal-cell.other-month{background:rgba(212,198,144,.15);opacity:.55;cursor:default;}
+.tr-cal-cell.today{border:2px solid var(--gold);padding:calc(.3rem - 2px) calc(.4rem - 2px);}
+.tr-cal-cell-num{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--text2);margin-bottom:2px;font-weight:500;line-height:1;}
+.tr-cal-cell.today .tr-cal-cell-num{color:var(--gold);font-weight:600;}
+.tr-cal-cell.sunday .tr-cal-cell-num{color:var(--gold-bright);}
+.tr-cal-event{display:block;padding:1px 5px;margin-bottom:1px;border-radius:2px;font-family:'DM Sans',sans-serif;font-size:9.5px;font-weight:500;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.02em;transition:filter .12s;}
+.tr-cal-event:hover{filter:brightness(1.15);}
+.tr-cal-event.church{background:rgba(180,138,30,.22);color:var(--gold);border-left:2px solid var(--gold);cursor:default;}
+.tr-cal-event.local{background:rgba(85,106,142,.24);color:var(--sapphire);border-left:2px solid var(--sapphire);}
+.tr-cal-recurring-marker{display:inline-block;font-size:8px;opacity:.7;margin-right:1px;}
 .events-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:14px;font-family:'DM Sans',sans-serif;font-size:11.5px;font-weight:500;letter-spacing:.02em;}
 .events-chip.church{background:rgba(180,138,30,.14);color:var(--gold);border:1px solid rgba(180,138,30,.28);}
 .events-chip.local{background:rgba(85,106,142,.14);color:var(--sapphire);border:1px solid rgba(85,106,142,.28);}
@@ -5101,36 +5125,94 @@ async function _loadEventsForMonth(monthKey, category){
 }
 
 async function pfRenderEventsStrip(view){
-  // view === 'ss' | 'ca'
+  // view === 'ss' | 'ca' — despite the historical name this renders
+  // a full month-grid calendar now, not a chip strip.
   const wrap = document.getElementById(view + '-events');
   if (!wrap) return;
   const monthInputId = view + '-month';
   const monthKey = document.getElementById(monthInputId).value || nm();
   const category = view === 'ss' ? 'sunday' : 'activity';
-  // Show placeholder while fetching so it's obvious the strip is loading.
   wrap.style.display = 'block';
-  wrap.innerHTML = `<div class="events-strip-hdr">
-    <span class="events-strip-title">Loading events…</span>
+  wrap.innerHTML = `<div class="tr-cal-hdr">
+    <span class="tr-cal-title">Loading events…</span>
   </div>`;
   const events = await _loadEventsForMonth(monthKey, category);
   __eventsCache[view][monthKey] = events;
-  const title = view === 'ss'
+  const titleText = view === 'ss'
     ? 'Sunday services · ' + _monthLabel(monthKey)
     : 'Church activities · ' + _monthLabel(monthKey);
+
+  // Build the month grid
+  const [y, m] = monthKey.split('-').map(Number);
+  const firstDay = new Date(y, m-1, 1);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const startDow = firstDay.getDay();
+  const prevMonthDays = new Date(y, m-1, 0).getDate();
+  const today = td();
+
+  // Group events by ISO date
+  const eventsByDate = {};
+  for (const ev of events) {
+    if (!eventsByDate[ev.date]) eventsByDate[ev.date] = [];
+    eventsByDate[ev.date].push(ev);
+  }
+
+  const cells = [];
+  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+    cells.push(`<div class="tr-cal-dow">${d}</div>`);
+  });
+  // Leading (previous month) cells
+  for (let i = 0; i < startDow; i++) {
+    const dnum = prevMonthDays - startDow + 1 + i;
+    cells.push(`<div class="tr-cal-cell other-month"><div class="tr-cal-cell-num">${dnum}</div></div>`);
+  }
+  // Current-month cells
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = monthKey + '-' + String(d).padStart(2,'0');
+    const dow = new Date(y, m-1, d).getDay();
+    const isToday = iso === today;
+    const isSunday = dow === 0;
+    const cls = ['tr-cal-cell'];
+    if (isToday) cls.push('today');
+    if (isSunday) cls.push('sunday');
+    const eventsHtml = (eventsByDate[iso] || []).map(ev => {
+      const clickHandler = ev.source === 'local'
+        ? `onclick="event.stopPropagation();deleteLocalEvent('${ev.id}','${view}');"`
+        : `onclick="event.stopPropagation();"`;
+      const titleAttr = ev.source === 'church'
+        ? `Set by your church`
+        : `Local event — click × to remove`;
+      const removeBtn = ev.source === 'local'
+        ? ` <span style="opacity:.6;">×</span>`
+        : '';
+      return `<span class="tr-cal-event ${ev.source}" ${clickHandler} title="${_evEscape(ev.title)} — ${titleAttr}">${_evEscape(ev.title)}${removeBtn}</span>`;
+    }).join('');
+    cells.push(`<div class="${cls.join(' ')}" onclick="openLocalEventModal('${view}','${iso}')" title="Click to add a local event">
+      <div class="tr-cal-cell-num">${d}</div>
+      ${eventsHtml}
+    </div>`);
+  }
+  // Trailing cells to fill the last row
+  const totalCells = 7 + startDow + daysInMonth;
+  const trailing = (7 - (totalCells % 7)) % 7;
+  for (let i = 1; i <= trailing; i++) {
+    cells.push(`<div class="tr-cal-cell other-month"><div class="tr-cal-cell-num">${i}</div></div>`);
+  }
+
   wrap.innerHTML = `
-    <div class="events-strip-hdr">
-      <span class="events-strip-title">${title}</span>
-      <button class="btn btn-sm" onclick="openLocalEventModal('${view}')">+ Add local event</button>
+    <div class="tr-cal-hdr">
+      <span class="tr-cal-title">${titleText}</span>
+      <div class="tr-cal-legend">
+        <span><span class="tr-cal-legend-swatch church"></span>Church-set</span>
+        <span><span class="tr-cal-legend-swatch local"></span>Your local event</span>
+        <button class="btn btn-sm" style="margin-left:.5rem;" onclick="openLocalEventModal('${view}')">+ Add local event</button>
+      </div>
     </div>
-    <div class="events-strip-list">
-      ${events.length
-        ? events.map(ev => `<span class="events-chip ${ev.source}">
-            <span class="ec-date">${ev.date.slice(-2)}</span>
-            ${_evEscape(ev.title)}
-            ${ev.source === 'local' ? `<button class="ec-remove" title="Remove local event" onclick="deleteLocalEvent('${ev.id}','${view}')">×</button>` : ''}
-          </span>`).join('')
-        : '<span class="events-empty">No events yet for this month. Church-set events show automatically; your own additions via "+ Add local event" show here too.</span>'}
-    </div>`;
+    <div class="tr-cal-grid">${cells.join('')}</div>
+    ${events.length === 0
+      ? '<div class="events-empty" style="margin-bottom:1rem;">No events set for this month. Click any date above to add a local event, or ask your church to add events they want everyone to see.</div>'
+      : ''}
+  `;
 }
 
 function _monthLabel(monthKey){
@@ -5138,12 +5220,24 @@ function _monthLabel(monthKey){
   return new Date(y, m-1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
 }
 
-window.openLocalEventModal = function(view){
+window.openLocalEventModal = function(view, prefillDate){
   __mleTargetView = view;
   const monthKey = document.getElementById(view + '-month').value || nm();
+  // Prefer a cell-provided date (grid click), fall back to
+  // today-in-current-month, then last-of-month if today is elsewhere.
+  let dateVal = prefillDate || '';
+  if (!dateVal) {
+    const now = new Date();
+    const [y, m] = monthKey.split('-').map(Number);
+    if (y === now.getFullYear() && m === now.getMonth() + 1) {
+      dateVal = monthKey + '-' + String(now.getDate()).padStart(2, '0');
+    } else {
+      dateVal = monthKey + '-01';
+    }
+  }
   document.getElementById('mle-title-input').value = '';
   document.getElementById('mle-desc').value = '';
-  document.getElementById('mle-date').value = monthKey + '-' + String(new Date().getDate()).padStart(2,'0');
+  document.getElementById('mle-date').value = dateVal;
   document.getElementById('mle-category').value = view === 'ss' ? 'sunday' : 'activity';
   document.getElementById('mle-msg').style.display = 'none';
   document.getElementById('modal-local-event').style.display = 'flex';
