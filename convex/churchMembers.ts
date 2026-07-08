@@ -146,6 +146,63 @@ export const remove = mutation({
   },
 });
 
+/**
+ * Bulk insert. Skips blank rows silently and rows whose name already
+ * matches an existing member (case-insensitive across active + inactive)
+ * so re-uploading a roster with a few new names never dups the old ones.
+ * Returns {inserted, skippedDup, errors} so the UI can show a summary.
+ */
+export const createMany = mutation({
+  args: {
+    sessionToken: v.string(),
+    entries: v.array(v.object({
+      name: v.string(),
+      contact: v.optional(v.string()),
+      note: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const church = await requireChurch(ctx, args.sessionToken);
+    const existing = await ctx.db
+      .query("churchMembers")
+      .withIndex("by_church", (q) => q.eq("churchId", church._id))
+      .collect();
+    const existingNames = new Set(
+      existing.map((m) => m.name.trim().toLowerCase()),
+    );
+    // Track names inserted in THIS batch so 'Maria Cruz' typed twice
+    // in the same paste doesn't produce two rows.
+    const seenThisBatch = new Set<string>();
+    const now = Date.now();
+    let inserted = 0;
+    let skippedDup = 0;
+    const errors: Array<{ row: number; reason: string }> = [];
+    for (let i = 0; i < args.entries.length; i++) {
+      const e = args.entries[i];
+      const name = (e.name || "").trim();
+      // Blank rows (no name) are silently ignored — users often leave
+      // trailing empties in the editor.
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (existingNames.has(key) || seenThisBatch.has(key)) {
+        skippedDup++;
+        continue;
+      }
+      await ctx.db.insert("churchMembers", {
+        churchId: church._id,
+        name,
+        contact: e.contact?.trim() || undefined,
+        note: e.note?.trim() || undefined,
+        status: "active",
+        createdAt: now,
+      });
+      seenThisBatch.add(key);
+      inserted++;
+    }
+    return { inserted, skippedDup, errors };
+  },
+});
+
 // ─── Giver picker (partners + active church members) ───────
 
 /**

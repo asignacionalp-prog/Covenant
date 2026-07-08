@@ -447,6 +447,7 @@
           <input type="search" id="fin-exp-search" placeholder="Search category, description…"/>
           <select id="fin-exp-cat-filter"><option value="">All categories</option></select>
           <button class="btn-ghost" onclick="openExpenseModal()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">+ Add expense</button>
+          <button class="btn-ghost" onclick="openBulkExpensesModal()">+ Bulk add</button>
           <span class="count" id="fin-exp-count"></span>
         </div>
         <div id="fin-exp-tbl" class="data-tbl"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
@@ -624,6 +625,7 @@
           <option value="inactive">Inactive only</option>
         </select>
         <button class="btn-ghost" onclick="openMemberModal(null)" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">+ Add member</button>
+        <button class="btn-ghost" onclick="openBulkMembersModal()">+ Bulk add</button>
         <span class="count" id="mem-count"></span>
       </div>
       <div id="mem-list" class="data-tbl"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
@@ -651,6 +653,102 @@
           <div style="display:flex;gap:.6rem;margin-left:auto;">
             <button class="btn-ghost" onclick="closeMemberModal()">Cancel</button>
             <button class="btn-ghost" id="mem-modal-save" onclick="saveMemberModal()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk add members modal -->
+    <div id="mem-bulk-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:820px;width:100%;max-height:88vh;display:flex;flex-direction:column;padding:1.75rem 2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 .5rem;color:var(--text);">Bulk add members</h3>
+        <div style="font-size:.82rem;color:var(--text2);margin-bottom:1rem;line-height:1.5;">Onboard a whole roster in one shot. Duplicate names (case-insensitive) against existing members are skipped automatically — no fear of double-registering someone.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;">
+          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1rem;color:var(--text);">Rows</div>
+          <div style="display:flex;gap:.4rem;">
+            <button class="btn-ghost" onclick="memBulkAddRow()">+ Row</button>
+            <button class="btn-ghost" onclick="memBulkTogglePaste()" id="mem-bulk-paste-btn">Paste from spreadsheet</button>
+            <button class="btn-ghost" onclick="memBulkClearRows()" style="border-color:var(--coral);color:var(--coral);">Clear all</button>
+          </div>
+        </div>
+        <div id="mem-bulk-paste-panel" style="display:none;margin-bottom:.75rem;padding:.85rem 1rem;background:var(--paper2);border:1px solid var(--border);border-radius:4px;">
+          <div style="font-size:.78rem;color:var(--text2);margin-bottom:.4rem;line-height:1.4;">Paste from Excel / Google Sheets. Columns: <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Name</code> · <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Contact</code> · <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Note</code>. Tab or comma separated.</div>
+          <textarea id="mem-bulk-paste-text" rows="6" placeholder="Maria Cruz&#9;09171234567&#9;&#10;Juan Dela Cruz&#9;juan@example.com&#9;New this year" style="width:100%;background:rgba(246,242,232,.04);border:1px solid var(--border);color:var(--text);padding:.55rem .75rem;border-radius:4px;font-family:'SFMono-Regular',Consolas,monospace;font-size:.82rem;resize:vertical;line-height:1.5;"></textarea>
+          <div style="margin-top:.6rem;display:flex;gap:.4rem;justify-content:flex-end;">
+            <button class="btn-ghost" onclick="memBulkTogglePaste()">Cancel paste</button>
+            <button class="btn-ghost" onclick="memBulkParsePaste()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Parse into rows</button>
+          </div>
+        </div>
+        <div style="overflow-y:auto;flex:1;border:1px solid var(--border);border-radius:4px;background:var(--paper2);margin-bottom:.75rem;">
+          <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+            <thead style="position:sticky;top:0;background:rgba(180,138,30,.09);z-index:1;">
+              <tr>
+                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);width:36%;">Name *</th>
+                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);width:28%;">Contact</th>
+                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);">Note</th>
+                <th style="width:44px;border-bottom:1px solid var(--border);"></th>
+              </tr>
+            </thead>
+            <tbody id="mem-bulk-rows"></tbody>
+          </table>
+        </div>
+        <div id="mem-bulk-msg" style="font-size:.85rem;font-style:italic;color:var(--coral);display:none;margin-bottom:.5rem;"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div id="mem-bulk-summary" style="font-size:.85rem;color:var(--text2);"></div>
+          <div style="display:flex;gap:.6rem;">
+            <button class="btn-ghost" onclick="closeBulkMembersModal()">Cancel</button>
+            <button class="btn-ghost" id="mem-bulk-save-btn" onclick="saveBulkMembers()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Save all</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk add expenses modal -->
+    <div id="fin-bulk-exp-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:960px;width:100%;max-height:88vh;display:flex;flex-direction:column;padding:1.75rem 2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 .5rem;color:var(--text);">Bulk add expenses</h3>
+        <div style="font-size:.82rem;color:var(--text2);margin-bottom:1rem;line-height:1.5;">Batch a stack of receipts — each row has its own date and category so a whole month's worth of expenses can go in at once. Default date + category up top autofill blank cells.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem;">
+          <div class="field"><label>Default date</label><input type="date" id="fin-bulk-exp-date"/></div>
+          <div class="field"><label>Default category</label><input type="text" id="fin-bulk-exp-category" placeholder="e.g. Utilities, Ministry, Missions"/></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;">
+          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1rem;color:var(--text);">Rows</div>
+          <div style="display:flex;gap:.4rem;">
+            <button class="btn-ghost" onclick="expBulkAddRow()">+ Row</button>
+            <button class="btn-ghost" onclick="expBulkTogglePaste()">Paste from spreadsheet</button>
+            <button class="btn-ghost" onclick="expBulkClearRows()" style="border-color:var(--coral);color:var(--coral);">Clear all</button>
+          </div>
+        </div>
+        <div id="fin-bulk-exp-paste-panel" style="display:none;margin-bottom:.75rem;padding:.85rem 1rem;background:var(--paper2);border:1px solid var(--border);border-radius:4px;">
+          <div style="font-size:.78rem;color:var(--text2);margin-bottom:.4rem;line-height:1.4;">Paste from Excel / Google Sheets. Columns: <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Date</code> · <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Category</code> · <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Amount</code> · <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Description</code> · <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Note</code>. Date accepts YYYY-MM-DD or MM/DD/YYYY. Blanks fall back to the defaults above.</div>
+          <textarea id="fin-bulk-exp-paste-text" rows="6" placeholder="2026-07-01&#9;Utilities&#9;3500&#9;Meralco July&#9;&#10;2026-07-05&#9;Ministry&#9;1200&#9;Snacks for prayer meeting&#9;" style="width:100%;background:rgba(246,242,232,.04);border:1px solid var(--border);color:var(--text);padding:.55rem .75rem;border-radius:4px;font-family:'SFMono-Regular',Consolas,monospace;font-size:.82rem;resize:vertical;line-height:1.5;"></textarea>
+          <div style="margin-top:.6rem;display:flex;gap:.4rem;justify-content:flex-end;">
+            <button class="btn-ghost" onclick="expBulkTogglePaste()">Cancel paste</button>
+            <button class="btn-ghost" onclick="expBulkParsePaste()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Parse into rows</button>
+          </div>
+        </div>
+        <div style="overflow-y:auto;flex:1;border:1px solid var(--border);border-radius:4px;background:var(--paper2);margin-bottom:.75rem;">
+          <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+            <thead style="position:sticky;top:0;background:rgba(180,138,30,.09);z-index:1;">
+              <tr>
+                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);width:16%;">Date</th>
+                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);width:22%;">Category</th>
+                <th style="text-align:right;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);width:16%;">Amount (PHP)</th>
+                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);">Description</th>
+                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);">Note</th>
+                <th style="width:44px;border-bottom:1px solid var(--border);"></th>
+              </tr>
+            </thead>
+            <tbody id="fin-bulk-exp-rows"></tbody>
+          </table>
+        </div>
+        <div id="fin-bulk-exp-msg" style="font-size:.85rem;font-style:italic;color:var(--coral);display:none;margin-bottom:.5rem;"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div id="fin-bulk-exp-summary" style="font-size:.85rem;color:var(--text2);"></div>
+          <div style="display:flex;gap:.6rem;">
+            <button class="btn-ghost" onclick="closeBulkExpensesModal()">Cancel</button>
+            <button class="btn-ghost" id="fin-bulk-exp-save-btn" onclick="saveBulkExpenses()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Save all</button>
           </div>
         </div>
       </div>
@@ -3122,6 +3220,282 @@
     await ensureGivers();
     renderGiversDatalist();
     _origOpenBulkDirectModal();
+  };
+
+  // ─── Bulk add members ─────────────────────────────────
+  let _memBulkRows = [];
+  const MEM_BULK_INITIAL_ROWS = 5;
+
+  function _memRowInputStyle(){
+    return 'width:100%;background:transparent;border:none;color:var(--text);font-family:inherit;font-size:.85rem;padding:.35rem .5rem;outline:none;';
+  }
+  function renderMemBulkRows(){
+    const tbody = document.getElementById('mem-bulk-rows');
+    const summary = document.getElementById('mem-bulk-summary');
+    if (!tbody) return;
+    tbody.innerHTML = _memBulkRows.map((r, i) => `
+      <tr>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="text" data-mb-field="name" data-mb-idx="${i}" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="Required" style="${_memRowInputStyle()}"/></td>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="text" data-mb-field="contact" data-mb-idx="${i}" value="${(r.contact||'').replace(/"/g,'&quot;')}" placeholder="Phone / email / address" style="${_memRowInputStyle()}"/></td>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="text" data-mb-field="note" data-mb-idx="${i}" value="${(r.note||'').replace(/"/g,'&quot;')}" style="${_memRowInputStyle()}"/></td>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;text-align:center;"><button class="btn-ghost" onclick="memBulkRemoveRow(${i})" title="Remove row" style="padding:2px 8px;font-size:.75rem;border-color:var(--coral);color:var(--coral);">×</button></td>
+      </tr>
+    `).join('');
+    tbody.querySelectorAll('input[data-mb-field]').forEach(el => el.addEventListener('input', _memBulkOnChange));
+    const populated = _memBulkRows.filter(r => r.name && r.name.trim()).length;
+    summary.textContent = populated > 0 ? `${populated} name${populated === 1 ? '' : 's'} ready` : 'No names populated yet';
+  }
+  function _memBulkOnChange(e){
+    const idx = parseInt(e.target.dataset.mbIdx, 10);
+    const field = e.target.dataset.mbField;
+    if (!(idx >= 0) || !_memBulkRows[idx]) return;
+    _memBulkRows[idx][field] = e.target.value;
+    const populated = _memBulkRows.filter(r => r.name && r.name.trim()).length;
+    document.getElementById('mem-bulk-summary').textContent = populated > 0 ? `${populated} name${populated === 1 ? '' : 's'} ready` : 'No names populated yet';
+  }
+  window.memBulkAddRow = function(){
+    _memBulkRows.push({ name: '', contact: '', note: '' });
+    renderMemBulkRows();
+    setTimeout(() => {
+      const inp = document.querySelector(`input[data-mb-field="name"][data-mb-idx="${_memBulkRows.length - 1}"]`);
+      if (inp) inp.focus();
+    }, 30);
+  };
+  window.memBulkRemoveRow = function(i){
+    _memBulkRows.splice(i, 1);
+    if (!_memBulkRows.length) _memBulkRows.push({ name: '', contact: '', note: '' });
+    renderMemBulkRows();
+  };
+  window.memBulkClearRows = function(){
+    if (!confirm('Clear all rows?')) return;
+    _memBulkRows = [];
+    for (let i = 0; i < MEM_BULK_INITIAL_ROWS; i++) _memBulkRows.push({ name: '', contact: '', note: '' });
+    renderMemBulkRows();
+  };
+  window.memBulkTogglePaste = function(){
+    const panel = document.getElementById('mem-bulk-paste-panel');
+    const visible = panel.style.display !== 'none';
+    panel.style.display = visible ? 'none' : 'block';
+    if (!visible) setTimeout(() => document.getElementById('mem-bulk-paste-text').focus(), 30);
+  };
+  window.memBulkParsePaste = function(){
+    const raw = document.getElementById('mem-bulk-paste-text').value.trim();
+    if (!raw) { memBulkTogglePaste(); return; }
+    const lines = raw.split(/\r?\n/).filter(l => l.trim());
+    const parsed = [];
+    for (const line of lines) {
+      const parts = line.includes('\t') ? line.split('\t') : line.split(',');
+      const name = (parts[0] || '').trim();
+      const contact = (parts[1] || '').trim();
+      const note = (parts[2] || '').trim();
+      if (!name && !contact && !note) continue;
+      parsed.push({ name, contact, note });
+    }
+    const kept = _memBulkRows.filter(r => r.name && r.name.trim());
+    _memBulkRows = kept.concat(parsed);
+    if (!_memBulkRows.length) for (let i = 0; i < MEM_BULK_INITIAL_ROWS; i++) _memBulkRows.push({ name: '', contact: '', note: '' });
+    renderMemBulkRows();
+    document.getElementById('mem-bulk-paste-panel').style.display = 'none';
+    document.getElementById('mem-bulk-paste-text').value = '';
+  };
+  window.openBulkMembersModal = function(){
+    _memBulkRows = [];
+    for (let i = 0; i < MEM_BULK_INITIAL_ROWS; i++) _memBulkRows.push({ name: '', contact: '', note: '' });
+    document.getElementById('mem-bulk-msg').style.display = 'none';
+    document.getElementById('mem-bulk-paste-panel').style.display = 'none';
+    document.getElementById('mem-bulk-modal-overlay').style.display = 'flex';
+    renderMemBulkRows();
+    setTimeout(() => {
+      const first = document.querySelector('input[data-mb-field="name"][data-mb-idx="0"]');
+      if (first) first.focus();
+    }, 60);
+  };
+  window.closeBulkMembersModal = function(){
+    document.getElementById('mem-bulk-modal-overlay').style.display = 'none';
+    _memBulkRows = [];
+  };
+  window.saveBulkMembers = async function(){
+    const msg = document.getElementById('mem-bulk-msg');
+    const btn = document.getElementById('mem-bulk-save-btn');
+    const entries = _memBulkRows.map(r => ({
+      name: (r.name || '').trim(),
+      contact: (r.contact || '').trim(),
+      note: (r.note || '').trim(),
+    })).filter(e => e.name);
+    if (!entries.length) { msg.textContent = 'Populate at least one name to save.'; msg.style.color = 'var(--coral)'; msg.style.display = ''; return; }
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const res = await client.mutation('churchMembers:createMany', { sessionToken, entries });
+      const skipped = res.skippedDup || 0;
+      if (skipped > 0 && res.inserted > 0) {
+        msg.textContent = `Added ${res.inserted}. ${skipped} skipped (already a member).`;
+        msg.style.color = 'var(--gold-bright)'; msg.style.display = '';
+      } else if (skipped > 0 && res.inserted === 0) {
+        msg.textContent = `All ${skipped} names were already members — nothing new saved.`;
+        msg.style.color = 'var(--gold-bright)'; msg.style.display = '';
+      }
+      if (res.inserted > 0) {
+        _giversCache = null;
+        await loadMembers();
+        if (skipped === 0) closeBulkMembersModal();
+      }
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+      msg.style.color = 'var(--coral)'; msg.style.display = '';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save all';
+    }
+  };
+
+  // ─── Bulk add expenses ────────────────────────────────
+  let _expBulkRows = [];
+  const EXP_BULK_INITIAL_ROWS = 5;
+
+  function _expRowInputStyle(align){
+    const a = align === 'r' ? 'text-align:right;font-feature-settings:"tnum";' : '';
+    return 'width:100%;background:transparent;border:none;color:var(--text);font-family:inherit;font-size:.85rem;padding:.35rem .5rem;outline:none;' + a;
+  }
+  function _normalizeDate(raw){
+    const s = (raw || '').trim();
+    if (!s) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // MM/DD/YYYY or M/D/YYYY
+    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return `${m[3]}-${String(parseInt(m[1],10)).padStart(2,'0')}-${String(parseInt(m[2],10)).padStart(2,'0')}`;
+    return s;
+  }
+  function renderExpBulkRows(){
+    const tbody = document.getElementById('fin-bulk-exp-rows');
+    const summary = document.getElementById('fin-bulk-exp-summary');
+    if (!tbody) return;
+    tbody.innerHTML = _expBulkRows.map((r, i) => `
+      <tr>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="date" data-eb-field="date" data-eb-idx="${i}" value="${r.date||''}" style="${_expRowInputStyle()}"/></td>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="text" data-eb-field="category" data-eb-idx="${i}" value="${(r.category||'').replace(/"/g,'&quot;')}" placeholder="Uses default if blank" style="${_expRowInputStyle()}"/></td>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="number" step="0.01" min="0" data-eb-field="amount" data-eb-idx="${i}" value="${r.amount || ''}" placeholder="0.00" style="${_expRowInputStyle('r')}"/></td>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="text" data-eb-field="description" data-eb-idx="${i}" value="${(r.description||'').replace(/"/g,'&quot;')}" style="${_expRowInputStyle()}"/></td>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="text" data-eb-field="note" data-eb-idx="${i}" value="${(r.note||'').replace(/"/g,'&quot;')}" style="${_expRowInputStyle()}"/></td>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;text-align:center;"><button class="btn-ghost" onclick="expBulkRemoveRow(${i})" title="Remove row" style="padding:2px 8px;font-size:.75rem;border-color:var(--coral);color:var(--coral);">×</button></td>
+      </tr>
+    `).join('');
+    tbody.querySelectorAll('input[data-eb-field]').forEach(el => el.addEventListener('input', _expBulkOnChange));
+    const populated = _expBulkRows.filter(r => (parseFloat(r.amount) > 0) || (r.category && r.category.trim())).length;
+    const total = _expBulkRows.reduce((a, r) => a + (parseFloat(r.amount) > 0 ? parseFloat(r.amount) : 0), 0);
+    summary.textContent = populated > 0 ? `${populated} row${populated === 1 ? '' : 's'} ready · Total ${fmt(total)}` : 'No rows populated yet';
+  }
+  function _expBulkOnChange(e){
+    const idx = parseInt(e.target.dataset.ebIdx, 10);
+    const field = e.target.dataset.ebField;
+    if (!(idx >= 0) || !_expBulkRows[idx]) return;
+    _expBulkRows[idx][field] = field === 'amount' ? (e.target.value === '' ? '' : parseFloat(e.target.value)) : e.target.value;
+    const populated = _expBulkRows.filter(r => (parseFloat(r.amount) > 0) || (r.category && r.category.trim())).length;
+    const total = _expBulkRows.reduce((a, r) => a + (parseFloat(r.amount) > 0 ? parseFloat(r.amount) : 0), 0);
+    document.getElementById('fin-bulk-exp-summary').textContent = populated > 0 ? `${populated} row${populated === 1 ? '' : 's'} ready · Total ${fmt(total)}` : 'No rows populated yet';
+  }
+  window.expBulkAddRow = function(){
+    _expBulkRows.push({ date: '', category: '', amount: '', description: '', note: '' });
+    renderExpBulkRows();
+    setTimeout(() => {
+      const inp = document.querySelector(`input[data-eb-field="date"][data-eb-idx="${_expBulkRows.length - 1}"]`);
+      if (inp) inp.focus();
+    }, 30);
+  };
+  window.expBulkRemoveRow = function(i){
+    _expBulkRows.splice(i, 1);
+    if (!_expBulkRows.length) _expBulkRows.push({ date: '', category: '', amount: '', description: '', note: '' });
+    renderExpBulkRows();
+  };
+  window.expBulkClearRows = function(){
+    if (!confirm('Clear all rows?')) return;
+    _expBulkRows = [];
+    for (let i = 0; i < EXP_BULK_INITIAL_ROWS; i++) _expBulkRows.push({ date: '', category: '', amount: '', description: '', note: '' });
+    renderExpBulkRows();
+  };
+  window.expBulkTogglePaste = function(){
+    const panel = document.getElementById('fin-bulk-exp-paste-panel');
+    const visible = panel.style.display !== 'none';
+    panel.style.display = visible ? 'none' : 'block';
+    if (!visible) setTimeout(() => document.getElementById('fin-bulk-exp-paste-text').focus(), 30);
+  };
+  window.expBulkParsePaste = function(){
+    const raw = document.getElementById('fin-bulk-exp-paste-text').value.trim();
+    if (!raw) { expBulkTogglePaste(); return; }
+    const lines = raw.split(/\r?\n/).filter(l => l.trim());
+    const parsed = [];
+    for (const line of lines) {
+      const parts = line.includes('\t') ? line.split('\t') : line.split(',');
+      const date = _normalizeDate(parts[0] || '');
+      const category = (parts[1] || '').trim();
+      const amountRaw = (parts[2] || '').replace(/[₱,\s]/g, '').trim();
+      const amount = amountRaw ? parseFloat(amountRaw) : '';
+      const description = (parts[3] || '').trim();
+      const note = (parts[4] || '').trim();
+      if (!date && !category && !amount && !description && !note) continue;
+      parsed.push({ date, category, amount, description, note });
+    }
+    const kept = _expBulkRows.filter(r => (r.category && r.category.trim()) || (parseFloat(r.amount) > 0));
+    _expBulkRows = kept.concat(parsed);
+    if (!_expBulkRows.length) for (let i = 0; i < EXP_BULK_INITIAL_ROWS; i++) _expBulkRows.push({ date: '', category: '', amount: '', description: '', note: '' });
+    renderExpBulkRows();
+    document.getElementById('fin-bulk-exp-paste-panel').style.display = 'none';
+    document.getElementById('fin-bulk-exp-paste-text').value = '';
+  };
+  window.openBulkExpensesModal = function(){
+    _expBulkRows = [];
+    for (let i = 0; i < EXP_BULK_INITIAL_ROWS; i++) _expBulkRows.push({ date: '', category: '', amount: '', description: '', note: '' });
+    const today = new Date();
+    document.getElementById('fin-bulk-exp-date').value = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    document.getElementById('fin-bulk-exp-category').value = '';
+    document.getElementById('fin-bulk-exp-msg').style.display = 'none';
+    document.getElementById('fin-bulk-exp-paste-panel').style.display = 'none';
+    document.getElementById('fin-bulk-exp-modal-overlay').style.display = 'flex';
+    renderExpBulkRows();
+    setTimeout(() => {
+      const first = document.querySelector('input[data-eb-field="date"][data-eb-idx="0"]');
+      if (first) first.focus();
+    }, 60);
+  };
+  window.closeBulkExpensesModal = function(){
+    document.getElementById('fin-bulk-exp-modal-overlay').style.display = 'none';
+    _expBulkRows = [];
+  };
+  window.saveBulkExpenses = async function(){
+    const msg = document.getElementById('fin-bulk-exp-msg');
+    const btn = document.getElementById('fin-bulk-exp-save-btn');
+    const defaultDate = document.getElementById('fin-bulk-exp-date').value;
+    const defaultCat = document.getElementById('fin-bulk-exp-category').value.trim();
+    const entries = _expBulkRows.map(r => {
+      const amt = parseFloat(r.amount);
+      return {
+        date: r.date || defaultDate,
+        category: (r.category && r.category.trim()) || defaultCat,
+        amount: amt > 0 ? amt : 0,
+        description: (r.description || '').trim(),
+        note: (r.note || '').trim(),
+      };
+    });
+    const hasAny = entries.some(e => e.amount > 0 || (e.category && e.category.trim()));
+    if (!hasAny) { msg.textContent = 'Populate at least one row with an amount and category.'; msg.style.color = 'var(--coral)'; msg.style.display = ''; return; }
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const res = await client.mutation('churchFinances:createManyExpenses', { sessionToken, entries });
+      const errCount = (res.errors || []).length;
+      if (errCount > 0) {
+        const summary = res.errors.slice(0, 3).map(e => `Row ${e.row}: ${e.reason}`).join(' · ');
+        msg.textContent = `Saved ${res.inserted}, ${errCount} skipped — ${summary}${errCount > 3 ? '…' : ''}`;
+        msg.style.color = 'var(--gold-bright)'; msg.style.display = '';
+      }
+      if (res.inserted > 0) {
+        await loadFinExpenses();
+        _finSubLoaded.overview = false;
+        if (errCount === 0) closeBulkExpensesModal();
+      }
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+      msg.style.color = 'var(--coral)'; msg.style.display = '';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save all';
+    }
   };
 
   // ─── Init ───────────────────────────────────────────────

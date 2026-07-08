@@ -399,6 +399,54 @@ export const deleteExpense = mutation({
   },
 });
 
+export const createManyExpenses = mutation({
+  args: {
+    sessionToken: v.string(),
+    entries: v.array(v.object({
+      date: v.string(),
+      amount: v.number(),
+      category: v.string(),
+      description: v.optional(v.string()),
+      note: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const church = await requireChurch(ctx, args.sessionToken);
+    const now = Date.now();
+    let inserted = 0;
+    const errors: Array<{ row: number; reason: string }> = [];
+    for (let i = 0; i < args.entries.length; i++) {
+      const e = args.entries[i];
+      const cat = (e.category || "").trim();
+      // Skip fully-blank rows (no amount + no category) silently.
+      if ((!e.amount || e.amount <= 0) && !cat) continue;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date)) {
+        errors.push({ row: i + 1, reason: "Bad date" });
+        continue;
+      }
+      if (!(e.amount > 0)) {
+        errors.push({ row: i + 1, reason: "Amount must be greater than zero" });
+        continue;
+      }
+      if (!cat) {
+        errors.push({ row: i + 1, reason: "Category is required" });
+        continue;
+      }
+      await ctx.db.insert("churchExpenses", {
+        churchId: church._id,
+        date: e.date,
+        amount: e.amount,
+        category: cat,
+        description: e.description?.trim() || undefined,
+        note: e.note?.trim() || undefined,
+        createdAt: now,
+      });
+      inserted++;
+    }
+    return { inserted, errors };
+  },
+});
+
 // ─── HIGHER-CHURCH ───────────────────────────────────────────
 
 export const getHigherChurchSettings = query({
