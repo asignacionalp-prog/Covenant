@@ -316,6 +316,185 @@ export const overview = query({
   },
 });
 
+// ─── CHURCH: assign a partner directly ──────────────────────
+
+/**
+ * Church picks any partner across affiliated HOs and assigns them
+ * to a life group. Writes to `partners.lifeGroupId` (source of
+ * truth) — the mirror row in lifeGroupMembers is created inline
+ * here so the church's roster query updates without waiting for a
+ * separate HO sync round-trip.
+ *
+ * If an external member row with the same name (case-insensitive)
+ * exists in that same group, we drop it — the person's been
+ * "promoted" from external placeholder to properly-linked partner.
+ */
+export const assignPartnerToGroup = mutation({
+  args: {
+    sessionToken: v.string(),
+    lifeGroupId: v.id("lifeGroups"),
+    orgId: v.id("orgs"),
+    partnerLegacyId: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const church = await requireChurch(ctx, args.sessionToken);
+    const group = await ctx.db.get(args.lifeGroupId);
+    if (!group || group.churchId !== church._id) {
+      throw new Error("Life group not found.");
+    }
+    const org = await ctx.db.get(args.orgId);
+    if (!org || org.churchId !== church._id) {
+      throw new Error("Home Office not affiliated with your church.");
+    }
+    const partner = await ctx.db
+      .query("partners")
+      .withIndex("by_org_legacyId", (q) =>
+        q.eq("orgId", args.orgId).eq("legacyId", args.partnerLegacyId),
+      )
+      .unique();
+    if (!partner) throw new Error("Partner not found.");
+
+    // Wipe any existing mirror row(s) for this partner — they might
+    // have been in a different life group before.
+    const existing = await ctx.db
+      .query("lifeGroupMembers")
+      .withIndex("by_org_partner", (q) =>
+        q.eq("orgId", args.orgId).eq("partnerLegacyId", args.partnerLegacyId),
+      )
+      .collect();
+    for (const m of existing) await ctx.db.delete(m._id);
+
+    // Point the partner at the new group and insert the fresh mirror.
+    await ctx.db.patch(partner._id, { lifeGroupId: args.lifeGroupId });
+    await ctx.db.insert("lifeGroupMembers", {
+      lifeGroupId: args.lifeGroupId,
+      kind: "partner",
+      orgId: args.orgId,
+      partnerLegacyId: args.partnerLegacyId,
+      addedAt: Date.now(),
+    });
+
+    // Drop any matching external placeholder in this group. Name
+    // match is case-insensitive after trimming; we compare against
+    // "fn ln" formatted with a single space in between.
+    const partnerName = `${partner.fn ?? ""} ${partner.ln ?? ""}`.trim().toLowerCase();
+    if (partnerName) {
+      const externals = await ctx.db
+        .query("lifeGroupMembers")
+        .withIndex("by_lifeGroup", (q) => q.eq("lifeGroupId", args.lifeGroupId))
+        .collect();
+      for (const m of externals) {
+        if (m.kind !== "external") continue;
+        const extName = (m.externalName ?? "").trim().toLowerCase();
+        if (extName && extName === partnerName) {
+          await ctx.db.delete(m._id);
+        }
+      }
+    }
+    return { ok: true };
+  },
+});
+
+/**
+ * Church unassigns a partner from whatever life group they're in.
+ * Doesn't restore the external placeholder — the church can add
+ * a fresh external row if that's the intent.
+ */
+export const unassignPartnerFromGroup = mutation({
+  args: {
+    sessionToken: v.string(),
+    orgId: v.id("orgs"),
+    partnerLegacyId: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const church = await requireChurch(ctx, args.sessionToken);
+    const org = await ctx.db.get(args.orgId);
+    if (!org || org.churchId !== church._id) {
+      throw new Error("Home Office not affiliated with your church.");
+    }
+    const partner = await ctx.db
+      .query("partners")
+      .withIndex("by_org_legacyId", (q) =>
+        q.eq("orgId", args.orgId).eq("legacyId", args.partnerLegacyId),
+      )
+      .unique();
+    if (partner && partner.lifeGroupId) {
+      await ctx.db.patch(partner._id, { lifeGroupId: undefined });
+    }
+    const existing = await ctx.db
+      .query("lifeGroupMembers")
+      .withIndex("by_org_partner", (q) =>
+        q.eq("orgId", args.orgId).eq("partnerLegacyId", args.partnerLegacyId),
+      )
+      .collect();
+    for (const m of existing) await ctx.db.delete(m._id);
+    return { ok: true };
+  },
+});
+
+/**
+ * Church-facing picker source: every partner across every affiliated
+ * Home Office. Includes each partner's current life group id so the
+ * modal can grey out or show "already assigned" state.
+ */
+export const listAvailablePartners = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const church = await requireChurch(ctx, args.sessionToken);
+    const orgs = await ctx.db
+      .query("orgs")
+      .withIndex("by_church", (q) => q.eq("churchId", church._id))
+      .collect();
+    const rows: Array<{
+      orgId: Id<"orgs">;
+      orgName: string;
+      partnerLegacyId: number;
+      name: string;
+      role: string;
+      status: string;
+      currentLifeGroupId: Id<"lifeGroups"> | null;
+      currentLifeGroupName: string | null;
+    }> = [];
+    // Cache group names so we can label current assignments.
+    const groupNameById = new Map<string, string>();
+    for (const org of orgs) {
+      const partners = await ctx.db
+        .query("partners")
+        .withIndex("by_org", (q) => q.eq("orgId", org._id))
+        .collect();
+      for (const p of partners) {
+        if (p.legacyId == null) continue;
+        let curName: string | null = null;
+        if (p.lifeGroupId) {
+          const cached = groupNameById.get(String(p.lifeGroupId));
+          if (cached) curName = cached;
+          else {
+            const g = await ctx.db.get(p.lifeGroupId);
+            if (g) {
+              curName = g.name;
+              groupNameById.set(String(p.lifeGroupId), g.name);
+            }
+          }
+        }
+        rows.push({
+          orgId: org._id,
+          orgName: org.name,
+          partnerLegacyId: p.legacyId,
+          name: `${p.fn ?? ""} ${p.ln ?? ""}`.trim(),
+          role: p.ro ?? "",
+          status: p.st,
+          currentLifeGroupId: p.lifeGroupId ?? null,
+          currentLifeGroupName: curName,
+        });
+      }
+    }
+    rows.sort((a, b) =>
+      a.orgName.localeCompare(b.orgName) || a.name.localeCompare(b.name),
+    );
+    return rows;
+  },
+});
+
 // ─── HO-SIDE: dropdown source ───────────────────────────────
 
 /**
@@ -348,5 +527,54 @@ export const listForMyChurch = query({
         meetingTime: g.meetingTime ?? "",
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
+
+/**
+ * HO's partner form calls this while the CEO types the name.
+ * If the exact name (case-insensitive, trimmed) matches an
+ * external member row in any of the affiliated church's life
+ * groups, we return the match so the form can auto-select that
+ * group. No match → returns null.
+ */
+export const findMatchingLifeGroup = query({
+  args: {
+    sessionToken: v.optional(v.string()),
+    fullName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await loadSession(ctx, args.sessionToken);
+    if (!session) return null;
+    const member = await ctx.db
+      .query("members")
+      .withIndex("by_user", (q) => q.eq("userId", session.userId))
+      .first();
+    if (!member) return null;
+    const org = await ctx.db.get(member.orgId);
+    if (!org || !org.churchId) return null;
+    const needle = args.fullName.trim().toLowerCase();
+    if (!needle) return null;
+    const groups = await ctx.db
+      .query("lifeGroups")
+      .withIndex("by_church", (q) => q.eq("churchId", org.churchId!))
+      .collect();
+    for (const g of groups) {
+      const members = await ctx.db
+        .query("lifeGroupMembers")
+        .withIndex("by_lifeGroup", (q) => q.eq("lifeGroupId", g._id))
+        .collect();
+      for (const m of members) {
+        if (m.kind !== "external") continue;
+        const ext = (m.externalName ?? "").trim().toLowerCase();
+        if (ext && ext === needle) {
+          return {
+            lifeGroupId: g._id,
+            lifeGroupName: g.name,
+            externalMemberId: m._id,
+          };
+        }
+      }
+    }
+    return null;
   },
 });

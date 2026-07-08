@@ -3806,6 +3806,62 @@ async function pfRenderLifeGroupSection(currentLifeGroupId){
   showMeta();
 }
 
+// Auto-detect: if the CEO types a name that already exists as an
+// EXTERNAL member in one of the affiliated church's life groups,
+// pre-select that group and show a subtle notice. Debounced so we
+// don't spam Convex on every keystroke.
+let __pfLifeGroupAutoTimer = null;
+let __pfLifeGroupAutoAppliedFor = ''; // remember the last name we auto-applied, so we don't fight the CEO if they change it back
+
+async function pfDetectLifeGroupByName(){
+  const card = document.getElementById('pf-lifegroup-card');
+  const sel = document.getElementById('pf-lifegroup');
+  const meta = document.getElementById('pf-lifegroup-meta');
+  if (!card || !sel || card.style.display === 'none') return;
+  // Skip if the CEO already picked something explicitly.
+  if (sel.value && sel.value !== __pfLifeGroupAutoAppliedFor.__id) return;
+  const fn = (document.getElementById('pf-fn').value || '').trim();
+  const ln = (document.getElementById('pf-ln').value || '').trim();
+  const fullName = (fn + ' ' + ln).trim();
+  if (fullName.length < 3) return;
+  if (!window.__covClient || !window.__covSessionToken) return;
+  try {
+    const match = await window.__covClient.query('lifeGroups:findMatchingLifeGroup', {
+      sessionToken: window.__covSessionToken,
+      fullName,
+    });
+    if (match && match.lifeGroupId) {
+      // Only auto-apply if the CEO hasn't picked something already.
+      if (!sel.value) {
+        sel.value = match.lifeGroupId;
+        __pfLifeGroupAutoAppliedFor = { name: fullName, __id: match.lifeGroupId };
+        if (meta) {
+          const g = (__pfLifeGroupCache || []).find(x => x.id === match.lifeGroupId);
+          const bits = [`<span style="color:var(--gold);font-style:italic;">Match found:</span> already listed as an external member of <strong>${match.lifeGroupName}</strong> at your church. We selected that group above. Saving will promote them from external to partner.`];
+          if (g && g.meetingDay) bits.push(`<span style="color:var(--text3);">Meets ${g.meetingDay}${g.meetingTime ? ' at ' + g.meetingTime : ''}${g.leader ? ' · Leader: ' + g.leader : ''}</span>`);
+          meta.innerHTML = bits.join('<br/>');
+        }
+      }
+    }
+  } catch { /* silent — this is a nice-to-have */ }
+}
+
+function pfScheduleLifeGroupDetect(){
+  if (__pfLifeGroupAutoTimer) clearTimeout(__pfLifeGroupAutoTimer);
+  __pfLifeGroupAutoTimer = setTimeout(pfDetectLifeGroupByName, 450);
+}
+
+// Wire the detect on both name fields once the DOM is ready. We
+// defer with a microtask because this file's function definitions
+// run before the form's HTML is guaranteed to be parsed for older
+// callers, but modern browsers handle this fine.
+Promise.resolve().then(() => {
+  const fnEl = document.getElementById('pf-fn');
+  const lnEl = document.getElementById('pf-ln');
+  if (fnEl) fnEl.addEventListener('input', pfScheduleLifeGroupDetect);
+  if (lnEl) lnEl.addEventListener('input', pfScheduleLifeGroupDetect);
+});
+
 function openAddPartner(){
   if(!S.businesses.filter(b=>b.st==='active').length){alert('Please add at least one business before adding partners.');showView('businesses');initBusinesses();return;}
   S.editPid=null;clearPf();document.getElementById('pf-title').textContent='Add partner';document.getElementById('pf-sd').value=td();

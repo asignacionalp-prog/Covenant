@@ -387,6 +387,23 @@
       </div>
     </div>
 
+    <!-- Add partner modal (church picks a partner from any affiliated HO) -->
+    <div id="lg-partner-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:640px;width:100%;max-height:80vh;display:flex;flex-direction:column;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 .5rem;color:var(--text);">Add partner to life group</h3>
+        <div style="font-size:.82rem;color:var(--text2);margin-bottom:1rem;line-height:1.5;">Search across every partner in every affiliated Home Office. Partners already in another life group are marked so you don't reassign them by mistake.</div>
+        <input type="search" id="lg-partner-search" placeholder="Search partner or Home Office…" style="margin-bottom:.75rem;background:rgba(246,242,232,.04);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:5px;font-family:inherit;font-size:.9rem;"/>
+        <select id="lg-partner-ho-filter" style="margin-bottom:1rem;background:rgba(246,242,232,.04);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:5px;font-family:inherit;font-size:.85rem;">
+          <option value="">All Home Offices</option>
+        </select>
+        <div id="lg-partner-list" style="overflow-y:auto;flex:1;border:1px solid var(--border);border-radius:4px;background:var(--paper2);"></div>
+        <div id="lg-partner-msg" style="margin-top:.8rem;font-size:.85rem;font-style:italic;color:var(--coral);display:none;"></div>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem;">
+          <button class="btn-ghost" onclick="closeAddPartnerModal()">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Add external member modal -->
     <div id="lg-ext-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
       <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:460px;width:100%;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
@@ -1313,7 +1330,7 @@
                 ${p.role ? `<span style="color:var(--text3);font-size:.78rem;"> · ${p.role}</span>` : ''}
                 ${p.status === 'inactive' ? '<span class="type-tag inactive" style="margin-left:.5rem;">inactive</span>' : ''}
               </div>
-              <div style="font-size:.7rem;color:var(--text3);font-style:italic;">assigned by HO</div>
+              <button class="btn-ghost" onclick="unassignPartner('${p.orgId}',${p.partnerLegacyId},'${p.name.replace(/'/g,"\\\'")}')" style="padding:4px 10px;font-size:.65rem;border-color:var(--coral);color:var(--coral);">Unassign</button>
             </div>
           `).join('')}
         </div>
@@ -1342,8 +1359,11 @@
         <div class="item"><div class="item-lbl">External</div><div class="item-val">${d.externals.length}</div></div>
       </div>
 
-      <div class="section-title" style="font-size:1.1rem;">Partners <span style="color:var(--text3);font-size:.75rem;">assigned by Home Offices</span></div>
-      ${d.partners.length ? partnerSections : '<div style="padding:1rem 0;color:var(--text3);font-style:italic;">No partners assigned yet. HOs assign their partners from Users → Partners → edit → Life group.</div>'}
+      <div class="section-title" style="font-size:1.1rem;display:flex;justify-content:space-between;align-items:center;">
+        <span>Partners <span style="color:var(--text3);font-size:.75rem;">assigned by Home Offices or the church</span></span>
+        <button class="btn-ghost" onclick="openAddPartnerModal('${d.id}')" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">+ Add partner</button>
+      </div>
+      ${d.partners.length ? partnerSections : '<div style="padding:1rem 0;color:var(--text3);font-style:italic;">No partners assigned yet. Click <strong>+ Add partner</strong> above, or ask a HO CEO to assign from their partner form.</div>'}
 
       <div class="section-title" style="margin-top:2rem;font-size:1.1rem;display:flex;justify-content:space-between;align-items:center;">
         <span>External members <span style="color:var(--text3);font-size:.75rem;">visitors, unaffiliated attendees</span></span>
@@ -1416,6 +1436,120 @@
       if (_lgCurrentDetailId) showLifeGroupDetail(_lgCurrentDetailId);
     } catch (e) {
       alert('Could not remove: ' + (e.message || e));
+    }
+  };
+
+  // ── Church picks a partner + assigns / unassigns ────────
+  let _lgPartnerPickerCache = null;
+  let _lgPickerTargetGroupId = null;
+  let _lgPickerSearch = '';
+  let _lgPickerHoFilter = '';
+
+  function renderPartnerPicker(){
+    if (!_lgPartnerPickerCache) return;
+    const listEl = document.getElementById('lg-partner-list');
+    const q = _lgPickerSearch.trim().toLowerCase();
+    const filtered = _lgPartnerPickerCache.filter(p => {
+      if (_lgPickerHoFilter && p.orgName !== _lgPickerHoFilter) return false;
+      if (q && !(p.name + ' ' + p.orgName).toLowerCase().includes(q)) return false;
+      return true;
+    });
+    if (!filtered.length) {
+      listEl.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text3);font-style:italic;">No partners match.</div>';
+      return;
+    }
+    listEl.innerHTML = filtered.map(p => {
+      const alreadyHere = p.currentLifeGroupId === _lgPickerTargetGroupId;
+      const inOther = p.currentLifeGroupId && !alreadyHere;
+      const badge = alreadyHere
+        ? '<span style="font-size:11px;color:var(--teal);letter-spacing:.05em;">Already in this group</span>'
+        : inOther
+        ? `<span style="font-size:11px;color:var(--gold-bright);letter-spacing:.02em;">In: ${p.currentLifeGroupName}</span>`
+        : '';
+      const btn = alreadyHere
+        ? '<span style="color:var(--text3);font-size:.75rem;font-style:italic;">✓</span>'
+        : `<button class="btn-ghost" onclick="doAssignPartner('${p.orgId}',${p.partnerLegacyId})" style="padding:5px 12px;font-size:.7rem;background:var(--gold);color:#0D1729;border-color:var(--gold);">Add</button>`;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:.55rem .85rem;border-bottom:1px solid rgba(55,71,101,.4);">
+        <div style="flex:1;min-width:0;">
+          <div style="color:var(--text);"><strong>${p.name}</strong> ${p.role ? `<span style="color:var(--text3);font-size:.78rem;">· ${p.role}</span>` : ''} ${p.status === 'inactive' ? '<span class="type-tag inactive" style="margin-left:.4rem;">inactive</span>' : ''}</div>
+          <div style="font-size:.75rem;color:var(--text2);margin-top:2px;">${p.orgName}${badge ? ' · ' + badge : ''}</div>
+        </div>
+        <div>${btn}</div>
+      </div>`;
+    }).join('');
+  }
+
+  window.openAddPartnerModal = async function(groupId){
+    _lgPickerTargetGroupId = groupId;
+    _lgPickerSearch = '';
+    _lgPickerHoFilter = '';
+    document.getElementById('lg-partner-search').value = '';
+    const overlay = document.getElementById('lg-partner-modal-overlay');
+    overlay.style.display = 'flex';
+    const listEl = document.getElementById('lg-partner-list');
+    listEl.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading partners…</div>';
+    try {
+      _lgPartnerPickerCache = await client.query('lifeGroups:listAvailablePartners', { sessionToken });
+      // Populate HO filter dropdown from the fetched partners.
+      const hoNames = Array.from(new Set(_lgPartnerPickerCache.map(p => p.orgName))).sort();
+      const hoSel = document.getElementById('lg-partner-ho-filter');
+      hoSel.innerHTML = '<option value="">All Home Offices</option>' + hoNames.map(n => `<option value="${n}">${n}</option>`).join('');
+      renderPartnerPicker();
+      setTimeout(() => document.getElementById('lg-partner-search').focus(), 60);
+    } catch (e) {
+      listEl.innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
+    }
+  };
+  window.closeAddPartnerModal = function(){
+    document.getElementById('lg-partner-modal-overlay').style.display = 'none';
+    _lgPickerTargetGroupId = null;
+  };
+  document.getElementById('lg-partner-search').addEventListener('input', (e) => {
+    _lgPickerSearch = e.target.value;
+    renderPartnerPicker();
+  });
+  document.getElementById('lg-partner-ho-filter').addEventListener('change', (e) => {
+    _lgPickerHoFilter = e.target.value;
+    renderPartnerPicker();
+  });
+
+  window.doAssignPartner = async function(orgId, partnerLegacyId){
+    const msg = document.getElementById('lg-partner-msg');
+    msg.style.display = 'none';
+    try {
+      await client.mutation('lifeGroups:assignPartnerToGroup', {
+        sessionToken,
+        lifeGroupId: _lgPickerTargetGroupId,
+        orgId,
+        partnerLegacyId,
+      });
+      // Refresh picker cache in-place so the row updates immediately.
+      const target = _lgPartnerPickerCache.find(p => p.orgId === orgId && p.partnerLegacyId === partnerLegacyId);
+      if (target) {
+        target.currentLifeGroupId = _lgPickerTargetGroupId;
+        // Look up the group's name from our list cache.
+        const g = (_lgCache || []).find(x => x.id === _lgPickerTargetGroupId);
+        target.currentLifeGroupName = g ? g.name : null;
+      }
+      renderPartnerPicker();
+      // Refresh the underlying group list + detail so the added
+      // partner appears behind the modal too.
+      await loadLifeGroups();
+      if (_lgCurrentDetailId) await showLifeGroupDetail(_lgCurrentDetailId);
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+      msg.style.display = '';
+    }
+  };
+
+  window.unassignPartner = async function(orgId, partnerLegacyId, name){
+    if (!confirm(`Remove ${name} from this life group? Their Home Office CEO can re-assign them from the partner form.`)) return;
+    try {
+      await client.mutation('lifeGroups:unassignPartnerFromGroup', { sessionToken, orgId, partnerLegacyId });
+      await loadLifeGroups();
+      if (_lgCurrentDetailId) await showLifeGroupDetail(_lgCurrentDetailId);
+    } catch (e) {
+      alert('Could not unassign: ' + (e.message || e));
     }
   };
 
