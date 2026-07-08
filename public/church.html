@@ -658,6 +658,19 @@
           <input type="text" id="mem-modal-note" placeholder="Anything worth remembering"/>
         </div>
         <div id="mem-modal-msg" style="margin-top:.8rem;font-size:.85rem;font-style:italic;color:var(--coral);display:none;"></div>
+
+        <!-- Partner name-match warning: shown when the CEO tries to
+             save a member whose name matches an existing HO partner.
+             Save is blocked until they resolve. -->
+        <div id="mem-partner-warn" style="display:none;margin-top:.8rem;padding:.85rem 1rem;background:rgba(180,138,30,.1);border:1px solid rgba(180,138,30,.35);border-left:3px solid var(--gold);border-radius:4px;">
+          <div style="font-size:.85rem;color:var(--text);line-height:1.5;margin-bottom:.7rem;" id="mem-partner-warn-text"></div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+            <button class="btn-ghost" onclick="memPartnerAssignInstead()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Assign partner to this life group</button>
+            <button class="btn-ghost" onclick="memPartnerConfirmDifferent()">Different person — save anyway</button>
+            <button class="btn-ghost" onclick="memPartnerCancelWarn()">Back</button>
+          </div>
+        </div>
+
         <div style="display:flex;gap:.6rem;justify-content:space-between;margin-top:1.4rem;">
           <button class="btn-ghost" id="mem-modal-status" onclick="toggleMemberStatus()" style="display:none;">Deactivate</button>
           <div style="display:flex;gap:.6rem;margin-left:auto;">
@@ -1869,20 +1882,41 @@
         </div>
       </div>
 
+      <!-- Display-side dedup: if a church member's name matches a
+           partner already assigned to this same group, the partner
+           row wins (richer record, editable by the HO CEO). The
+           member row is hidden and a small note surfaces the count
+           so nothing feels invisible. -->
+      ${(() => {
+        const partnerNames = new Set(d.partners.map(p => (p.name || '').trim().toLowerCase()));
+        const dedupedMembers = (d.members || []).filter(m => !partnerNames.has((m.name || '').trim().toLowerCase()));
+        const hiddenCount = (d.members || []).length - dedupedMembers.length;
+        // Stash on the closure so the sections below can read them.
+        d._dedupedMembers = dedupedMembers;
+        d._hiddenMemberCount = hiddenCount;
+        return '';
+      })()}
+
       <div class="sumbar" style="margin-bottom:1.2rem;">
-        <div class="item"><div class="item-lbl">Total</div><div class="item-val">${d.partners.length + (d.members || []).length + d.externals.length}</div></div>
-        <div class="item"><div class="item-lbl">Church members</div><div class="item-val">${(d.members || []).length}</div></div>
+        <div class="item"><div class="item-lbl">Total</div><div class="item-val">${d.partners.length + d._dedupedMembers.length + d.externals.length}</div></div>
+        <div class="item"><div class="item-lbl">Church members</div><div class="item-val">${d._dedupedMembers.length}</div></div>
         <div class="item"><div class="item-lbl">From HOs</div><div class="item-val">${d.partners.length}</div></div>
         ${d.externals.length ? `<div class="item"><div class="item-lbl">Legacy external</div><div class="item-val">${d.externals.length}</div></div>` : ''}
       </div>
+
+      ${d._hiddenMemberCount > 0 ? `
+        <div style="padding:.6rem 1rem;background:rgba(43,100,56,.1);border:1px solid rgba(43,100,56,.35);border-left:3px solid var(--teal);border-radius:4px;font-size:.8rem;color:var(--text2);margin-bottom:1rem;line-height:1.5;">
+          Merged view: ${d._hiddenMemberCount} member record${d._hiddenMemberCount === 1 ? '' : 's'} whose name also appears as a partner in this group ${d._hiddenMemberCount === 1 ? 'is' : 'are'} hidden — partner rows below take priority. Clean the duplicate${d._hiddenMemberCount === 1 ? '' : 's'} from the Members tab when convenient.
+        </div>
+      ` : ''}
 
       <div class="section-title" style="font-size:1.1rem;display:flex;justify-content:space-between;align-items:center;">
         <span>Church members <span style="color:var(--text3);font-size:.75rem;">assigned via the Members tab</span></span>
         <button class="btn-ghost" onclick="switchTab('members')">+ Add via Members tab</button>
       </div>
-      ${(d.members || []).length ? `
+      ${d._dedupedMembers.length ? `
         <div style="display:flex;flex-direction:column;gap:.35rem;">
-          ${d.members.map(m => `
+          ${d._dedupedMembers.map(m => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:.55rem .8rem;background:var(--paper2);border:1px solid var(--border);border-radius:4px;">
               <div>
                 <span style="color:var(--text);">${m.name}</span>
@@ -3125,6 +3159,26 @@
     } catch { _memLifeGroupsCache = []; }
     return _memLifeGroupsCache;
   }
+
+  // Partner-across-HOs cache — used to name-match on member creation
+  // so we don't quietly create a duplicate churchMember for someone
+  // already registered as an HO partner. Reset when the underlying
+  // data changes (assignment mutations already null _lgPartnerPickerCache
+  // when they alter partners; we mirror the invalidation here).
+  let _memPartnerCache = null;
+  async function ensureMemPartners(){
+    if (_memPartnerCache) return _memPartnerCache;
+    try {
+      _memPartnerCache = await client.query('lifeGroups:listAvailablePartners', { sessionToken });
+    } catch { _memPartnerCache = []; }
+    return _memPartnerCache;
+  }
+  function _findPartnerByName(name){
+    if (!name || !_memPartnerCache) return null;
+    const needle = name.trim().toLowerCase();
+    if (!needle) return null;
+    return _memPartnerCache.find(p => p.name.trim().toLowerCase() === needle) || null;
+  }
   function _populateLifeGroupSelect(selectEl, currentId){
     const groups = _memLifeGroupsCache || [];
     selectEl.innerHTML = '<option value="">— Select a life group —</option>' +
@@ -3140,8 +3194,13 @@
     document.getElementById('mem-modal-contact').value = existing?.contact || '';
     document.getElementById('mem-modal-note').value = existing?.note || '';
     document.getElementById('mem-modal-bday').value = existing?.birthday || '';
-    await ensureMemLifeGroups();
+    // Warm both caches before showing so a save-click doesn't race
+    // against the network for partner name matching.
+    await Promise.all([ensureMemLifeGroups(), ensureMemPartners()]);
     _populateLifeGroupSelect(document.getElementById('mem-modal-lg'), existing?.lifeGroupId || '');
+    // Reset any previous partner-match warning.
+    const warn = document.getElementById('mem-partner-warn');
+    if (warn) warn.style.display = 'none';
     const msg = document.getElementById('mem-modal-msg');
     msg.style.display = 'none';
     if (!(_memLifeGroupsCache || []).length) {
@@ -3165,6 +3224,11 @@
     document.getElementById('mem-modal-overlay').style.display = 'none';
     _memEditingId = null;
   };
+  // When the partner-warning route needs to "just save anyway" we
+  // set this flag so the second call through saveMemberModal skips
+  // the match check.
+  let _memAcceptDupOK = false;
+
   window.saveMemberModal = async function(){
     const msg = document.getElementById('mem-modal-msg');
     msg.style.color = 'var(--coral)';
@@ -3174,6 +3238,45 @@
     if (!name) { msg.textContent = 'Name is required.'; msg.style.display = ''; return; }
     if (!lifeGroupId) { msg.textContent = 'Life group is required.'; msg.style.display = ''; return; }
     if (!birthday) { msg.textContent = 'Birthday is required.'; msg.style.display = ''; return; }
+
+    // Partner name-match check on CREATE only. Editing an existing
+    // churchMember never triggers the warning (that would be an
+    // update on the record you already have; the CEO knows what
+    // they're doing at that point).
+    if (!_memEditingId && !_memAcceptDupOK) {
+      const match = _findPartnerByName(name);
+      if (match) {
+        const warn = document.getElementById('mem-partner-warn');
+        const text = document.getElementById('mem-partner-warn-text');
+        const selectedGroup = (_memLifeGroupsCache || []).find(g => g.id === lifeGroupId);
+        const alreadyInGroup = match.currentLifeGroupId === lifeGroupId;
+        if (alreadyInGroup) {
+          text.innerHTML =
+            `<strong>${_evEscapeHtml(match.name)}</strong> is already a partner at ` +
+            `<strong>${_evEscapeHtml(match.orgName)}</strong> AND already assigned to ` +
+            `<strong>${_evEscapeHtml(selectedGroup?.name || 'this life group')}</strong>. ` +
+            `Creating a member record would duplicate them. Choose <em>Different person</em> ` +
+            `only if this is genuinely someone else who happens to share the name.`;
+        } else if (match.currentLifeGroupName) {
+          text.innerHTML =
+            `<strong>${_evEscapeHtml(match.name)}</strong> is already a partner at ` +
+            `<strong>${_evEscapeHtml(match.orgName)}</strong> and currently in ` +
+            `<strong>${_evEscapeHtml(match.currentLifeGroupName)}</strong>. ` +
+            `Reassigning her partner record to <strong>${_evEscapeHtml(selectedGroup?.name || 'this life group')}</strong> ` +
+            `avoids duplicating the person. The birthday you entered won't move — record it on her partner form in the HO app.`;
+        } else {
+          text.innerHTML =
+            `<strong>${_evEscapeHtml(match.name)}</strong> is already a partner at ` +
+            `<strong>${_evEscapeHtml(match.orgName)}</strong> but hasn't been assigned to any ` +
+            `life group yet. Assigning her partner record to ` +
+            `<strong>${_evEscapeHtml(selectedGroup?.name || 'this group')}</strong> is the clean move — ` +
+            `no duplicate member record. Add her birthday to her partner form in the HO app.`;
+        }
+        warn.style.display = '';
+        return;
+      }
+    }
+
     const payload = {
       sessionToken,
       name,
@@ -3188,9 +3291,57 @@
       } else {
         await client.mutation('churchMembers:create', payload);
       }
+      _memAcceptDupOK = false;
       closeMemberModal();
       await loadMembers();
       _giversCache = null;
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+      msg.style.display = '';
+    }
+  };
+
+  // Small helper for escaping — the partner-match warning weaves names
+  // into HTML, so we can't rely on textContent. Mirrors _evEscape from
+  // the /app.html bridge.
+  function _evEscapeHtml(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  window.memPartnerCancelWarn = function(){
+    document.getElementById('mem-partner-warn').style.display = 'none';
+  };
+
+  window.memPartnerConfirmDifferent = function(){
+    _memAcceptDupOK = true;
+    document.getElementById('mem-partner-warn').style.display = 'none';
+    saveMemberModal();
+  };
+
+  window.memPartnerAssignInstead = async function(){
+    const name = document.getElementById('mem-modal-name').value.trim();
+    const lifeGroupId = document.getElementById('mem-modal-lg').value;
+    const match = _findPartnerByName(name);
+    if (!match || !lifeGroupId) return;
+    const msg = document.getElementById('mem-modal-msg');
+    msg.style.color = 'var(--coral)';
+    try {
+      await client.mutation('lifeGroups:assignPartnerToGroup', {
+        sessionToken,
+        lifeGroupId,
+        orgId: match.orgId,
+        partnerLegacyId: match.partnerLegacyId,
+      });
+      // Bust caches so both this modal and the Life Groups tab see the
+      // fresh state on next open.
+      _memPartnerCache = null;
+      _giversCache = null;
+      closeMemberModal();
+      // Refresh members + finance overview so any "pending" stat
+      // that referenced the old state redraws.
+      await loadMembers();
     } catch (e) {
       msg.textContent = e.message || String(e);
       msg.style.display = '';
@@ -3419,6 +3570,11 @@
     document.getElementById('mem-bulk-modal-overlay').style.display = 'none';
     _memBulkRows = [];
   };
+  // Same accept-anyway flag pattern as the single-add modal: set true
+  // after the CEO clicks "Save all as new" on the partner-match
+  // confirmation, so the next saveBulkMembers pass skips the check.
+  let _memBulkAcceptDupOK = false;
+
   window.saveBulkMembers = async function(){
     const msg = document.getElementById('mem-bulk-msg');
     const btn = document.getElementById('mem-bulk-save-btn');
@@ -3430,7 +3586,7 @@
       msg.style.color = 'var(--coral)'; msg.style.display = '';
       return;
     }
-    // Validate per row: birthday + life group (either per-row or default) required.
+    // Validate per row: birthday + life group required.
     const missing = [];
     candidateRows.forEach((r, i) => {
       const bday = (r.birthday || '').trim();
@@ -3444,6 +3600,92 @@
       msg.style.color = 'var(--coral)'; msg.style.display = '';
       return;
     }
+
+    // Partner name-match detection: any row whose name matches an
+    // existing partner is a candidate for the "assign partner
+    // instead" flow. Skip the check if the CEO already opted in to
+    // saving them anyway.
+    if (!_memBulkAcceptDupOK) {
+      await ensureMemPartners();
+      const matched = [];
+      candidateRows.forEach((r, i) => {
+        const p = _findPartnerByName((r.name || '').trim());
+        if (p) matched.push({ row: i + 1, name: r.name.trim(), partner: p, lifeGroupId: r.lifeGroupId || defaultLg });
+      });
+      if (matched.length) {
+        // List the first few by name; hide the rest behind an ellipsis.
+        const listStr = matched.slice(0, 5).map(x => `${x.name} (partner at ${x.partner.orgName})`).join(', ') + (matched.length > 5 ? `, and ${matched.length - 5} more` : '');
+        const proceed = confirm(
+          `${matched.length} of ${candidateRows.length} rows match existing HO partners:\n\n${listStr}\n\n` +
+          `Click OK to assign each partner to their row's life group instead of creating duplicate member records. ` +
+          `The remaining rows (non-matches) will be saved as new members.\n\n` +
+          `Cancel to save every row as a new member (choose this only if these are different people who happen to share names).`
+        );
+        if (proceed) {
+          btn.disabled = true; btn.textContent = 'Assigning…';
+          try {
+            for (const m of matched) {
+              await client.mutation('lifeGroups:assignPartnerToGroup', {
+                sessionToken,
+                lifeGroupId: m.lifeGroupId,
+                orgId: m.partner.orgId,
+                partnerLegacyId: m.partner.partnerLegacyId,
+              });
+            }
+          } catch (e) {
+            msg.textContent = 'Partial assign — ' + (e.message || String(e));
+            msg.style.color = 'var(--coral)'; msg.style.display = '';
+            btn.disabled = false; btn.textContent = 'Save all';
+            return;
+          }
+          // Drop matched rows from the batch and continue saving the rest.
+          const matchedIdx = new Set(matched.map(m => m.row - 1));
+          const filteredCandidates = candidateRows.filter((_, i) => !matchedIdx.has(i));
+          if (!filteredCandidates.length) {
+            _memPartnerCache = null;
+            _giversCache = null;
+            await loadMembers();
+            btn.disabled = false; btn.textContent = 'Save all';
+            closeBulkMembersModal();
+            return;
+          }
+          // Fall through with the reduced set.
+          _memPartnerCache = null;
+          const entries = filteredCandidates.map(r => ({
+            name: r.name.trim(),
+            contact: (r.contact || '').trim(),
+            note: (r.note || '').trim(),
+            lifeGroupId: r.lifeGroupId || defaultLg,
+            birthday: (r.birthday || '').trim(),
+          }));
+          try {
+            const res = await client.mutation('churchMembers:createMany', { sessionToken, entries });
+            _giversCache = null;
+            await loadMembers();
+            const parts = [`Assigned ${matched.length} to partners`];
+            if (res.inserted > 0) parts.push(`added ${res.inserted} new`);
+            if ((res.skippedDup || 0) > 0) parts.push(`${res.skippedDup} skipped (already a member)`);
+            const errCount = (res.errors || []).length;
+            if (errCount > 0) parts.push(`${errCount} row errors`);
+            msg.textContent = parts.join(' · ');
+            msg.style.color = errCount > 0 ? 'var(--coral)' : 'var(--gold-bright)';
+            msg.style.display = '';
+            if ((res.skippedDup || 0) === 0 && errCount === 0) closeBulkMembersModal();
+          } catch (e) {
+            msg.textContent = e.message || String(e);
+            msg.style.color = 'var(--coral)'; msg.style.display = '';
+          } finally {
+            btn.disabled = false; btn.textContent = 'Save all';
+          }
+          return;
+        } else {
+          // CEO chose to save every row as new; skip the check on the
+          // next pass so we go straight to insert.
+          _memBulkAcceptDupOK = true;
+        }
+      }
+    }
+
     const entries = candidateRows.map(r => ({
       name: r.name.trim(),
       contact: (r.contact || '').trim(),
@@ -3467,6 +3709,7 @@
       }
       if (res.inserted > 0) {
         _giversCache = null;
+        _memBulkAcceptDupOK = false;
         await loadMembers();
         if (skipped === 0 && errCount === 0) closeBulkMembersModal();
       }
