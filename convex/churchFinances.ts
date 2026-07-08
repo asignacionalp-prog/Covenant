@@ -223,6 +223,64 @@ export const deleteDirectIncome = mutation({
   },
 });
 
+/**
+ * Bulk insert. Bad rows are skipped and returned as `errors` so the
+ * UI can report which lines to re-check while still committing the
+ * good ones. Empty entries are silently ignored (users often leave
+ * trailing blank rows in the editor).
+ */
+export const createManyDirectIncome = mutation({
+  args: {
+    sessionToken: v.string(),
+    entries: v.array(v.object({
+      date: v.string(),
+      amount: v.number(),
+      type: v.union(
+        v.literal("firstfruit"),
+        v.literal("tithe"),
+        v.literal("church-project"),
+        v.literal("offering"),
+      ),
+      giverName: v.optional(v.string()),
+      giverContact: v.optional(v.string()),
+      mode: v.optional(v.string()),
+      note: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const church = await requireChurch(ctx, args.sessionToken);
+    const now = Date.now();
+    let inserted = 0;
+    const errors: Array<{ row: number; reason: string }> = [];
+    for (let i = 0; i < args.entries.length; i++) {
+      const e = args.entries[i];
+      // Skip totally-blank rows (no amount, no name) silently.
+      if ((!e.amount || e.amount <= 0) && !(e.giverName?.trim())) continue;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date)) {
+        errors.push({ row: i + 1, reason: "Bad date" });
+        continue;
+      }
+      if (!(e.amount > 0)) {
+        errors.push({ row: i + 1, reason: "Amount must be greater than zero" });
+        continue;
+      }
+      await ctx.db.insert("churchDirectRemittances", {
+        churchId: church._id,
+        date: e.date,
+        amount: e.amount,
+        type: e.type,
+        giverName: e.giverName?.trim() || undefined,
+        giverContact: e.giverContact?.trim() || undefined,
+        mode: e.mode?.trim() || undefined,
+        note: e.note?.trim() || undefined,
+        createdAt: now,
+      });
+      inserted++;
+    }
+    return { inserted, errors };
+  },
+});
+
 // ─── EXPENSES ────────────────────────────────────────────────
 
 export const listExpenses = query({
