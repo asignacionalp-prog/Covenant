@@ -986,18 +986,29 @@ body.theme-dark .streak-badge{color:var(--navy-deep);}
 .dd.missed .dd-num,.dd.missed .dd-ico{color:var(--red);}
 .dd.none .dd-num,.dd.wknd .dd-num,.dd.fut .dd-num{color:var(--text2);}
 
-/* Event dots — top-right corner of any .dd cell. Rendered by the
-   combined Church attendance view; smaller than the day number
-   so they don't interfere with attendance toggling. Position:
-   absolute so they don't push the icon around. */
-.dd{position:relative;}
-.dd-events{position:absolute;top:3px;right:3px;display:flex;gap:2px;pointer-events:none;}
-.dd-event-dot{width:5px;height:5px;border-radius:50%;box-shadow:0 0 0 1px var(--paper);}
-.dd-event-dot.church{background:var(--gold);}
-.dd-event-dot.local{background:var(--sapphire);}
-.dd-event-more{font-size:8px;color:var(--text3);font-weight:600;line-height:5px;margin-left:1px;}
-/* Slight left-shift for the day number to give the events room */
-.dd-num-off{margin-right:6px;}
+/* Event chips inside per-partner calendar cells — only used on the
+   combined Church attendance view; other views keep the compact 48px
+   cells with just a day number + icon. */
+#view-church-attendance .dd{
+  min-height:68px;padding:3px;justify-content:flex-start;
+  position:relative;
+}
+#view-church-attendance .dd-num{align-self:flex-start;line-height:1.1;margin-bottom:1px;}
+#view-church-attendance .dd-ico{align-self:center;margin-top:auto;line-height:1;}
+#view-church-attendance .dd.emp{min-height:68px;}
+.dd-event-label{
+  display:block;font-family:'DM Sans',sans-serif;font-size:8.5px;
+  font-weight:500;letter-spacing:.02em;line-height:1.2;
+  padding:1px 3px;border-radius:2px;margin:1px 0 0;
+  text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  width:100%;
+}
+.dd-event-label.church{background:rgba(180,138,30,.22);color:var(--gold);border-left:2px solid var(--gold);}
+.dd-event-label.local{background:rgba(85,106,142,.24);color:var(--sapphire);border-left:2px solid var(--sapphire);}
+.dd-event-more{
+  display:block;font-family:'DM Sans',sans-serif;font-size:8.5px;
+  color:var(--text3);font-weight:500;text-align:left;margin-left:2px;
+}
 
 /* ─────────────────  PAYROLL  ──────────────────────────────── */
 .pr-run-card{
@@ -5353,8 +5364,13 @@ function renderChurchAttendance(){
   const firstDay = `${y}-${String(mo).padStart(2,'0')}-01`;
   const visiblePartners = S.partners.filter(p => wasActiveOn(p, firstDay));
 
-  // Fetch events for the month; render the top calendar grid asynchronously.
-  pfRenderEventsStrip('cha');
+  // Prime the events cache for this month so the per-partner cells
+  // can render event NAMES inline. The top-of-page month grid is
+  // hidden in favor of showing names right where attendance is
+  // toggled — see the second _loadEventsForMonth call below for the
+  // async warmup pass.
+  const chaEvWrap = document.getElementById('cha-events');
+  if (chaEvWrap) chaEvWrap.style.display = 'none';
 
   // Team stats — reuse ss for Sundays + ca for weekdays; a single
   // "combined attendance" percentage across everything logged.
@@ -5400,13 +5416,19 @@ function renderChurchAttendance(){
     const blanks = Array(fd).fill('<div class="dd emp"></div>').join('');
     const cells = allDays.map(({ d, ds, isSun, isW, isFut }) => {
       const eventsHere = eventsByDate[ds] || [];
-      // Build the event dots (gold = church, sapphire = local). Cap at 2 for space.
-      const dotHtml = eventsHere.length
-        ? `<div class="dd-events">${eventsHere.slice(0, 2).map(ev => `<span class="dd-event-dot ${ev.source}" title="${_evEscape(ev.title)}"></span>`).join('')}${eventsHere.length > 2 ? '<span class="dd-event-more">+' + (eventsHere.length - 2) + '</span>' : ''}</div>`
-        : '';
+      // Show up to 2 event names inline inside the cell; overflow
+      // collapses to '+N more'. Ordered church-set first, then local,
+      // so the church's schedule is visually anchored.
+      const ordered = [...eventsHere].sort((a, b) =>
+        (a.source === 'church' ? 0 : 1) - (b.source === 'church' ? 0 : 1)
+      );
+      const labelsHtml = ordered.slice(0, 2).map(ev =>
+        `<span class="dd-event-label ${ev.source}" title="${_evEscape(ev.title + (ev.source === 'church' ? ' (church-set)' : ' (local)'))}">${_evEscape(ev.title)}</span>`
+      ).join('') +
+      (ordered.length > 2 ? `<span class="dd-event-more" title="${_evEscape(ordered.slice(2).map(e => e.title).join(', '))}">+${ordered.length - 2} more</span>` : '');
 
       if (isFut) {
-        return `<div class="dd fut${isW ? ' wknd' : ''}"><div class="dd-num${eventsHere.length ? ' dd-num-off' : ''}">${d}</div><div class="dd-ico">·</div>${dotHtml}</div>`;
+        return `<div class="dd fut${isW ? ' wknd' : ''}"><div class="dd-num">${d}</div>${labelsHtml}<div class="dd-ico">·</div></div>`;
       }
 
       // Toggle behavior: Sunday → ss; weekday → ca.
@@ -5416,7 +5438,7 @@ function renderChurchAttendance(){
       const ico = flag === 'yes' ? '✓' : flag === 'no' ? '✗' : '·';
       const wCls = isW && cls === 'none' ? ' wknd' : '';
       const tooltip = (isSun ? 'Sunday service' : 'Church activity') + (eventsHere.length ? ' — ' + eventsHere.map(ev => ev.title).join(', ') : '');
-      return `<div class="dd ${cls}${wCls}" onclick="togCha(${p.id},'${ds}',${isSun ? 'true' : 'false'})" title="${_evEscape(ds + ' — ' + tooltip)}"><div class="dd-num${eventsHere.length ? ' dd-num-off' : ''}">${d}</div><div class="dd-ico">${ico}</div>${dotHtml}</div>`;
+      return `<div class="dd ${cls}${wCls}" onclick="togCha(${p.id},'${ds}',${isSun ? 'true' : 'false'})" title="${_evEscape(ds + ' — ' + tooltip)}"><div class="dd-num">${d}</div>${labelsHtml}<div class="dd-ico">${ico}</div></div>`;
     }).join('');
     return `<div class="dev-block">
       <div class="dev-hdr">
@@ -5430,8 +5452,8 @@ function renderChurchAttendance(){
       </div>
       <div style="font-size:10px;color:var(--text2);margin-bottom:6px;">
         Click a Sunday cell → toggle Sunday service · click any other cell → toggle Church activity ·
-        <span style="color:var(--gold);">●</span> church-set event
-        <span style="margin-left:.5rem;color:var(--sapphire);">●</span> local event
+        <span class="dd-event-label church" style="display:inline-block;margin:0 4px 0 6px;padding:0 4px;font-size:9px;">church-set</span>
+        <span class="dd-event-label local" style="display:inline-block;margin:0 4px;padding:0 4px;font-size:9px;">local</span>
       </div>
       <div class="dev-cal-hdr"><div class="dev-col-h">Su</div><div class="dev-col-h">Mo</div><div class="dev-col-h">Tu</div><div class="dev-col-h">We</div><div class="dev-col-h">Th</div><div class="dev-col-h">Fr</div><div class="dev-col-h">Sa</div></div>
       <div class="dev-grid">${blanks}${cells}</div>
