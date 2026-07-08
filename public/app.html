@@ -986,6 +986,19 @@ body.theme-dark .streak-badge{color:var(--navy-deep);}
 .dd.missed .dd-num,.dd.missed .dd-ico{color:var(--red);}
 .dd.none .dd-num,.dd.wknd .dd-num,.dd.fut .dd-num{color:var(--text2);}
 
+/* Event dots — top-right corner of any .dd cell. Rendered by the
+   combined Church attendance view; smaller than the day number
+   so they don't interfere with attendance toggling. Position:
+   absolute so they don't push the icon around. */
+.dd{position:relative;}
+.dd-events{position:absolute;top:3px;right:3px;display:flex;gap:2px;pointer-events:none;}
+.dd-event-dot{width:5px;height:5px;border-radius:50%;box-shadow:0 0 0 1px var(--paper);}
+.dd-event-dot.church{background:var(--gold);}
+.dd-event-dot.local{background:var(--sapphire);}
+.dd-event-more{font-size:8px;color:var(--text3);font-weight:600;line-height:5px;margin-left:1px;}
+/* Slight left-shift for the day number to give the events room */
+.dd-num-off{margin-right:6px;}
+
 /* ─────────────────  PAYROLL  ──────────────────────────────── */
 .pr-run-card{
   background:var(--paper);border:1px solid var(--border);
@@ -1673,8 +1686,7 @@ body{
       <div class="nav-item" data-view="partners" onclick="navTo(this)"><span class="ni">◉</span> Partners</div>
       <div class="nav-item" data-view="attendance" onclick="navTo(this)"><span class="ni">◷</span> Attendance</div>
       <div class="nav-item" data-view="devotion" onclick="navTo(this)"><span class="ni">✝</span> Devotion</div>
-      <div class="nav-item" data-view="sunday-service" onclick="navTo(this)"><span class="ni">⛪</span> Sunday service</div>
-      <div class="nav-item" data-view="church-activities" onclick="navTo(this)"><span class="ni">✦</span> Church activities</div>
+      <div class="nav-item" data-view="church-attendance" onclick="navTo(this)"><span class="ni">⛪</span> Church attendance</div>
       <div class="nav-item" data-view="clients" onclick="navTo(this)"><span class="ni">◈</span> Clients</div>
     </div>
     <div class="nav-section">
@@ -1954,6 +1966,19 @@ body{
       </div>
       <div class="stat-grid" id="dev-stats"></div>
       <div id="dev-content"></div>
+    </div>
+
+    <!-- CHURCH ATTENDANCE (combined Sunday services + Church activities) -->
+    <div id="view-church-attendance" class="view">
+      <div class="page-hdr"><div><div class="page-title">Church attendance</div><div class="page-sub">Sunday services + church activities · one calendar per partner</div></div></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem;flex-wrap:wrap;">
+        <label style="font-size:12px;color:var(--text2);">Month:</label>
+        <input type="month" id="cha-month" onchange="renderChurchAttendance()" style="padding:6px 10px;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);"/>
+        <button class="btn btn-sm" style="margin-left:auto;" onclick="openLocalEventModal('cha')">+ Add local event</button>
+      </div>
+      <div id="cha-events" style="display:none;"></div>
+      <div class="stat-grid" id="cha-stats"></div>
+      <div id="cha-content"></div>
     </div>
 
     <!-- SUNDAY SERVICE -->
@@ -3182,7 +3207,7 @@ function navTo(el){
   showView(v);
   const map={
     dashboard:renderDashboard,partners:initPartners,attendance:initAttendance,
-    devotion:initDevotion,'sunday-service':initSundayService,'church-activities':initChurchActivities,clients:initClients,payroll:()=>{renderPayrollList();},
+    devotion:initDevotion,'sunday-service':initSundayService,'church-activities':initChurchActivities,'church-attendance':initChurchAttendance,clients:initClients,payroll:()=>{renderPayrollList();},
     payments:renderPayments,salaries:renderSalaries,
     obligations:()=>{computeAll();renderObligations();},conviction:()=>{computeAll();renderConvictionView();},businesses:initBusinesses,'resume-builder':initResumeBuilder,applications:initApplications,'reports-hub':renderReportsHub,
     remittance:renderRemittance,users:renderUsers,settings:renderSettings,invoices:renderInvoices
@@ -5086,7 +5111,7 @@ function initSundayService(){
 // Loaded from Convex; cached per (view, monthKey). Merges church-set events
 // (from the affiliated church) with the HO's own local events.
 
-const __eventsCache = { ss: {}, ca: {} };
+const __eventsCache = { ss: {}, ca: {}, cha: {} };
 let __mleTargetView = 'ca';   // which strip triggered the modal — used to refresh after save
 
 function _evEscape(s){
@@ -5095,6 +5120,10 @@ function _evEscape(s){
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+/**
+ * Load events for a month, optionally filtered to one category.
+ * category = 'sunday' | 'activity' | null (all).
+ */
 async function _loadEventsForMonth(monthKey, category){
   if (!window.__covClient || !window.__covSessionToken) return [];
   try {
@@ -5108,11 +5137,12 @@ async function _loadEventsForMonth(monthKey, category){
         monthKey,
       }),
     ]);
+    const inCategory = (e) => category == null || e.category === category;
     const all = [
-      ...(church || []).filter(e => e.category === category).map(e => ({
+      ...(church || []).filter(inCategory).map(e => ({
         date: e.date, title: e.title, source: 'church', id: null, category: e.category,
       })),
-      ...(local || []).filter(e => e.category === category).map(e => ({
+      ...(local || []).filter(inCategory).map(e => ({
         date: e.date, title: e.title, source: 'local', id: e.id, category: e.category,
       })),
     ];
@@ -5125,13 +5155,14 @@ async function _loadEventsForMonth(monthKey, category){
 }
 
 async function pfRenderEventsStrip(view){
-  // view === 'ss' | 'ca' — despite the historical name this renders
-  // a full month-grid calendar now, not a chip strip.
+  // view === 'ss' | 'ca' | 'cha' — despite the historical name this
+  // renders a full month-grid calendar now. 'cha' shows both
+  // categories (Sunday services + activities).
   const wrap = document.getElementById(view + '-events');
   if (!wrap) return;
   const monthInputId = view + '-month';
   const monthKey = document.getElementById(monthInputId).value || nm();
-  const category = view === 'ss' ? 'sunday' : 'activity';
+  const category = view === 'ss' ? 'sunday' : view === 'ca' ? 'activity' : null;
   wrap.style.display = 'block';
   wrap.innerHTML = `<div class="tr-cal-hdr">
     <span class="tr-cal-title">Loading events…</span>
@@ -5140,7 +5171,9 @@ async function pfRenderEventsStrip(view){
   __eventsCache[view][monthKey] = events;
   const titleText = view === 'ss'
     ? 'Sunday services · ' + _monthLabel(monthKey)
-    : 'Church activities · ' + _monthLabel(monthKey);
+    : view === 'ca'
+    ? 'Church activities · ' + _monthLabel(monthKey)
+    : 'Church calendar · ' + _monthLabel(monthKey);
 
   // Build the month grid
   const [y, m] = monthKey.split('-').map(Number);
@@ -5287,6 +5320,146 @@ window.deleteLocalEvent = async function(id, view){
     alert('Could not delete: ' + (e.message || e));
   }
 };
+
+// ─── Church attendance (combined view) ──────────────────────
+// Per-partner month calendar showing both Sunday services and
+// Church activities. Events appear as small colored dots in each
+// cell (gold = church-set, sapphire = HO local). Attendance toggles
+// per cell: Sunday cells toggle ss; other days toggle ca. The same
+// underlying attendance record's ss/ca fields are used so the old
+// Sunday Service and Church Activities views (still available via
+// direct URL) show consistent data.
+
+function initChurchAttendance(){
+  if (!document.getElementById('cha-month').value) {
+    document.getElementById('cha-month').value = nm();
+  }
+  renderChurchAttendance();
+}
+
+function renderChurchAttendance(){
+  const mv = document.getElementById('cha-month').value || nm();
+  const [y, mo] = mv.split('-').map(Number);
+  const dim = new Date(y, mo, 0).getDate();
+  const ts2 = td();
+  const allDays = [];
+  for (let d = 1; d <= dim; d++) {
+    const ds = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow = new Date(y, mo-1, d).getDay();
+    allDays.push({ d, ds, dow, isSun: dow === 0, isW: dow === 0 || dow === 6, isFut: ds > ts2 });
+  }
+  const loggable = allDays.filter(x => !x.isFut);
+  const sundays = allDays.filter(x => x.isSun && !x.isFut);
+  const firstDay = `${y}-${String(mo).padStart(2,'0')}-01`;
+  const visiblePartners = S.partners.filter(p => wasActiveOn(p, firstDay));
+
+  // Fetch events for the month; render the top calendar grid asynchronously.
+  pfRenderEventsStrip('cha');
+
+  // Team stats — reuse ss for Sundays + ca for weekdays; a single
+  // "combined attendance" percentage across everything logged.
+  let ssDone = 0, ssLog = 0, caDone = 0, caLog = 0;
+  visiblePartners.forEach(p => {
+    sundays.forEach(({ ds }) => {
+      const r = gA(p.id, ds);
+      if (r && r.ss) { ssLog++; if (r.ss === 'yes') ssDone++; }
+    });
+    loggable.forEach(({ ds, isSun }) => {
+      if (isSun) return;
+      const r = gA(p.id, ds);
+      if (r && r.ca) { caLog++; if (r.ca === 'yes') caDone++; }
+    });
+  });
+  const combTotal = ssLog + caLog;
+  const combDone = ssDone + caDone;
+  const combPct = combTotal > 0 ? Math.round(combDone / combTotal * 100) : 0;
+  document.getElementById('cha-stats').innerHTML =
+    `<div class="stat-card acc-purple"><div class="stat-label">Combined rate</div><div class="stat-value">${combPct}%</div><div class="stat-sub">${combDone}/${combTotal} logged</div></div>` +
+    `<div class="stat-card acc-teal"><div class="stat-label">Sunday services</div><div class="stat-value">${sundays.length}</div><div class="stat-sub">${ssLog > 0 ? ssDone + '/' + ssLog + ' attended' : 'none logged'}</div></div>` +
+    `<div class="stat-card acc-gold"><div class="stat-label">Partners</div><div class="stat-value">${visiblePartners.length}</div></div>`;
+
+  // Load the event index synchronously via the cache if available.
+  // pfRenderEventsStrip populates __eventsCache[view][monthKey] after fetch
+  // — we don't wait for it here; per-cell dots will populate on the next
+  // render pass or immediately if the cache is already warm.
+  const eventsForMonth = (__eventsCache.cha && __eventsCache.cha[mv]) || [];
+  const eventsByDate = {};
+  for (const ev of eventsForMonth) {
+    if (!eventsByDate[ev.date]) eventsByDate[ev.date] = [];
+    eventsByDate[ev.date].push(ev);
+  }
+
+  document.getElementById('cha-content').innerHTML = visiblePartners.map(p => {
+    const ssDoneP = sundays.filter(({ ds }) => { const r = gA(p.id, ds); return r && r.ss === 'yes'; }).length;
+    const caDoneP = loggable.filter(({ ds, isSun }) => !isSun && (() => { const r = gA(p.id, ds); return r && r.ca === 'yes'; })()).length;
+    const doneP = ssDoneP + caDoneP;
+    const logsP = sundays.filter(({ ds }) => { const r = gA(p.id, ds); return r && r.ss; }).length
+                + loggable.filter(({ ds, isSun }) => !isSun && (() => { const r = gA(p.id, ds); return r && r.ca; })()).length;
+    const pctP = logsP > 0 ? Math.round(doneP / logsP * 100) : 0;
+    const fd = new Date(y, mo-1, 1).getDay();
+    const blanks = Array(fd).fill('<div class="dd emp"></div>').join('');
+    const cells = allDays.map(({ d, ds, isSun, isW, isFut }) => {
+      const eventsHere = eventsByDate[ds] || [];
+      // Build the event dots (gold = church, sapphire = local). Cap at 2 for space.
+      const dotHtml = eventsHere.length
+        ? `<div class="dd-events">${eventsHere.slice(0, 2).map(ev => `<span class="dd-event-dot ${ev.source}" title="${_evEscape(ev.title)}"></span>`).join('')}${eventsHere.length > 2 ? '<span class="dd-event-more">+' + (eventsHere.length - 2) + '</span>' : ''}</div>`
+        : '';
+
+      if (isFut) {
+        return `<div class="dd fut${isW ? ' wknd' : ''}"><div class="dd-num${eventsHere.length ? ' dd-num-off' : ''}">${d}</div><div class="dd-ico">·</div>${dotHtml}</div>`;
+      }
+
+      // Toggle behavior: Sunday → ss; weekday → ca.
+      const r = gA(p.id, ds);
+      const flag = isSun ? (r ? r.ss : null) : (r ? r.ca : null);
+      const cls = flag === 'yes' ? 'done' : flag === 'no' ? 'missed' : 'none';
+      const ico = flag === 'yes' ? '✓' : flag === 'no' ? '✗' : '·';
+      const wCls = isW && cls === 'none' ? ' wknd' : '';
+      const tooltip = (isSun ? 'Sunday service' : 'Church activity') + (eventsHere.length ? ' — ' + eventsHere.map(ev => ev.title).join(', ') : '');
+      return `<div class="dd ${cls}${wCls}" onclick="togCha(${p.id},'${ds}',${isSun ? 'true' : 'false'})" title="${_evEscape(ds + ' — ' + tooltip)}"><div class="dd-num${eventsHere.length ? ' dd-num-off' : ''}">${d}</div><div class="dd-ico">${ico}</div>${dotHtml}</div>`;
+    }).join('');
+    return `<div class="dev-block">
+      <div class="dev-hdr">
+        <div>
+          <div class="dev-name">${p.fn} ${p.ln}</div>
+          <div class="dev-meta">${p.ro || '—'} · ${doneP}/${logsP} logged (${pctP}%)</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:${pctP >= 80 ? 'var(--teal)' : pctP >= 50 ? 'var(--gold)' : 'var(--coral)'};font-weight:500;">${pctP}%</span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--text2);margin-bottom:6px;">
+        Click a Sunday cell → toggle Sunday service · click any other cell → toggle Church activity ·
+        <span style="color:var(--gold);">●</span> church-set event
+        <span style="margin-left:.5rem;color:var(--sapphire);">●</span> local event
+      </div>
+      <div class="dev-cal-hdr"><div class="dev-col-h">Su</div><div class="dev-col-h">Mo</div><div class="dev-col-h">Tu</div><div class="dev-col-h">We</div><div class="dev-col-h">Th</div><div class="dev-col-h">Fr</div><div class="dev-col-h">Sa</div></div>
+      <div class="dev-grid">${blanks}${cells}</div>
+    </div>`;
+  }).join('');
+
+  // Kick a follow-up render once events have loaded so dots appear even
+  // if the initial pass ran before the fetch resolved.
+  if (!eventsForMonth.length && window.__covClient && window.__covSessionToken) {
+    _loadEventsForMonth(mv, null).then(all => {
+      __eventsCache.cha[mv] = all;
+      // Re-run only if user is still on this view.
+      if (document.getElementById('view-church-attendance')?.classList.contains('active')) {
+        renderChurchAttendance();
+      }
+    });
+  }
+}
+
+function togCha(pid, ds, isSun) {
+  const r = gA(pid, ds) || {};
+  const key = isSun ? 'ss' : 'ca';
+  const c = r[key];
+  const nx = c === 'yes' ? 'no' : c === 'no' ? null : 'yes';
+  if (nx === null) delete r[key]; else r[key] = nx;
+  sA(pid, ds, { ...r });
+  renderChurchAttendance();
+}
 
 function renderSundayService(){
   const mv=document.getElementById('ss-month').value||nm();
@@ -12795,7 +12968,7 @@ function __wrapDirty(fnName) {
   'savePartner','saveClient','saveBusiness','saveSale','saveExpense',
   'pfToggleMinor','generateParentalConsent','generatePartnersConsent','removeConsent',
   'savePayment','saveSalary','saveCfg','saveRates','saveMyProfile',
-  'saveAttLog','clearAttLog','togDev','saveRemittance','saveApp','saveInterview',
+  'saveAttLog','clearAttLog','togDev','togCha','saveRemittance','saveApp','saveInterview',
   'saveUser','removeUser','removeApp','removeInterview','removeSale',
   'removeExpense','removeMpItem','addMpItem','addCred','removeCred',
   'addResp','removeResp','postRun','generatePayrollRun','delRun',
