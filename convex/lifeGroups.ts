@@ -531,6 +531,42 @@ export const listForMyChurch = query({
 });
 
 /**
+ * HO's partner form calls this on open so the dropdown reflects
+ * whatever the server currently has — not the possibly-stale
+ * lifeGroupId in the client's local S.partners. Closes the race
+ * where the church assigns/reassigns while the HO CEO's tab is
+ * open but pre-refresh: the fresh value lands in the form, and
+ * when the CEO saves an unrelated field, the correct lifeGroupId
+ * is what gets synced back.
+ *
+ * Returns null if the caller has no session, no member row, or
+ * the partner isn't in their org.
+ */
+export const getPartnerLifeGroupId = query({
+  args: {
+    sessionToken: v.string(),
+    partnerLegacyId: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const session = await loadSession(ctx, args.sessionToken);
+    if (!session) return null;
+    const member = await ctx.db
+      .query("members")
+      .withIndex("by_user", (q) => q.eq("userId", session.userId))
+      .first();
+    if (!member) return null;
+    const partner = await ctx.db
+      .query("partners")
+      .withIndex("by_org_legacyId", (q) =>
+        q.eq("orgId", member.orgId).eq("legacyId", args.partnerLegacyId),
+      )
+      .unique();
+    if (!partner) return null;
+    return partner.lifeGroupId ?? null;
+  },
+});
+
+/**
  * HO's partner form calls this while the CEO types the name.
  * If the exact name (case-insensitive, trimmed) matches an
  * external member row in any of the affiliated church's life

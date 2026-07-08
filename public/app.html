@@ -3774,7 +3774,7 @@ async function pfLoadLifeGroups(){
   } catch { return []; }
 }
 
-async function pfRenderLifeGroupSection(currentLifeGroupId){
+async function pfRenderLifeGroupSection(currentLifeGroupId, partnerLegacyId){
   const card = document.getElementById('pf-lifegroup-card');
   const sel = document.getElementById('pf-lifegroup');
   const meta = document.getElementById('pf-lifegroup-meta');
@@ -3787,13 +3787,37 @@ async function pfRenderLifeGroupSection(currentLifeGroupId){
     return;
   }
   card.style.display = '';
+
+  // Fresh-fetch the server-side value so the dropdown reflects the
+  // current server state rather than a possibly-stale S.partners
+  // value. Also patch S.partners in place so saving with an
+  // untouched dropdown preserves the current assignment (closes
+  // the race where the church tags while the HO form is open).
+  let effectiveId = currentLifeGroupId ?? null;
+  if (partnerLegacyId != null && window.__covClient && window.__covSessionToken) {
+    try {
+      const server = await window.__covClient.query('lifeGroups:getPartnerLifeGroupId', {
+        sessionToken: window.__covSessionToken,
+        partnerLegacyId,
+      });
+      effectiveId = server ?? null;
+      const p = S.partners.find(x => x.id === partnerLegacyId);
+      if (p) p.lifeGroupId = server ?? undefined;
+    } catch {
+      // Server unreachable — fall back to whatever we were passed.
+    }
+  }
+
   sel.innerHTML = '<option value="">— Not assigned —</option>' +
     groups.map(g => `<option value="${g.id}">${g.name}${g.leader ? ' · led by ' + g.leader : ''}</option>`).join('');
-  if (currentLifeGroupId && groups.some(g => g.id === currentLifeGroupId)) {
-    sel.value = currentLifeGroupId;
+  if (effectiveId && groups.some(g => g.id === effectiveId)) {
+    sel.value = effectiveId;
   } else {
     sel.value = '';
   }
+  // Clear the "auto-detected" marker whenever the section renders
+  // fresh so a new form open can auto-apply if a match exists.
+  __pfLifeGroupAutoAppliedFor = '';
   const showMeta = () => {
     const g = groups.find(x => x.id === sel.value);
     if (!g) { meta.textContent = ''; return; }
@@ -3866,7 +3890,8 @@ function openAddPartner(){
   if(!S.businesses.filter(b=>b.st==='active').length){alert('Please add at least one business before adding partners.');showView('businesses');initBusinesses();return;}
   S.editPid=null;clearPf();document.getElementById('pf-title').textContent='Add partner';document.getElementById('pf-sd').value=td();
   pfPopulateBiz();
-  pfRenderLifeGroupSection(null);
+  // No partner id yet — pass null so the fresh-fetch is skipped.
+  pfRenderLifeGroupSection(null, null);
   showView('partner-form');
 }
 function openEditPartner(id){
@@ -3892,7 +3917,9 @@ function openEditPartner(id){
   pfRenderRateHistory(p);
   pfRenderPayrollHistory(p);
   pfRenderDocsPanel(p);
-  pfRenderLifeGroupSection(p.lifeGroupId || null);
+  // Pass the partner id so the section can fresh-fetch the current
+  // server-side lifeGroupId and reconcile S.partners in place.
+  pfRenderLifeGroupSection(p.lifeGroupId || null, p.id);
   showView('partner-form');
 }
 function clearPf(){
