@@ -86,6 +86,11 @@ export default defineSchema({
     inviteCode: v.string(),                   // e.g. "TRUEVINE-9F2A" — CEOs paste this in Settings
     createdAt: v.number(),
     lastSignInAt: v.optional(v.number()),
+    // How much of the verified tithes this church remits to its
+    // upstream ("higher") church. Default 10% if unset. Configurable
+    // from the Finances → Higher church settings.
+    higherChurchTitheRate: v.optional(v.number()),
+    higherChurchName: v.optional(v.string()),
   })
     .index("by_email", ["email"])
     .index("by_inviteCode", ["inviteCode"]),
@@ -504,10 +509,73 @@ export default defineSchema({
     }))),
     creditUsed: v.optional(v.number()),
     creditEarned: v.optional(v.number()),
+    // Verification workflow. `undefined` and `pending` are treated
+    // the same by the church-side listing so pre-feature rows show
+    // up as pending automatically. HO CEOs never see or set these
+    // fields — the church's verify mutation is the only writer.
+    verificationStatus: v.optional(v.union(
+      v.literal("pending"),
+      v.literal("verified"),
+      v.literal("disputed"),
+    )),
+    verifiedAt: v.optional(v.number()),
+    verifiedByChurchId: v.optional(v.id("churches")),
+    disputedReason: v.optional(v.string()),
   })
     .index("by_org", ["orgId"])
     .index("by_org_date", ["orgId", "dt"])
     .index("by_org_legacyId", ["orgId", "legacyId"]),
+
+  // ─────────────────────────────────────────────────────────────
+  // CHURCH FINANCES — church-side direct income + expenses +
+  // higher-church remittance log. All separate from the HO
+  // remittanceLogs table so cross-tenancy never accidentally leaks.
+  // ─────────────────────────────────────────────────────────────
+
+  /** Income the church recorded directly (from people not on any Home Office). */
+  churchDirectRemittances: defineTable({
+    churchId: v.id("churches"),
+    date: v.string(),                    // YYYY-MM-DD
+    amount: v.number(),                  // PHP
+    type: v.union(
+      v.literal("firstfruit"),
+      v.literal("tithe"),
+      v.literal("church-project"),
+      v.literal("offering"),
+    ),
+    giverName: v.optional(v.string()),
+    giverContact: v.optional(v.string()),
+    mode: v.optional(v.string()),        // Cash, GCash, BankTransfer, etc.
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_church", ["churchId"])
+    .index("by_church_date", ["churchId", "date"]),
+
+  /** Church expenses — utilities, salaries, ministry, missions, etc. */
+  churchExpenses: defineTable({
+    churchId: v.id("churches"),
+    date: v.string(),
+    amount: v.number(),
+    category: v.string(),
+    description: v.optional(v.string()),
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_church", ["churchId"])
+    .index("by_church_date", ["churchId", "date"]),
+
+  /** Log of remittances the church has sent to its upstream church. */
+  higherChurchRemittances: defineTable({
+    churchId: v.id("churches"),
+    date: v.string(),
+    amount: v.number(),
+    reference: v.optional(v.string()),
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_church", ["churchId"])
+    .index("by_church_date", ["churchId", "date"]),
 
   /** Legacy: S.runs (payroll runs) */
   payrollRuns: defineTable({

@@ -130,6 +130,22 @@
   .status-tag.remitted{background:rgba(43,100,56,.18);color:#a8d6b3;}
   .status-tag.archived{background:rgba(154,130,100,.18);color:var(--text3);}
 
+  /* Finances sub-tab strip — same visual language as the main tabs
+     but horizontal along the top of the panel body. */
+  .fin-subtab{background:none;border:none;color:var(--text2);padding:.6rem 1rem;font-family:inherit;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;position:relative;margin-bottom:-1px;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;font-weight:500;}
+  .fin-subtab:hover{color:var(--text);}
+  .fin-subtab.active{color:var(--gold);border-bottom-color:var(--gold);}
+  .fin-sub-panel{display:none;}
+  .fin-sub-panel.active{display:block;}
+  .fin-metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;margin-bottom:1.5rem;}
+  .fin-metric{background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:.9rem 1rem;position:relative;overflow:hidden;}
+  .fin-metric::before{content:'';position:absolute;top:0;left:0;width:100%;height:2px;background:var(--gold);opacity:.5;}
+  .fin-metric.accent-teal::before{background:var(--teal);}
+  .fin-metric.accent-coral::before{background:var(--coral);}
+  .fin-metric-label{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:11.5px;color:var(--text2);letter-spacing:.14em;text-transform:uppercase;margin-bottom:5px;}
+  .fin-metric-value{font-family:'Cormorant Garamond',serif;font-size:23px;font-weight:500;color:var(--text);line-height:1.05;font-feature-settings:"tnum";}
+  .fin-metric-sub{font-size:11px;color:var(--text3);margin-top:3px;letter-spacing:.02em;}
+
   /* Calendar tab — month grid */
   .cal-hdr{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;}
   .cal-hdr .cal-month-label{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.4rem;color:var(--text);letter-spacing:.005em;min-width:180px;}
@@ -245,6 +261,7 @@
       <button class="tab" data-tab="health">Home Office Health</button>
       <button class="tab" data-tab="lifegroups">Life Groups</button>
       <button class="tab" data-tab="calendar">Calendar</button>
+      <button class="tab" data-tab="finances">Finances</button>
     </div>
 
     <div class="content-main">
@@ -362,6 +379,160 @@
       <div id="lg-detail-view" style="display:none;">
         <button class="btn-ghost" onclick="closeLifeGroupDetail()" style="margin-bottom:1rem;">← Back to life groups</button>
         <div id="lg-detail-body"></div>
+      </div>
+    </div>
+
+    <!-- Finances tab -->
+    <div id="tab-finances" class="tab-panel">
+      <div class="section-title">Finances</div>
+      <div class="section-sub">Verify remittances from your Home Offices, log direct income and expenses, and track what you owe the higher church.</div>
+
+      <!-- Sub-tab strip -->
+      <div style="display:flex;gap:.15rem;border-bottom:1px solid var(--border);margin-bottom:1.2rem;flex-wrap:wrap;">
+        <button class="fin-subtab active" data-fin-sub="overview" onclick="switchFinSub('overview')">Overview</button>
+        <button class="fin-subtab" data-fin-sub="verification" onclick="switchFinSub('verification')">Verification</button>
+        <button class="fin-subtab" data-fin-sub="direct" onclick="switchFinSub('direct')">Direct income</button>
+        <button class="fin-subtab" data-fin-sub="expenses" onclick="switchFinSub('expenses')">Expenses</button>
+        <button class="fin-subtab" data-fin-sub="higher" onclick="switchFinSub('higher')">Higher church</button>
+      </div>
+
+      <!-- Overview sub-panel -->
+      <div id="fin-sub-overview" class="fin-sub-panel active">
+        <div id="fin-overview-body"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
+      </div>
+
+      <!-- Verification sub-panel -->
+      <div id="fin-sub-verification" class="fin-sub-panel">
+        <div class="toolbar">
+          <input type="search" id="fin-verif-search" placeholder="Search HO, mode, reference…"/>
+          <select id="fin-verif-status-filter">
+            <option value="all">All statuses</option>
+            <option value="pending" selected>Pending</option>
+            <option value="verified">Verified</option>
+            <option value="disputed">Disputed</option>
+          </select>
+          <select id="fin-verif-ho-filter"><option value="">All Home Offices</option></select>
+          <span class="count" id="fin-verif-count"></span>
+        </div>
+        <div id="fin-verif-tbl" class="data-tbl"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
+      </div>
+
+      <!-- Direct income sub-panel -->
+      <div id="fin-sub-direct" class="fin-sub-panel">
+        <div class="toolbar">
+          <input type="search" id="fin-direct-search" placeholder="Search giver, type, mode…"/>
+          <select id="fin-direct-type-filter">
+            <option value="">All types</option>
+            <option value="firstfruit">Firstfruit</option>
+            <option value="tithe">Tithe</option>
+            <option value="church-project">Church Project</option>
+            <option value="offering">Offering</option>
+          </select>
+          <button class="btn-ghost" onclick="openDirectModal()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">+ Add direct income</button>
+          <span class="count" id="fin-direct-count"></span>
+        </div>
+        <div id="fin-direct-tbl" class="data-tbl"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
+      </div>
+
+      <!-- Expenses sub-panel -->
+      <div id="fin-sub-expenses" class="fin-sub-panel">
+        <div class="toolbar">
+          <input type="search" id="fin-exp-search" placeholder="Search category, description…"/>
+          <select id="fin-exp-cat-filter"><option value="">All categories</option></select>
+          <button class="btn-ghost" onclick="openExpenseModal()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">+ Add expense</button>
+          <span class="count" id="fin-exp-count"></span>
+        </div>
+        <div id="fin-exp-tbl" class="data-tbl"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
+      </div>
+
+      <!-- Higher church sub-panel -->
+      <div id="fin-sub-higher" class="fin-sub-panel">
+        <div id="fin-higher-body"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Dispute modal -->
+    <div id="fin-dispute-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:520px;width:100%;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 1rem;color:var(--text);">Dispute remittance</h3>
+        <div style="font-size:.82rem;color:var(--text2);margin-bottom:1rem;line-height:1.5;" id="fin-dispute-context"></div>
+        <div class="field">
+          <label>Reason *</label>
+          <input type="text" id="fin-dispute-reason" placeholder="e.g. Amount doesn't match bank statement"/>
+        </div>
+        <div id="fin-dispute-msg" style="margin-top:.8rem;font-size:.85rem;font-style:italic;color:var(--coral);display:none;"></div>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.4rem;">
+          <button class="btn-ghost" onclick="closeDisputeModal()">Cancel</button>
+          <button class="btn-ghost" onclick="submitDispute()" style="background:var(--coral);color:#F6F2E8;border-color:var(--coral);">Dispute</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Direct income modal -->
+    <div id="fin-direct-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:520px;width:100%;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 .5rem;color:var(--text);">Add direct income</h3>
+        <div style="font-size:.82rem;color:var(--text2);margin-bottom:1rem;line-height:1.5;">Log a firstfruit, tithe, church-project, or offering received directly (not through a Home Office).</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+          <div class="field"><label>Date *</label><input type="date" id="fin-direct-date"/></div>
+          <div class="field"><label>Amount (PHP) *</label><input type="number" id="fin-direct-amount" min="0" step="0.01"/></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem;">
+          <div class="field"><label>Type *</label>
+            <select id="fin-direct-type">
+              <option value="tithe">Tithe</option>
+              <option value="firstfruit">Firstfruit</option>
+              <option value="church-project">Church Project</option>
+              <option value="offering">Offering</option>
+            </select>
+          </div>
+          <div class="field"><label>Mode</label><input type="text" id="fin-direct-mode" placeholder="Cash, GCash, BankTransfer…"/></div>
+        </div>
+        <div class="field" style="margin-top:.75rem;"><label>Giver name</label><input type="text" id="fin-direct-giver" placeholder="Optional"/></div>
+        <div class="field" style="margin-top:.75rem;"><label>Contact (optional)</label><input type="text" id="fin-direct-contact"/></div>
+        <div class="field" style="margin-top:.75rem;"><label>Note (optional)</label><input type="text" id="fin-direct-note"/></div>
+        <div id="fin-direct-msg" style="margin-top:.8rem;font-size:.85rem;font-style:italic;color:var(--coral);display:none;"></div>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.4rem;">
+          <button class="btn-ghost" onclick="closeDirectModal()">Cancel</button>
+          <button class="btn-ghost" onclick="saveDirectIncome()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expense modal -->
+    <div id="fin-exp-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:520px;width:100%;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 1rem;color:var(--text);">Add expense</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+          <div class="field"><label>Date *</label><input type="date" id="fin-exp-date"/></div>
+          <div class="field"><label>Amount (PHP) *</label><input type="number" id="fin-exp-amount" min="0" step="0.01"/></div>
+        </div>
+        <div class="field" style="margin-top:.75rem;"><label>Category *</label><input type="text" id="fin-exp-category" placeholder="e.g. Utilities, Ministry, Missions"/></div>
+        <div class="field" style="margin-top:.75rem;"><label>Description</label><input type="text" id="fin-exp-description"/></div>
+        <div class="field" style="margin-top:.75rem;"><label>Note (optional)</label><input type="text" id="fin-exp-note"/></div>
+        <div id="fin-exp-msg" style="margin-top:.8rem;font-size:.85rem;font-style:italic;color:var(--coral);display:none;"></div>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.4rem;">
+          <button class="btn-ghost" onclick="closeExpenseModal()">Cancel</button>
+          <button class="btn-ghost" onclick="saveExpense()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Higher-church remittance modal -->
+    <div id="fin-higher-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:480px;width:100%;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 1rem;color:var(--text);">Log higher-church remittance</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+          <div class="field"><label>Date *</label><input type="date" id="fin-higher-date"/></div>
+          <div class="field"><label>Amount (PHP) *</label><input type="number" id="fin-higher-amount" min="0" step="0.01"/></div>
+        </div>
+        <div class="field" style="margin-top:.75rem;"><label>Reference</label><input type="text" id="fin-higher-reference" placeholder="e.g. BankTransfer ref no."/></div>
+        <div class="field" style="margin-top:.75rem;"><label>Note</label><input type="text" id="fin-higher-note"/></div>
+        <div id="fin-higher-msg" style="margin-top:.8rem;font-size:.85rem;font-style:italic;color:var(--coral);display:none;"></div>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.4rem;">
+          <button class="btn-ghost" onclick="closeHigherRemitModal()">Cancel</button>
+          <button class="btn-ghost" onclick="saveHigherRemit()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Save</button>
+        </div>
       </div>
     </div>
 
@@ -828,6 +999,7 @@
     else if (name === 'health') loadHealth();
     else if (name === 'lifegroups') loadLifeGroups();
     else if (name === 'calendar') loadCalendar();
+    else if (name === 'finances') loadFinances();
   }
 
   document.querySelectorAll('.tabs .tab').forEach(btn => {
@@ -1849,6 +2021,535 @@
     } catch (e) {
       alert('Could not delete: ' + (e.message || e));
     }
+  };
+
+  // ─── Finances tab ───────────────────────────────────────
+  let _finOverview = null;
+  let _finVerifCache = null;
+  let _finDirectCache = null;
+  let _finExpCache = null;
+  let _finHigherRemits = null;
+  let _finHigherSettings = null;
+  let _finDisputeTargetId = null;
+  const _finSubLoaded = { overview: false, verification: false, direct: false, expenses: false, higher: false };
+
+  window.switchFinSub = function(name){
+    document.querySelectorAll('.fin-subtab').forEach(b => b.classList.toggle('active', b.dataset.finSub === name));
+    document.querySelectorAll('.fin-sub-panel').forEach(p => p.classList.toggle('active', p.id === 'fin-sub-' + name));
+    if (_finSubLoaded[name]) return;
+    _finSubLoaded[name] = true;
+    if (name === 'overview') loadFinOverview();
+    else if (name === 'verification') loadFinVerification();
+    else if (name === 'direct') loadFinDirect();
+    else if (name === 'expenses') loadFinExpenses();
+    else if (name === 'higher') loadFinHigher();
+  };
+
+  async function loadFinances(){
+    // Prime the overview (default sub-tab) — other sub-tabs load
+    // lazily on first click.
+    _finSubLoaded.overview = true;
+    await loadFinOverview();
+  }
+
+  // ── Overview ────────────────────────────────────────────
+  async function loadFinOverview(){
+    const body = document.getElementById('fin-overview-body');
+    try {
+      _finOverview = await client.query('churchFinances:overview', { sessionToken });
+      renderFinOverview();
+    } catch (e) {
+      body.innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
+    }
+  }
+  function renderFinOverview(){
+    const o = _finOverview;
+    const body = document.getElementById('fin-overview-body');
+    const higherLabel = o.higherChurchName ? o.higherChurchName : 'Higher church';
+    body.innerHTML = `
+      <div class="fin-metric-grid">
+        <div class="fin-metric accent-teal">
+          <div class="fin-metric-label">Verified income</div>
+          <div class="fin-metric-value">${fmt(o.totalVerifiedIncome)}</div>
+          <div class="fin-metric-sub">Across all sources</div>
+        </div>
+        <div class="fin-metric accent-coral">
+          <div class="fin-metric-label">Pending verification</div>
+          <div class="fin-metric-value">${fmt(o.hoPending)}</div>
+          <div class="fin-metric-sub">${o.hoPendingCount} HO log${o.hoPendingCount === 1 ? '' : 's'} awaiting your review</div>
+        </div>
+        <div class="fin-metric">
+          <div class="fin-metric-label">Direct income</div>
+          <div class="fin-metric-value">${fmt(o.totalDirectIncome)}</div>
+          <div class="fin-metric-sub">Recorded by the church directly</div>
+        </div>
+        <div class="fin-metric accent-coral">
+          <div class="fin-metric-label">Expenses</div>
+          <div class="fin-metric-value">${fmt(o.totalExpenses)}</div>
+        </div>
+      </div>
+
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:1.15rem 1.25rem;margin-bottom:1.25rem;">
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.15rem;color:var(--text);margin-bottom:.5rem;">${higherLabel} tithe</div>
+        <div style="font-size:.85rem;color:var(--text2);margin-bottom:1rem;line-height:1.5;">
+          ${o.higherChurchRate}% of every verified tithe (HO-verified + direct) is owed upstream. Update the rate or higher-church name from the <a onclick="switchFinSub('higher')" style="color:var(--gold);cursor:pointer;text-decoration:underline;">Higher church</a> sub-tab.
+        </div>
+        <div class="fin-metric-grid">
+          <div class="fin-metric">
+            <div class="fin-metric-label">Owed</div>
+            <div class="fin-metric-value">${fmt(o.higherOwed)}</div>
+            <div class="fin-metric-sub">${o.higherChurchRate}% of ${fmt(o.verifiedTithe + o.directTithe)} verified tithes</div>
+          </div>
+          <div class="fin-metric accent-teal">
+            <div class="fin-metric-label">Remitted</div>
+            <div class="fin-metric-value">${fmt(o.higherRemitted)}</div>
+          </div>
+          <div class="fin-metric ${o.higherBalance > 0.01 ? 'accent-coral' : 'accent-teal'}">
+            <div class="fin-metric-label">Balance</div>
+            <div class="fin-metric-value">${fmt(o.higherBalance)}</div>
+            <div class="fin-metric-sub">${o.higherBalance > 0.01 ? 'Outstanding — remit and log below' : 'Fully remitted — well done'}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:1.15rem 1.25rem;">
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.15rem;color:var(--text);margin-bottom:.8rem;">Verified income by pool</div>
+        <div class="fin-metric-grid">
+          <div class="fin-metric"><div class="fin-metric-label">Firstfruit</div><div class="fin-metric-value">${fmt(o.verifiedFirstfruit + o.directFirstfruit)}</div><div class="fin-metric-sub">HO ${fmt(o.verifiedFirstfruit)} · Direct ${fmt(o.directFirstfruit)}</div></div>
+          <div class="fin-metric"><div class="fin-metric-label">Tithe</div><div class="fin-metric-value">${fmt(o.verifiedTithe + o.directTithe)}</div><div class="fin-metric-sub">HO ${fmt(o.verifiedTithe)} · Direct ${fmt(o.directTithe)}</div></div>
+          <div class="fin-metric"><div class="fin-metric-label">Church Project</div><div class="fin-metric-value">${fmt(o.verifiedChurchProject + o.directChurchProject)}</div><div class="fin-metric-sub">HO ${fmt(o.verifiedChurchProject)} · Direct ${fmt(o.directChurchProject)}</div></div>
+          <div class="fin-metric"><div class="fin-metric-label">Partner tithe</div><div class="fin-metric-value">${fmt(o.verifiedPartnerTithe)}</div><div class="fin-metric-sub">HO-only pool</div></div>
+          ${o.directOffering > 0 ? `<div class="fin-metric"><div class="fin-metric-label">Offering</div><div class="fin-metric-value">${fmt(o.directOffering)}</div><div class="fin-metric-sub">Direct only</div></div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Verification ────────────────────────────────────────
+  let _finVerifFilters = { search: '', status: 'pending', ho: '' };
+  function _statusPill(status){
+    const map = { pending: ['pending','Pending'], verified: ['remitted','Verified'], disputed: ['pending','Disputed'] };
+    const [cls, lbl] = map[status] || ['pending', status];
+    const style = status === 'disputed' ? 'background:rgba(156,72,89,.18);color:#e8b0bb;' : '';
+    return `<span class="status-tag ${cls}" style="${style}">${lbl}</span>`;
+  }
+  function renderFinVerification(){
+    const wrap = document.getElementById('fin-verif-tbl');
+    const countEl = document.getElementById('fin-verif-count');
+    if (!_finVerifCache) return;
+    const q = _finVerifFilters.search.trim().toLowerCase();
+    const filtered = _finVerifCache.filter(r => {
+      if (_finVerifFilters.status !== 'all' && r.status !== _finVerifFilters.status) return false;
+      if (_finVerifFilters.ho && r.orgName !== _finVerifFilters.ho) return false;
+      if (q) {
+        const hay = (r.orgName + ' ' + r.mode + ' ' + r.reference + ' ' + r.by).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    countEl.textContent = `${filtered.length} of ${_finVerifCache.length} shown`;
+    if (!filtered.length) {
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No remittances match your filters.</div>';
+      return;
+    }
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Date</th><th>Home Office</th><th class="r">Amount</th><th>Mode</th><th>By</th><th>Reference</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody>${filtered.map(r => {
+        const actions = r.status === 'pending'
+          ? `<button class="btn-ghost" onclick="verifyRemit('${r.id}')" style="padding:4px 10px;font-size:.65rem;background:var(--teal);color:#F6F2E8;border-color:var(--teal);">Verify</button>
+             <button class="btn-ghost" onclick="openDisputeModal('${r.id}','${r.orgName.replace(/'/g,"\\\'")}',${r.amount},'${r.date}')" style="padding:4px 10px;font-size:.65rem;border-color:var(--coral);color:var(--coral);">Dispute</button>`
+          : `<button class="btn-ghost" onclick="resetRemitStatus('${r.id}')" style="padding:4px 10px;font-size:.65rem;">Reset</button>`;
+        return `<tr>
+          <td>${r.date}</td>
+          <td class="name">${r.orgName}</td>
+          <td class="r">${fmt(r.amount)}</td>
+          <td>${r.mode || '<span style="color:var(--text3);">—</span>'}</td>
+          <td>${r.by || '<span style="color:var(--text3);">—</span>'}</td>
+          <td>${r.reference || '<span style="color:var(--text3);font-style:italic;">—</span>'}</td>
+          <td>${_statusPill(r.status)}${r.status === 'disputed' && r.disputedReason ? `<div style="font-size:10.5px;color:var(--text3);font-style:italic;margin-top:2px;">${r.disputedReason}</div>` : ''}</td>
+          <td style="white-space:nowrap;">${actions}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  }
+  async function loadFinVerification(){
+    try {
+      _finVerifCache = await client.query('churchFinances:listHoRemittances', { sessionToken });
+      // Populate HO filter
+      const hoNames = Array.from(new Set(_finVerifCache.map(r => r.orgName))).sort();
+      const sel = document.getElementById('fin-verif-ho-filter');
+      sel.innerHTML = '<option value="">All Home Offices</option>' + hoNames.map(n => `<option value="${n}">${n}</option>`).join('');
+      renderFinVerification();
+    } catch (e) {
+      document.getElementById('fin-verif-tbl').innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
+    }
+  }
+  document.getElementById('fin-verif-search').addEventListener('input', (e) => { _finVerifFilters.search = e.target.value; renderFinVerification(); });
+  document.getElementById('fin-verif-status-filter').addEventListener('change', (e) => { _finVerifFilters.status = e.target.value; renderFinVerification(); });
+  document.getElementById('fin-verif-ho-filter').addEventListener('change', (e) => { _finVerifFilters.ho = e.target.value; renderFinVerification(); });
+
+  window.verifyRemit = async function(id){
+    try {
+      await client.mutation('churchFinances:verifyHoRemittance', { sessionToken, remittanceId: id });
+      await loadFinVerification();
+      _finSubLoaded.overview = false;
+    } catch (e) { alert('Verify failed: ' + (e.message || e)); }
+  };
+  window.resetRemitStatus = async function(id){
+    if (!confirm('Reset this remittance back to pending?')) return;
+    try {
+      await client.mutation('churchFinances:resetHoRemittanceStatus', { sessionToken, remittanceId: id });
+      await loadFinVerification();
+      _finSubLoaded.overview = false;
+    } catch (e) { alert('Reset failed: ' + (e.message || e)); }
+  };
+  window.openDisputeModal = function(id, orgName, amount, date){
+    _finDisputeTargetId = id;
+    document.getElementById('fin-dispute-context').innerHTML = `<strong>${orgName}</strong> · ${date} · ${fmt(amount)}`;
+    document.getElementById('fin-dispute-reason').value = '';
+    document.getElementById('fin-dispute-msg').style.display = 'none';
+    document.getElementById('fin-dispute-modal-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('fin-dispute-reason').focus(), 60);
+  };
+  window.closeDisputeModal = function(){
+    document.getElementById('fin-dispute-modal-overlay').style.display = 'none';
+    _finDisputeTargetId = null;
+  };
+  window.submitDispute = async function(){
+    const reason = document.getElementById('fin-dispute-reason').value.trim();
+    const msg = document.getElementById('fin-dispute-msg');
+    if (!reason) { msg.textContent = 'Please enter a reason.'; msg.style.display = ''; return; }
+    try {
+      await client.mutation('churchFinances:disputeHoRemittance', {
+        sessionToken, remittanceId: _finDisputeTargetId, reason,
+      });
+      closeDisputeModal();
+      await loadFinVerification();
+      _finSubLoaded.overview = false;
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+      msg.style.display = '';
+    }
+  };
+
+  // ── Direct income ───────────────────────────────────────
+  let _finDirectFilters = { search: '', type: '' };
+  function renderFinDirect(){
+    const wrap = document.getElementById('fin-direct-tbl');
+    const countEl = document.getElementById('fin-direct-count');
+    if (!_finDirectCache) return;
+    const q = _finDirectFilters.search.trim().toLowerCase();
+    const filtered = _finDirectCache.filter(r => {
+      if (_finDirectFilters.type && r.type !== _finDirectFilters.type) return false;
+      if (q) {
+        const hay = (r.giverName + ' ' + r.type + ' ' + r.mode + ' ' + r.note).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    countEl.textContent = `${filtered.length} of ${_finDirectCache.length} shown`;
+    if (!_finDirectCache.length) {
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No direct income logged yet.</div>';
+      return;
+    }
+    if (!filtered.length) {
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No entries match your filters.</div>';
+      return;
+    }
+    const typeLabel = (t) => ({ firstfruit: 'Firstfruit', tithe: 'Tithe', 'church-project': 'Church Project', offering: 'Offering' })[t] || t;
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Date</th><th>Giver</th><th>Type</th><th class="r">Amount</th><th>Mode</th><th>Note</th><th></th>
+      </tr></thead>
+      <tbody>${filtered.map(r => `
+        <tr>
+          <td>${r.date}</td>
+          <td class="name">${r.giverName || '<span style="color:var(--text3);font-style:italic;">Anonymous</span>'}</td>
+          <td><span class="type-tag">${typeLabel(r.type)}</span></td>
+          <td class="r">${fmt(r.amount)}</td>
+          <td>${r.mode || '<span style="color:var(--text3);">—</span>'}</td>
+          <td style="color:var(--text2);font-style:italic;">${r.note || ''}</td>
+          <td><button class="btn-ghost" onclick="deleteDirectIncome('${r.id}')" style="padding:4px 10px;font-size:.65rem;border-color:var(--coral);color:var(--coral);">×</button></td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+  }
+  async function loadFinDirect(){
+    try {
+      _finDirectCache = await client.query('churchFinances:listDirectIncome', { sessionToken });
+      renderFinDirect();
+    } catch (e) {
+      document.getElementById('fin-direct-tbl').innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
+    }
+  }
+  document.getElementById('fin-direct-search').addEventListener('input', (e) => { _finDirectFilters.search = e.target.value; renderFinDirect(); });
+  document.getElementById('fin-direct-type-filter').addEventListener('change', (e) => { _finDirectFilters.type = e.target.value; renderFinDirect(); });
+
+  window.openDirectModal = function(){
+    const today = new Date();
+    document.getElementById('fin-direct-date').value = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    document.getElementById('fin-direct-amount').value = '';
+    document.getElementById('fin-direct-type').value = 'tithe';
+    document.getElementById('fin-direct-mode').value = '';
+    document.getElementById('fin-direct-giver').value = '';
+    document.getElementById('fin-direct-contact').value = '';
+    document.getElementById('fin-direct-note').value = '';
+    document.getElementById('fin-direct-msg').style.display = 'none';
+    document.getElementById('fin-direct-modal-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('fin-direct-amount').focus(), 60);
+  };
+  window.closeDirectModal = function(){
+    document.getElementById('fin-direct-modal-overlay').style.display = 'none';
+  };
+  window.saveDirectIncome = async function(){
+    const msg = document.getElementById('fin-direct-msg');
+    const date = document.getElementById('fin-direct-date').value;
+    const amount = parseFloat(document.getElementById('fin-direct-amount').value);
+    if (!date) { msg.textContent = 'Date is required.'; msg.style.display = ''; return; }
+    if (!(amount > 0)) { msg.textContent = 'Amount must be greater than 0.'; msg.style.display = ''; return; }
+    try {
+      await client.mutation('churchFinances:createDirectIncome', {
+        sessionToken, date, amount,
+        type: document.getElementById('fin-direct-type').value,
+        mode: document.getElementById('fin-direct-mode').value.trim(),
+        giverName: document.getElementById('fin-direct-giver').value.trim(),
+        giverContact: document.getElementById('fin-direct-contact').value.trim(),
+        note: document.getElementById('fin-direct-note').value.trim(),
+      });
+      closeDirectModal();
+      await loadFinDirect();
+      _finSubLoaded.overview = false;
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+      msg.style.display = '';
+    }
+  };
+  window.deleteDirectIncome = async function(id){
+    if (!confirm('Delete this direct income entry?')) return;
+    try {
+      await client.mutation('churchFinances:deleteDirectIncome', { sessionToken, id });
+      await loadFinDirect();
+      _finSubLoaded.overview = false;
+    } catch (e) { alert('Delete failed: ' + (e.message || e)); }
+  };
+
+  // ── Expenses ────────────────────────────────────────────
+  let _finExpFilters = { search: '', category: '' };
+  function renderFinExpenses(){
+    const wrap = document.getElementById('fin-exp-tbl');
+    const countEl = document.getElementById('fin-exp-count');
+    if (!_finExpCache) return;
+    const q = _finExpFilters.search.trim().toLowerCase();
+    const filtered = _finExpCache.filter(r => {
+      if (_finExpFilters.category && r.category !== _finExpFilters.category) return false;
+      if (q) {
+        const hay = (r.category + ' ' + r.description + ' ' + r.note).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    countEl.textContent = `${filtered.length} of ${_finExpCache.length} shown`;
+    if (!_finExpCache.length) {
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No expenses logged yet.</div>';
+      return;
+    }
+    if (!filtered.length) {
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No expenses match your filters.</div>';
+      return;
+    }
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Date</th><th>Category</th><th class="r">Amount</th><th>Description</th><th>Note</th><th></th>
+      </tr></thead>
+      <tbody>${filtered.map(r => `
+        <tr>
+          <td>${r.date}</td>
+          <td class="name">${r.category}</td>
+          <td class="r">${fmt(r.amount)}</td>
+          <td>${r.description || '<span style="color:var(--text3);">—</span>'}</td>
+          <td style="color:var(--text2);font-style:italic;">${r.note || ''}</td>
+          <td><button class="btn-ghost" onclick="deleteExpense('${r.id}')" style="padding:4px 10px;font-size:.65rem;border-color:var(--coral);color:var(--coral);">×</button></td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+  }
+  async function loadFinExpenses(){
+    try {
+      _finExpCache = await client.query('churchFinances:listExpenses', { sessionToken });
+      const cats = Array.from(new Set(_finExpCache.map(r => r.category))).sort();
+      const sel = document.getElementById('fin-exp-cat-filter');
+      sel.innerHTML = '<option value="">All categories</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+      renderFinExpenses();
+    } catch (e) {
+      document.getElementById('fin-exp-tbl').innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
+    }
+  }
+  document.getElementById('fin-exp-search').addEventListener('input', (e) => { _finExpFilters.search = e.target.value; renderFinExpenses(); });
+  document.getElementById('fin-exp-cat-filter').addEventListener('change', (e) => { _finExpFilters.category = e.target.value; renderFinExpenses(); });
+
+  window.openExpenseModal = function(){
+    const today = new Date();
+    document.getElementById('fin-exp-date').value = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    document.getElementById('fin-exp-amount').value = '';
+    document.getElementById('fin-exp-category').value = '';
+    document.getElementById('fin-exp-description').value = '';
+    document.getElementById('fin-exp-note').value = '';
+    document.getElementById('fin-exp-msg').style.display = 'none';
+    document.getElementById('fin-exp-modal-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('fin-exp-amount').focus(), 60);
+  };
+  window.closeExpenseModal = function(){
+    document.getElementById('fin-exp-modal-overlay').style.display = 'none';
+  };
+  window.saveExpense = async function(){
+    const msg = document.getElementById('fin-exp-msg');
+    const date = document.getElementById('fin-exp-date').value;
+    const amount = parseFloat(document.getElementById('fin-exp-amount').value);
+    const category = document.getElementById('fin-exp-category').value.trim();
+    if (!date) { msg.textContent = 'Date is required.'; msg.style.display = ''; return; }
+    if (!(amount > 0)) { msg.textContent = 'Amount must be greater than 0.'; msg.style.display = ''; return; }
+    if (!category) { msg.textContent = 'Category is required.'; msg.style.display = ''; return; }
+    try {
+      await client.mutation('churchFinances:createExpense', {
+        sessionToken, date, amount, category,
+        description: document.getElementById('fin-exp-description').value.trim(),
+        note: document.getElementById('fin-exp-note').value.trim(),
+      });
+      closeExpenseModal();
+      await loadFinExpenses();
+      _finSubLoaded.overview = false;
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+      msg.style.display = '';
+    }
+  };
+  window.deleteExpense = async function(id){
+    if (!confirm('Delete this expense?')) return;
+    try {
+      await client.mutation('churchFinances:deleteExpense', { sessionToken, id });
+      await loadFinExpenses();
+      _finSubLoaded.overview = false;
+    } catch (e) { alert('Delete failed: ' + (e.message || e)); }
+  };
+
+  // ── Higher church ───────────────────────────────────────
+  async function loadFinHigher(){
+    const body = document.getElementById('fin-higher-body');
+    try {
+      const [settings, remits, overview] = await Promise.all([
+        client.query('churchFinances:getHigherChurchSettings', { sessionToken }),
+        client.query('churchFinances:listHigherChurchRemittances', { sessionToken }),
+        client.query('churchFinances:overview', { sessionToken }),
+      ]);
+      _finHigherSettings = settings;
+      _finHigherRemits = remits;
+      _finOverview = overview;
+      renderFinHigher();
+    } catch (e) {
+      body.innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
+    }
+  }
+  function renderFinHigher(){
+    const s = _finHigherSettings;
+    const o = _finOverview;
+    const remits = _finHigherRemits || [];
+    document.getElementById('fin-higher-body').innerHTML = `
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:1.15rem 1.25rem;margin-bottom:1.25rem;">
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.15rem;color:var(--text);margin-bottom:.5rem;">Settings</div>
+        <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:.75rem;align-items:end;">
+          <div class="field">
+            <label>Higher church name</label>
+            <input type="text" id="fin-higher-set-name" value="${(s.name || '').replace(/"/g, '&quot;')}" placeholder="e.g. Central Church"/>
+          </div>
+          <div class="field">
+            <label>Tithe rate (%)</label>
+            <input type="number" id="fin-higher-set-rate" value="${s.rate}" min="0" max="100" step="0.01"/>
+          </div>
+          <button class="btn-ghost" onclick="saveHigherSettings()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);height:38px;">Save</button>
+        </div>
+      </div>
+
+      <div class="fin-metric-grid">
+        <div class="fin-metric"><div class="fin-metric-label">Owed</div><div class="fin-metric-value">${fmt(o.higherOwed)}</div></div>
+        <div class="fin-metric accent-teal"><div class="fin-metric-label">Remitted</div><div class="fin-metric-value">${fmt(o.higherRemitted)}</div></div>
+        <div class="fin-metric ${o.higherBalance > 0.01 ? 'accent-coral' : 'accent-teal'}"><div class="fin-metric-label">Balance</div><div class="fin-metric-value">${fmt(o.higherBalance)}</div></div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.15rem;color:var(--text);">Remittance log</div>
+        <button class="btn-ghost" onclick="openHigherRemitModal()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">+ Log remittance</button>
+      </div>
+      <div class="data-tbl">
+        ${remits.length ? `
+        <table>
+          <thead><tr><th>Date</th><th class="r">Amount</th><th>Reference</th><th>Note</th><th></th></tr></thead>
+          <tbody>${remits.map(r => `
+            <tr>
+              <td>${r.date}</td>
+              <td class="r">${fmt(r.amount)}</td>
+              <td>${r.reference || '<span style="color:var(--text3);">—</span>'}</td>
+              <td style="color:var(--text2);font-style:italic;">${r.note || ''}</td>
+              <td><button class="btn-ghost" onclick="deleteHigherRemit('${r.id}')" style="padding:4px 10px;font-size:.65rem;border-color:var(--coral);color:var(--coral);">×</button></td>
+            </tr>
+          `).join('')}</tbody>
+        </table>
+        ` : '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No remittances to the higher church logged yet.</div>'}
+      </div>
+    `;
+  }
+  window.saveHigherSettings = async function(){
+    const rate = parseFloat(document.getElementById('fin-higher-set-rate').value);
+    const name = document.getElementById('fin-higher-set-name').value.trim();
+    if (!(rate >= 0 && rate <= 100)) { alert('Rate must be between 0 and 100.'); return; }
+    try {
+      await client.mutation('churchFinances:updateHigherChurchSettings', { sessionToken, rate, name });
+      await loadFinHigher();
+      _finSubLoaded.overview = false;
+    } catch (e) { alert('Save failed: ' + (e.message || e)); }
+  };
+  window.openHigherRemitModal = function(){
+    const today = new Date();
+    document.getElementById('fin-higher-date').value = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    // Prefill amount with the outstanding balance so a full remit is one click.
+    document.getElementById('fin-higher-amount').value = _finOverview?.higherBalance > 0.01 ? _finOverview.higherBalance.toFixed(2) : '';
+    document.getElementById('fin-higher-reference').value = '';
+    document.getElementById('fin-higher-note').value = '';
+    document.getElementById('fin-higher-msg').style.display = 'none';
+    document.getElementById('fin-higher-modal-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('fin-higher-amount').focus(), 60);
+  };
+  window.closeHigherRemitModal = function(){
+    document.getElementById('fin-higher-modal-overlay').style.display = 'none';
+  };
+  window.saveHigherRemit = async function(){
+    const msg = document.getElementById('fin-higher-msg');
+    const date = document.getElementById('fin-higher-date').value;
+    const amount = parseFloat(document.getElementById('fin-higher-amount').value);
+    if (!date) { msg.textContent = 'Date is required.'; msg.style.display = ''; return; }
+    if (!(amount > 0)) { msg.textContent = 'Amount must be greater than 0.'; msg.style.display = ''; return; }
+    try {
+      await client.mutation('churchFinances:createHigherChurchRemittance', {
+        sessionToken, date, amount,
+        reference: document.getElementById('fin-higher-reference').value.trim(),
+        note: document.getElementById('fin-higher-note').value.trim(),
+      });
+      closeHigherRemitModal();
+      await loadFinHigher();
+      _finSubLoaded.overview = false;
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+      msg.style.display = '';
+    }
+  };
+  window.deleteHigherRemit = async function(id){
+    if (!confirm('Delete this higher-church remittance? The balance will re-open.')) return;
+    try {
+      await client.mutation('churchFinances:deleteHigherChurchRemittance', { sessionToken, id });
+      await loadFinHigher();
+      _finSubLoaded.overview = false;
+    } catch (e) { alert('Delete failed: ' + (e.message || e)); }
   };
 
   // ─── Init ───────────────────────────────────────────────
