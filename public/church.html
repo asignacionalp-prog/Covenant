@@ -130,6 +130,26 @@
   .status-tag.remitted{background:rgba(43,100,56,.18);color:#a8d6b3;}
   .status-tag.archived{background:rgba(154,130,100,.18);color:var(--text3);}
 
+  /* Calendar tab — month grid */
+  .cal-hdr{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;}
+  .cal-hdr .cal-month-label{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.4rem;color:var(--text);letter-spacing:.005em;min-width:180px;}
+  .cal-nav-btn{background:transparent;border:1px solid var(--border);color:var(--text2);width:32px;height:32px;border-radius:5px;font-family:inherit;font-size:1rem;cursor:pointer;transition:border-color .15s,color .15s;margin:0;padding:0;}
+  .cal-nav-btn:hover{border-color:var(--gold);color:var(--gold);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:5px;overflow:hidden;}
+  .cal-dow{background:rgba(180,138,30,.06);padding:.5rem;text-align:center;font-family:inherit;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;}
+  .cal-cell{background:var(--paper);min-height:96px;padding:.4rem .5rem;position:relative;cursor:pointer;transition:background .15s;}
+  .cal-cell:hover{background:var(--paper2);}
+  .cal-cell.other-month{background:rgba(24,34,56,.6);opacity:.6;}
+  .cal-cell.today{border:2px solid var(--gold);}
+  .cal-cell-num{font-family:'DM Sans',sans-serif;font-size:.78rem;color:var(--text2);margin-bottom:4px;font-weight:500;}
+  .cal-cell.today .cal-cell-num{color:var(--gold);font-weight:600;}
+  .cal-cell.sunday .cal-cell-num{color:var(--gold-bright);}
+  .cal-event{display:block;padding:2px 6px;margin-bottom:2px;border-radius:3px;font-size:10.5px;line-height:1.35;font-weight:500;text-decoration:none;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:filter .12s;}
+  .cal-event:hover{filter:brightness(1.15);}
+  .cal-event.sunday{background:rgba(180,138,30,.22);color:var(--gold-bright);}
+  .cal-event.activity{background:rgba(85,106,142,.28);color:#c0d0e8;}
+  .cal-recurring-marker{display:inline-block;font-size:9px;opacity:.7;margin-right:2px;}
+
   /* Health tab */
   .health-hos{display:grid;gap:.85rem;}
   .health-ho{background:var(--paper);border:1px solid var(--border);border-radius:6px;padding:1rem 1.15rem;}
@@ -224,6 +244,7 @@
       <button class="tab" data-tab="obligations">Obligations</button>
       <button class="tab" data-tab="health">Home Office Health</button>
       <button class="tab" data-tab="lifegroups">Life Groups</button>
+      <button class="tab" data-tab="calendar">Calendar</button>
     </div>
 
     <div class="content-main">
@@ -341,6 +362,74 @@
       <div id="lg-detail-view" style="display:none;">
         <button class="btn-ghost" onclick="closeLifeGroupDetail()" style="margin-bottom:1rem;">← Back to life groups</button>
         <div id="lg-detail-body"></div>
+      </div>
+    </div>
+
+    <!-- Calendar tab -->
+    <div id="tab-calendar" class="tab-panel">
+      <div class="section-title">Church calendar</div>
+      <div class="section-sub">Sunday services, House of Prayer, retreats, and every other church-set event. Home Offices see these overlaid on their Sunday Service and Church Activities trackers automatically.</div>
+
+      <div class="cal-hdr">
+        <button class="cal-nav-btn" onclick="calGoto(-1)" title="Previous month">‹</button>
+        <div class="cal-month-label" id="cal-month-label"></div>
+        <button class="cal-nav-btn" onclick="calGoto(1)" title="Next month">›</button>
+        <button class="cal-nav-btn" onclick="calGoToToday()" title="Jump to today" style="width:auto;padding:0 12px;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;">Today</button>
+        <div style="flex:1;"></div>
+        <button class="btn-ghost" onclick="openEventModal(null,null)" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">+ Add event</button>
+      </div>
+
+      <div id="cal-grid" class="cal-grid"><div style="grid-column:1/-1;padding:2rem;text-align:center;color:var(--text3);background:var(--paper);">Loading…</div></div>
+
+      <div style="margin-top:1.5rem;">
+        <div class="section-title" style="font-size:1.1rem;">All events</div>
+        <div id="cal-list" class="data-tbl"><div style="padding:1rem;text-align:center;color:var(--text3);">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Add/edit Event modal -->
+    <div id="cal-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:540px;width:100%;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 1.2rem;color:var(--text);" id="cal-modal-title">Add event</h3>
+        <div class="field">
+          <label>Title *</label>
+          <input type="text" id="cal-modal-title-input" placeholder="e.g. Sunday Service, House of Prayer"/>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.9rem;">
+          <div class="field">
+            <label>Date *</label>
+            <input type="date" id="cal-modal-date"/>
+          </div>
+          <div class="field">
+            <label>Category *</label>
+            <select id="cal-modal-category">
+              <option value="sunday">Sunday Service</option>
+              <option value="activity">Church Activity</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:.9rem;padding:.75rem 1rem;background:rgba(180,138,30,.05);border:1px solid var(--border);border-radius:5px;">
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;cursor:pointer;color:var(--text2);">
+            <input type="checkbox" id="cal-modal-recurring" onchange="calToggleRecurring()"/>
+            <span>Repeats every week on the same day</span>
+          </label>
+          <div id="cal-modal-recurring-until-row" style="display:none;margin-top:.6rem;">
+            <label style="display:block;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:.3rem;">Repeat until (optional)</label>
+            <input type="date" id="cal-modal-recurring-until"/>
+          </div>
+        </div>
+        <div class="field" style="margin-top:.9rem;">
+          <label>Description (optional)</label>
+          <input type="text" id="cal-modal-desc" placeholder="Any note about this event"/>
+        </div>
+        <div id="cal-modal-msg" style="margin-top:.8rem;font-size:.85rem;font-style:italic;color:var(--coral);display:none;"></div>
+        <div style="display:flex;gap:.6rem;justify-content:space-between;margin-top:1.4rem;">
+          <button class="btn-ghost" id="cal-modal-delete" onclick="deleteEventFromModal()" style="border-color:var(--coral);color:var(--coral);display:none;">Delete</button>
+          <div style="display:flex;gap:.6rem;margin-left:auto;">
+            <button class="btn-ghost" onclick="closeEventModal()">Cancel</button>
+            <button class="btn-ghost" id="cal-modal-save" onclick="saveEventModal()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Save</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -738,6 +827,7 @@
     else if (name === 'obligations') loadObligations();
     else if (name === 'health') loadHealth();
     else if (name === 'lifegroups') loadLifeGroups();
+    else if (name === 'calendar') loadCalendar();
   }
 
   document.querySelectorAll('.tabs .tab').forEach(btn => {
@@ -1550,6 +1640,214 @@
       if (_lgCurrentDetailId) await showLifeGroupDetail(_lgCurrentDetailId);
     } catch (e) {
       alert('Could not unassign: ' + (e.message || e));
+    }
+  };
+
+  // ─── Calendar tab ───────────────────────────────────────
+  let _calMonth = null;      // 'YYYY-MM'
+  let _calFullList = null;
+  let _calExpanded = null;
+  let _calEditingId = null;
+
+  function _calCurrentMonthKey(){
+    const now = new Date();
+    return now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  }
+  function _calMonthLabel(monthKey){
+    const [y, m] = monthKey.split('-').map(Number);
+    return new Date(y, m-1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+  }
+
+  window.calGoto = function(delta){
+    if (!_calMonth) _calMonth = _calCurrentMonthKey();
+    const [y, m] = _calMonth.split('-').map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    _calMonth = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    loadCalendar();
+  };
+  window.calGoToToday = function(){
+    _calMonth = _calCurrentMonthKey();
+    loadCalendar();
+  };
+
+  async function loadCalendar(){
+    if (!_calMonth) _calMonth = _calCurrentMonthKey();
+    document.getElementById('cal-month-label').textContent = _calMonthLabel(_calMonth);
+    try {
+      const [full, expanded] = await Promise.all([
+        client.query('churchCalendar:list', { sessionToken }),
+        client.query('churchCalendar:listExpanded', { sessionToken, monthKey: _calMonth }),
+      ]);
+      _calFullList = full;
+      _calExpanded = expanded;
+      renderCalendarGrid();
+      renderCalendarList();
+    } catch (e) {
+      document.getElementById('cal-grid').innerHTML = `<div style="grid-column:1/-1;padding:1.5rem;color:var(--coral);background:var(--paper);">${e.message || e}</div>`;
+    }
+  }
+
+  function renderCalendarGrid(){
+    const wrap = document.getElementById('cal-grid');
+    const [y, m] = _calMonth.split('-').map(Number);
+    const firstDay = new Date(y, m-1, 1);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const startDow = firstDay.getDay(); // 0 = Sunday
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+
+    // Group events by ISO date
+    const eventsByDate = {};
+    for (const ev of _calExpanded) {
+      if (!eventsByDate[ev.date]) eventsByDate[ev.date] = [];
+      eventsByDate[ev.date].push(ev);
+    }
+
+    // Bookkeep the "other-month" cells for the leading/trailing days.
+    const prevMonthDays = new Date(y, m-1, 0).getDate();
+    const cells = [];
+    // Day of week headers
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+      cells.push(`<div class="cal-dow">${d}</div>`);
+    });
+    // Leading blanks / previous-month tail
+    for (let i = 0; i < startDow; i++) {
+      const dnum = prevMonthDays - startDow + 1 + i;
+      cells.push(`<div class="cal-cell other-month"><div class="cal-cell-num">${dnum}</div></div>`);
+    }
+    // Current-month cells
+    for (let d = 1; d <= daysInMonth; d++) {
+      const iso = _calMonth + '-' + String(d).padStart(2,'0');
+      const dow = new Date(y, m-1, d).getDay();
+      const isToday = iso === todayStr;
+      const isSunday = dow === 0;
+      const cls = ['cal-cell'];
+      if (isToday) cls.push('today');
+      if (isSunday) cls.push('sunday');
+      const eventsHtml = (eventsByDate[iso] || []).map(ev => `
+        <span class="cal-event ${ev.category}" onclick="event.stopPropagation();openEventModal('${ev.id}',null);" title="${_calEscape(ev.title)}${ev.recurring ? ' (weekly)' : ''}">
+          ${ev.recurring ? '<span class="cal-recurring-marker">↻</span>' : ''}${_calEscape(ev.title)}
+        </span>
+      `).join('');
+      cells.push(`<div class="${cls.join(' ')}" onclick="openEventModal(null,'${iso}')">
+        <div class="cal-cell-num">${d}</div>
+        ${eventsHtml}
+      </div>`);
+    }
+    // Trailing blanks / next-month head to fill to a multiple of 7
+    const totalCells = 7 + startDow + daysInMonth;
+    const trailing = (7 - (totalCells % 7)) % 7;
+    for (let i = 1; i <= trailing; i++) {
+      cells.push(`<div class="cal-cell other-month"><div class="cal-cell-num">${i}</div></div>`);
+    }
+    wrap.innerHTML = cells.join('');
+  }
+
+  function _calEscape(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function renderCalendarList(){
+    const listEl = document.getElementById('cal-list');
+    if (!_calFullList || !_calFullList.length) {
+      listEl.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text3);font-style:italic;">No events yet. Click a date in the calendar or use "+ Add event" to create one.</div>';
+      return;
+    }
+    const rows = _calFullList.slice().sort((a,b) => a.date.localeCompare(b.date));
+    listEl.innerHTML = `<table>
+      <thead><tr>
+        <th>Date</th>
+        <th>Title</th>
+        <th>Category</th>
+        <th>Recurring</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${rows.map(e => `
+        <tr style="cursor:pointer;" onclick="openEventModal('${e.id}',null)">
+          <td>${e.date}</td>
+          <td class="name">${_calEscape(e.title)}</td>
+          <td>${e.category === 'sunday' ? '<span class="type-tag">Sunday</span>' : '<span class="type-tag gig">Activity</span>'}</td>
+          <td>${e.recurring === 'weekly' ? 'Weekly' + (e.recurringUntil ? ' until ' + e.recurringUntil : '') : '<span style="color:var(--text3);">—</span>'}</td>
+          <td onclick="event.stopPropagation()"><button class="btn-ghost" onclick="openEventModal('${e.id}',null)" style="padding:4px 10px;font-size:.65rem;">Edit</button></td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+  }
+
+  // ── Add / edit event modal ─────────────────────────────
+  window.openEventModal = function(id, prefillDate){
+    _calEditingId = id;
+    const existing = id ? (_calFullList || []).find(e => e.id === id) : null;
+    document.getElementById('cal-modal-title').textContent = existing ? 'Edit event' : 'Add event';
+    document.getElementById('cal-modal-title-input').value = existing?.title || '';
+    document.getElementById('cal-modal-date').value = existing?.date || prefillDate || _calCurrentMonthKey() + '-' + String(new Date().getDate()).padStart(2,'0');
+    document.getElementById('cal-modal-category').value = existing?.category || 'activity';
+    document.getElementById('cal-modal-recurring').checked = existing?.recurring === 'weekly';
+    document.getElementById('cal-modal-recurring-until').value = existing?.recurringUntil || '';
+    document.getElementById('cal-modal-desc').value = existing?.description || '';
+    document.getElementById('cal-modal-msg').style.display = 'none';
+    document.getElementById('cal-modal-delete').style.display = existing ? '' : 'none';
+    calToggleRecurring();
+    document.getElementById('cal-modal-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('cal-modal-title-input').focus(), 60);
+  };
+  window.closeEventModal = function(){
+    document.getElementById('cal-modal-overlay').style.display = 'none';
+    _calEditingId = null;
+  };
+  window.calToggleRecurring = function(){
+    const on = document.getElementById('cal-modal-recurring').checked;
+    document.getElementById('cal-modal-recurring-until-row').style.display = on ? '' : 'none';
+  };
+  window.saveEventModal = async function(){
+    const btn = document.getElementById('cal-modal-save');
+    const msg = document.getElementById('cal-modal-msg');
+    const title = document.getElementById('cal-modal-title-input').value.trim();
+    const date = document.getElementById('cal-modal-date').value;
+    if (!title) { msg.textContent = 'Title is required.'; msg.style.display = ''; return; }
+    if (!date) { msg.textContent = 'Date is required.'; msg.style.display = ''; return; }
+    const category = document.getElementById('cal-modal-category').value;
+    const recurring = document.getElementById('cal-modal-recurring').checked ? 'weekly' : undefined;
+    const recurringUntil = recurring ? document.getElementById('cal-modal-recurring-until').value : undefined;
+    const description = document.getElementById('cal-modal-desc').value.trim();
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      if (_calEditingId) {
+        await client.mutation('churchCalendar:update', {
+          sessionToken,
+          id: _calEditingId,
+          title, date, category,
+          recurring: recurring ?? null,
+          recurringUntil: recurringUntil || '',
+          description,
+        });
+      } else {
+        await client.mutation('churchCalendar:create', {
+          sessionToken,
+          title, date, category, recurring, recurringUntil, description,
+        });
+      }
+      closeEventModal();
+      await loadCalendar();
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+      msg.style.display = '';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  };
+  window.deleteEventFromModal = async function(){
+    if (!_calEditingId) return;
+    const ev = (_calFullList || []).find(e => e.id === _calEditingId);
+    if (!confirm(`Delete "${ev?.title || 'this event'}"? Home Offices will no longer see it on their trackers.`)) return;
+    try {
+      await client.mutation('churchCalendar:remove', { sessionToken, id: _calEditingId });
+      closeEventModal();
+      await loadCalendar();
+    } catch (e) {
+      alert('Could not delete: ' + (e.message || e));
     }
   };
 

@@ -134,6 +134,42 @@ export default defineSchema({
     .index("by_org_partner", ["orgId", "partnerLegacyId"]),
 
   // ─────────────────────────────────────────────────────────────
+  // CHURCH CALENDAR — Sunday services, House of Prayer, and other
+  // church-set activities. HOs see these overlaid on their existing
+  // Sunday Service and Church Activities trackers, and can add
+  // ad-hoc local events (life groups, one-off gatherings) that
+  // aren't in the church's calendar.
+  //
+  // Categories mirror the two HO trackers:
+  //   'sunday'   → visible in the Sunday Service tracker
+  //   'activity' → visible in the Church Activities tracker
+  //
+  // Recurring:
+  //   null       → one-off on `date`
+  //   'weekly'   → repeats every week on the same weekday as `date`
+  //                until `recurringUntil` (or forever if unset)
+  // ─────────────────────────────────────────────────────────────
+  churchEvents: defineTable({
+    churchId: v.id("churches"),
+    date: v.string(),                  // YYYY-MM-DD (start date if recurring)
+    title: v.string(),                 // 'Sunday Service', 'House of Prayer', etc.
+    category: v.union(v.literal("sunday"), v.literal("activity")),
+    recurring: v.optional(v.union(v.literal("weekly"))),
+    recurringUntil: v.optional(v.string()),
+    description: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_church", ["churchId"]),
+
+  localEvents: defineTable({
+    orgId: v.id("orgs"),
+    date: v.string(),                  // YYYY-MM-DD (one-off only for HO events)
+    title: v.string(),
+    category: v.union(v.literal("sunday"), v.literal("activity")),
+    description: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_org", ["orgId"]),
+
+  // ─────────────────────────────────────────────────────────────
   // ORGS + LICENSES + MEMBERSHIP
   // ─────────────────────────────────────────────────────────────
 

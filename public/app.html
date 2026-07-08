@@ -897,6 +897,20 @@ body.theme-dark .ded-banner{color:var(--gold-pale);}
 .mins-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:1rem;}
 
 /* ─────────────────  DEVOTION  ─────────────────────────────── */
+/* Events strip — shown at the top of Sunday Service + Church Activities
+   trackers with any church-set or HO-local events for the month. */
+.events-strip{background:var(--paper);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.7rem .9rem;margin-bottom:1rem;}
+.events-strip-hdr{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-bottom:.6rem;flex-wrap:wrap;}
+.events-strip-title{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;color:var(--text);letter-spacing:.005em;font-weight:500;}
+.events-strip-list{display:flex;flex-wrap:wrap;gap:.4rem;}
+.events-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:14px;font-family:'DM Sans',sans-serif;font-size:11.5px;font-weight:500;letter-spacing:.02em;}
+.events-chip.church{background:rgba(180,138,30,.14);color:var(--gold);border:1px solid rgba(180,138,30,.28);}
+.events-chip.local{background:rgba(85,106,142,.14);color:var(--sapphire);border:1px solid rgba(85,106,142,.28);}
+.events-chip .ec-date{font-family:'DM Sans',sans-serif;font-size:10.5px;color:inherit;opacity:.75;font-weight:500;letter-spacing:.03em;}
+.events-chip .ec-remove{background:none;border:none;color:inherit;opacity:.6;cursor:pointer;font-size:12px;padding:0;line-height:1;transition:opacity .12s;}
+.events-chip .ec-remove:hover{opacity:1;}
+.events-empty{font-family:'Cardo',serif;font-style:italic;font-size:12px;color:var(--text3);}
+
 .dev-block{
   background:var(--paper);border:1px solid var(--border);
   border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.25rem;
@@ -1925,6 +1939,7 @@ body{
         <label style="font-size:12px;color:var(--text2);">Month:</label>
         <input type="month" id="ss-month" onchange="renderSundayService()" style="padding:6px 10px;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);"/>
       </div>
+      <div id="ss-events" class="events-strip" style="display:none;"></div>
       <div class="stat-grid" id="ss-stats"></div>
       <div id="ss-content"></div>
     </div>
@@ -1936,8 +1951,35 @@ body{
         <label style="font-size:12px;color:var(--text2);">Month:</label>
         <input type="month" id="ca-month" onchange="renderChurchActivities()" style="padding:6px 10px;border:.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--white);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);"/>
       </div>
+      <div id="ca-events" class="events-strip" style="display:none;"></div>
       <div class="stat-grid" id="ca-stats"></div>
       <div id="ca-content"></div>
+    </div>
+
+    <!-- Local event modal (HO adds ad-hoc event to their own tracker) -->
+    <div id="modal-local-event" class="modal-overlay" style="display:none;">
+      <div class="modal">
+        <h3 id="mle-title">Add local event</h3>
+        <div class="info-box" style="background:rgba(180,138,30,.06);border-left-color:var(--gold);">
+          A local event only appears on your Home Office's tracker — it isn't sent to the church. Use this for life-group meetings, one-off gatherings, or activities the church didn't schedule.
+        </div>
+        <div class="fr"><label>Title *</label><input type="text" id="mle-title-input" placeholder="e.g. Life group meeting"/></div>
+        <div class="f2">
+          <div class="fr"><label>Date *</label><input type="date" id="mle-date"/></div>
+          <div class="fr"><label>Category *</label>
+            <select id="mle-category">
+              <option value="activity">Church activity</option>
+              <option value="sunday">Sunday service (add-on)</option>
+            </select>
+          </div>
+        </div>
+        <div class="fr"><label>Note (optional)</label><input type="text" id="mle-desc" placeholder="Details for your records"/></div>
+        <div id="mle-msg" style="margin-top:.6rem;font-size:.85rem;font-style:italic;color:var(--coral);display:none;"></div>
+        <div class="modal-actions">
+          <button class="btn" onclick="closeLocalEventModal()">Cancel</button>
+          <button class="btn btn-dark" onclick="saveLocalEvent()">Save</button>
+        </div>
+      </div>
     </div>
 
     <!-- BUSINESSES -->
@@ -5016,6 +5058,142 @@ function initSundayService(){
   if(!document.getElementById('ss-month').value)document.getElementById('ss-month').value=nm();
   renderSundayService();
 }
+// ─── Church calendar events (for Sunday Service + Church Activities trackers) ─
+// Loaded from Convex; cached per (view, monthKey). Merges church-set events
+// (from the affiliated church) with the HO's own local events.
+
+const __eventsCache = { ss: {}, ca: {} };
+let __mleTargetView = 'ca';   // which strip triggered the modal — used to refresh after save
+
+function _evEscape(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+async function _loadEventsForMonth(monthKey, category){
+  if (!window.__covClient || !window.__covSessionToken) return [];
+  try {
+    const [church, local] = await Promise.all([
+      window.__covClient.query('churchCalendar:listForMyChurchMonth', {
+        sessionToken: window.__covSessionToken,
+        monthKey,
+      }),
+      window.__covClient.query('churchCalendar:listLocalForMonth', {
+        sessionToken: window.__covSessionToken,
+        monthKey,
+      }),
+    ]);
+    const all = [
+      ...(church || []).filter(e => e.category === category).map(e => ({
+        date: e.date, title: e.title, source: 'church', id: null, category: e.category,
+      })),
+      ...(local || []).filter(e => e.category === category).map(e => ({
+        date: e.date, title: e.title, source: 'local', id: e.id, category: e.category,
+      })),
+    ];
+    all.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
+    return all;
+  } catch (e) {
+    console.warn('[events] load failed:', e);
+    return [];
+  }
+}
+
+async function pfRenderEventsStrip(view){
+  // view === 'ss' | 'ca'
+  const wrap = document.getElementById(view + '-events');
+  if (!wrap) return;
+  const monthInputId = view + '-month';
+  const monthKey = document.getElementById(monthInputId).value || nm();
+  const category = view === 'ss' ? 'sunday' : 'activity';
+  // Show placeholder while fetching so it's obvious the strip is loading.
+  wrap.style.display = 'block';
+  wrap.innerHTML = `<div class="events-strip-hdr">
+    <span class="events-strip-title">Loading events…</span>
+  </div>`;
+  const events = await _loadEventsForMonth(monthKey, category);
+  __eventsCache[view][monthKey] = events;
+  const title = view === 'ss'
+    ? 'Sunday services · ' + _monthLabel(monthKey)
+    : 'Church activities · ' + _monthLabel(monthKey);
+  wrap.innerHTML = `
+    <div class="events-strip-hdr">
+      <span class="events-strip-title">${title}</span>
+      <button class="btn btn-sm" onclick="openLocalEventModal('${view}')">+ Add local event</button>
+    </div>
+    <div class="events-strip-list">
+      ${events.length
+        ? events.map(ev => `<span class="events-chip ${ev.source}">
+            <span class="ec-date">${ev.date.slice(-2)}</span>
+            ${_evEscape(ev.title)}
+            ${ev.source === 'local' ? `<button class="ec-remove" title="Remove local event" onclick="deleteLocalEvent('${ev.id}','${view}')">×</button>` : ''}
+          </span>`).join('')
+        : '<span class="events-empty">No events yet for this month. Church-set events show automatically; your own additions via "+ Add local event" show here too.</span>'}
+    </div>`;
+}
+
+function _monthLabel(monthKey){
+  const [y, m] = monthKey.split('-').map(Number);
+  return new Date(y, m-1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+}
+
+window.openLocalEventModal = function(view){
+  __mleTargetView = view;
+  const monthKey = document.getElementById(view + '-month').value || nm();
+  document.getElementById('mle-title-input').value = '';
+  document.getElementById('mle-desc').value = '';
+  document.getElementById('mle-date').value = monthKey + '-' + String(new Date().getDate()).padStart(2,'0');
+  document.getElementById('mle-category').value = view === 'ss' ? 'sunday' : 'activity';
+  document.getElementById('mle-msg').style.display = 'none';
+  document.getElementById('modal-local-event').style.display = 'flex';
+  setTimeout(() => document.getElementById('mle-title-input').focus(), 60);
+};
+window.closeLocalEventModal = function(){
+  document.getElementById('modal-local-event').style.display = 'none';
+};
+window.saveLocalEvent = async function(){
+  const msg = document.getElementById('mle-msg');
+  const title = document.getElementById('mle-title-input').value.trim();
+  const date = document.getElementById('mle-date').value;
+  const category = document.getElementById('mle-category').value;
+  const description = document.getElementById('mle-desc').value.trim();
+  if (!title) { msg.textContent = 'Title is required.'; msg.style.display = ''; return; }
+  if (!date)  { msg.textContent = 'Date is required.'; msg.style.display = ''; return; }
+  if (!window.__covClient || !window.__covSessionToken) {
+    msg.textContent = 'Bridge not ready. Refresh and try again.';
+    msg.style.display = '';
+    return;
+  }
+  try {
+    await window.__covClient.mutation('churchCalendar:createLocalEvent', {
+      sessionToken: window.__covSessionToken,
+      title, date, category, description,
+    });
+    closeLocalEventModal();
+    // Refresh the strip that triggered the modal AND the sibling
+    // strip if the CEO happened to pick a different category — they
+    // might not realize the event actually landed on the OTHER tab.
+    pfRenderEventsStrip('ss');
+    pfRenderEventsStrip('ca');
+  } catch (e) {
+    msg.textContent = e.message || String(e);
+    msg.style.display = '';
+  }
+};
+window.deleteLocalEvent = async function(id, view){
+  if (!confirm('Remove this local event from your tracker?')) return;
+  try {
+    await window.__covClient.mutation('churchCalendar:deleteLocalEvent', {
+      sessionToken: window.__covSessionToken,
+      id,
+    });
+    pfRenderEventsStrip(view);
+  } catch (e) {
+    alert('Could not delete: ' + (e.message || e));
+  }
+};
+
 function renderSundayService(){
   const mv=document.getElementById('ss-month').value||nm();
   const[y,mo]=mv.split('-').map(Number);
@@ -5034,6 +5212,9 @@ function renderSundayService(){
   let tDone=0,tLog=0;
   visiblePartners.forEach(p=>{sundays.forEach(({ds})=>{const r=gA(p.id,ds);if(r&&r.ss){tLog++;if(r.ss==='yes')tDone++;}});});
   const tPct=tLog>0?Math.round(tDone/tLog*100):0;
+  // Render the church-events strip above the stats. Fires async but the
+  // strip has its own loading state, so it doesn't block tracker paint.
+  pfRenderEventsStrip('ss');
   document.getElementById('ss-stats').innerHTML=
     `<div class="stat-card acc-purple"><div class="stat-label">Team Sunday rate</div><div class="stat-value">${tPct}%</div><div class="stat-sub">${tDone}/${tLog} Sundays logged</div></div>`+
     `<div class="stat-card acc-blue"><div class="stat-label">Sundays in month</div><div class="stat-value">${sundays.length}</div><div class="stat-sub">past or today</div></div>`+
@@ -5083,6 +5264,7 @@ function renderChurchActivities(){
   let tDone=0,tLog=0;
   visiblePartners.forEach(p=>{loggable.forEach(({ds})=>{const r=gA(p.id,ds);if(r&&r.ca){tLog++;if(r.ca==='yes')tDone++;}});});
   const tPct=tLog>0?Math.round(tDone/tLog*100):0;
+  pfRenderEventsStrip('ca');
   document.getElementById('ca-stats').innerHTML=
     `<div class="stat-card acc-teal"><div class="stat-label">Team participation rate</div><div class="stat-value">${tPct}%</div><div class="stat-sub">${tDone}/${tLog} days logged</div></div>`+
     `<div class="stat-card acc-blue"><div class="stat-label">Days in month</div><div class="stat-value">${dim}</div><div class="stat-sub">incl. weekends</div></div>`+
