@@ -220,10 +220,34 @@ export const getWithRoster = query({
         });
       }
     }
+    // Church-member rows in this group (the new source of truth for
+    // non-partner attendees). Includes birthday so the roster can show
+    // it inline.
+    const memberRows = await ctx.db
+      .query("churchMembers")
+      .withIndex("by_lifeGroup", (q) => q.eq("lifeGroupId", args.id))
+      .collect();
+    const members: Array<{
+      memberId: Id<"churchMembers">;
+      name: string;
+      contact: string;
+      birthday: string;
+      status: string;
+    }> = memberRows
+      .filter((m) => m.churchId === church._id)
+      .map((m) => ({
+        memberId: m._id,
+        name: m.name,
+        contact: m.contact ?? "",
+        birthday: m.birthday ?? "",
+        status: m.status,
+      }));
+
     partners.sort((a, b) =>
       a.orgName.localeCompare(b.orgName) || a.name.localeCompare(b.name),
     );
     externals.sort((a, b) => a.name.localeCompare(b.name));
+    members.sort((a, b) => a.name.localeCompare(b.name));
     return {
       id: group._id,
       name: group.name,
@@ -233,6 +257,7 @@ export const getWithRoster = query({
       description: group.description ?? "",
       partners,
       externals,
+      members,
     };
   },
 });

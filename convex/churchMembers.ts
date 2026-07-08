@@ -45,18 +45,50 @@ export const list = query({
       ? rows
       : rows.filter((r) => r.status === "active");
     filtered.sort((a, b) => a.name.localeCompare(b.name));
-    return filtered.map((m) => ({
-      id: m._id,
-      name: m.name,
-      contact: m.contact ?? "",
-      note: m.note ?? "",
-      status: m.status,
-      deactivatedAt: m.deactivatedAt ?? "",
-      deactivationReason: m.deactivationReason ?? "",
-      createdAt: m.createdAt,
-    }));
+    // Look up life group names in one pass so the client doesn't
+    // need a separate query to label the roster.
+    const lifeGroupCache = new Map<string, string>();
+    const resolved = [];
+    for (const m of filtered) {
+      let lifeGroupName = "";
+      if (m.lifeGroupId) {
+        const key = String(m.lifeGroupId);
+        if (lifeGroupCache.has(key)) {
+          lifeGroupName = lifeGroupCache.get(key)!;
+        } else {
+          const g = await ctx.db.get(m.lifeGroupId);
+          lifeGroupName = g?.name ?? "";
+          lifeGroupCache.set(key, lifeGroupName);
+        }
+      }
+      resolved.push({
+        id: m._id,
+        name: m.name,
+        contact: m.contact ?? "",
+        note: m.note ?? "",
+        status: m.status,
+        lifeGroupId: m.lifeGroupId ?? null,
+        lifeGroupName,
+        birthday: m.birthday ?? "",
+        deactivatedAt: m.deactivatedAt ?? "",
+        deactivationReason: m.deactivationReason ?? "",
+        createdAt: m.createdAt,
+      });
+    }
+    return resolved;
   },
 });
+
+async function _assertGroupOwnedByChurch(
+  ctx: QueryCtx | MutationCtx,
+  churchId: Id<"churches">,
+  lifeGroupId: Id<"lifeGroups">,
+): Promise<void> {
+  const g = await ctx.db.get(lifeGroupId);
+  if (!g || g.churchId !== churchId) {
+    throw new Error("That life group doesn't belong to your church.");
+  }
+}
 
 export const create = mutation({
   args: {
@@ -64,17 +96,27 @@ export const create = mutation({
     name: v.string(),
     contact: v.optional(v.string()),
     note: v.optional(v.string()),
+    lifeGroupId: v.optional(v.id("lifeGroups")),
+    birthday: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const church = await requireChurch(ctx, args.sessionToken);
     const name = args.name.trim();
     if (!name) throw new Error("Name is required.");
+    if (args.lifeGroupId) {
+      await _assertGroupOwnedByChurch(ctx, church._id, args.lifeGroupId);
+    }
+    if (args.birthday && !/^\d{4}-\d{2}-\d{2}$/.test(args.birthday)) {
+      throw new Error("Birthday must be YYYY-MM-DD.");
+    }
     const id = await ctx.db.insert("churchMembers", {
       churchId: church._id,
       name,
       contact: args.contact?.trim() || undefined,
       note: args.note?.trim() || undefined,
       status: "active",
+      lifeGroupId: args.lifeGroupId,
+      birthday: args.birthday?.trim() || undefined,
       createdAt: Date.now(),
     });
     return { id };
@@ -88,6 +130,8 @@ export const update = mutation({
     name: v.optional(v.string()),
     contact: v.optional(v.string()),
     note: v.optional(v.string()),
+    lifeGroupId: v.optional(v.union(v.id("lifeGroups"), v.null())),
+    birthday: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const church = await requireChurch(ctx, args.sessionToken);
@@ -101,6 +145,21 @@ export const update = mutation({
     }
     if (args.contact != null) patch.contact = args.contact.trim() || undefined;
     if (args.note != null) patch.note = args.note.trim() || undefined;
+    if (args.lifeGroupId !== undefined) {
+      if (args.lifeGroupId === null) {
+        patch.lifeGroupId = undefined;
+      } else {
+        await _assertGroupOwnedByChurch(ctx, church._id, args.lifeGroupId);
+        patch.lifeGroupId = args.lifeGroupId;
+      }
+    }
+    if (args.birthday !== undefined) {
+      const b = (args.birthday || "").trim();
+      if (b && !/^\d{4}-\d{2}-\d{2}$/.test(b)) {
+        throw new Error("Birthday must be YYYY-MM-DD.");
+      }
+      patch.birthday = b || undefined;
+    }
     await ctx.db.patch(args.id, patch);
     return { ok: true };
   },
@@ -159,6 +218,8 @@ export const createMany = mutation({
       name: v.string(),
       contact: v.optional(v.string()),
       note: v.optional(v.string()),
+      lifeGroupId: v.optional(v.id("lifeGroups")),
+      birthday: v.optional(v.string()),
     })),
   },
   handler: async (ctx, args) => {
@@ -170,9 +231,10 @@ export const createMany = mutation({
     const existingNames = new Set(
       existing.map((m) => m.name.trim().toLowerCase()),
     );
-    // Track names inserted in THIS batch so 'Maria Cruz' typed twice
-    // in the same paste doesn't produce two rows.
     const seenThisBatch = new Set<string>();
+    // Cache group-ownership checks so a batch of 100 rows in the same
+    // group only pays for one .get lookup.
+    const groupOk = new Set<string>();
     const now = Date.now();
     let inserted = 0;
     let skippedDup = 0;
@@ -180,13 +242,26 @@ export const createMany = mutation({
     for (let i = 0; i < args.entries.length; i++) {
       const e = args.entries[i];
       const name = (e.name || "").trim();
-      // Blank rows (no name) are silently ignored — users often leave
-      // trailing empties in the editor.
       if (!name) continue;
       const key = name.toLowerCase();
       if (existingNames.has(key) || seenThisBatch.has(key)) {
         skippedDup++;
         continue;
+      }
+      if (e.birthday && !/^\d{4}-\d{2}-\d{2}$/.test(e.birthday)) {
+        errors.push({ row: i + 1, reason: "Birthday must be YYYY-MM-DD" });
+        continue;
+      }
+      if (e.lifeGroupId) {
+        const gk = String(e.lifeGroupId);
+        if (!groupOk.has(gk)) {
+          const g = await ctx.db.get(e.lifeGroupId);
+          if (!g || g.churchId !== church._id) {
+            errors.push({ row: i + 1, reason: "Life group not in your church" });
+            continue;
+          }
+          groupOk.add(gk);
+        }
       }
       await ctx.db.insert("churchMembers", {
         churchId: church._id,
@@ -194,6 +269,8 @@ export const createMany = mutation({
         contact: e.contact?.trim() || undefined,
         note: e.note?.trim() || undefined,
         status: "active",
+        lifeGroupId: e.lifeGroupId,
+        birthday: e.birthday?.trim() || undefined,
         createdAt: now,
       });
       seenThisBatch.add(key);

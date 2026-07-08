@@ -633,11 +633,21 @@
 
     <!-- Add / edit member modal -->
     <div id="mem-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
-      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:480px;width:100%;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:520px;width:100%;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
         <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 1rem;color:var(--text);" id="mem-modal-title">Add member</h3>
         <div class="field">
           <label>Name *</label>
           <input type="text" id="mem-modal-name"/>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem;">
+          <div class="field">
+            <label>Life group *</label>
+            <select id="mem-modal-lg"></select>
+          </div>
+          <div class="field">
+            <label>Birthday *</label>
+            <input type="date" id="mem-modal-bday"/>
+          </div>
         </div>
         <div class="field" style="margin-top:.75rem;">
           <label>Contact</label>
@@ -660,9 +670,16 @@
 
     <!-- Bulk add members modal -->
     <div id="mem-bulk-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
-      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:820px;width:100%;max-height:88vh;display:flex;flex-direction:column;padding:1.75rem 2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:960px;width:100%;max-height:88vh;display:flex;flex-direction:column;padding:1.75rem 2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
         <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 .5rem;color:var(--text);">Bulk add members</h3>
-        <div style="font-size:.82rem;color:var(--text2);margin-bottom:1rem;line-height:1.5;">Onboard a whole roster in one shot. Duplicate names (case-insensitive) against existing members are skipped automatically — no fear of double-registering someone.</div>
+        <div style="font-size:.82rem;color:var(--text2);margin-bottom:1rem;line-height:1.5;">Onboard a whole roster in one shot. Life group and birthday are required for every row; duplicate names (case-insensitive) against existing members are skipped automatically.</div>
+        <div style="display:grid;grid-template-columns:1fr;gap:.75rem;margin-bottom:1rem;">
+          <div class="field">
+            <label>Default life group</label>
+            <select id="mem-bulk-default-lg"></select>
+            <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:4px;">Any row with a blank Life group cell falls back to this. Rows can still pick a different group per-person.</div>
+          </div>
+        </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;">
           <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1rem;color:var(--text);">Rows</div>
           <div style="display:flex;gap:.4rem;">
@@ -672,8 +689,8 @@
           </div>
         </div>
         <div id="mem-bulk-paste-panel" style="display:none;margin-bottom:.75rem;padding:.85rem 1rem;background:var(--paper2);border:1px solid var(--border);border-radius:4px;">
-          <div style="font-size:.78rem;color:var(--text2);margin-bottom:.4rem;line-height:1.4;">Paste from Excel / Google Sheets. Columns: <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Name</code> · <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Contact</code> · <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Note</code>. Tab or comma separated.</div>
-          <textarea id="mem-bulk-paste-text" rows="6" placeholder="Maria Cruz&#9;09171234567&#9;&#10;Juan Dela Cruz&#9;juan@example.com&#9;New this year" style="width:100%;background:rgba(246,242,232,.04);border:1px solid var(--border);color:var(--text);padding:.55rem .75rem;border-radius:4px;font-family:'SFMono-Regular',Consolas,monospace;font-size:.82rem;resize:vertical;line-height:1.5;"></textarea>
+          <div style="font-size:.78rem;color:var(--text2);margin-bottom:.4rem;line-height:1.4;">Paste from Excel / Google Sheets. Columns: <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Name</code> · <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Birthday</code> (YYYY-MM-DD) · <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Life group</code> (exact name; blank uses the default) · <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Contact</code> · <code style="background:rgba(180,138,30,.14);padding:1px 5px;border-radius:2px;">Note</code>. Tab or comma separated.</div>
+          <textarea id="mem-bulk-paste-text" rows="6" placeholder="Maria Cruz&#9;1988-06-14&#9;Emmaus Home&#9;09171234567&#9;&#10;Juan Dela Cruz&#9;1990-03-22&#9;&#9;juan@example.com&#9;New this year" style="width:100%;background:rgba(246,242,232,.04);border:1px solid var(--border);color:var(--text);padding:.55rem .75rem;border-radius:4px;font-family:'SFMono-Regular',Consolas,monospace;font-size:.82rem;resize:vertical;line-height:1.5;"></textarea>
           <div style="margin-top:.6rem;display:flex;gap:.4rem;justify-content:flex-end;">
             <button class="btn-ghost" onclick="memBulkTogglePaste()">Cancel paste</button>
             <button class="btn-ghost" onclick="memBulkParsePaste()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Parse into rows</button>
@@ -683,8 +700,10 @@
           <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
             <thead style="position:sticky;top:0;background:rgba(180,138,30,.09);z-index:1;">
               <tr>
-                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);width:36%;">Name *</th>
-                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);width:28%;">Contact</th>
+                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);width:22%;">Name *</th>
+                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);width:15%;">Birthday *</th>
+                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);width:20%;">Life group</th>
+                <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);width:18%;">Contact</th>
                 <th style="text-align:left;padding:.55rem .75rem;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);">Note</th>
                 <th style="width:44px;border-bottom:1px solid var(--border);"></th>
               </tr>
@@ -1851,22 +1870,45 @@
       </div>
 
       <div class="sumbar" style="margin-bottom:1.2rem;">
-        <div class="item"><div class="item-lbl">Total</div><div class="item-val">${d.partners.length + d.externals.length}</div></div>
+        <div class="item"><div class="item-lbl">Total</div><div class="item-val">${d.partners.length + (d.members || []).length + d.externals.length}</div></div>
+        <div class="item"><div class="item-lbl">Church members</div><div class="item-val">${(d.members || []).length}</div></div>
         <div class="item"><div class="item-lbl">From HOs</div><div class="item-val">${d.partners.length}</div></div>
-        <div class="item"><div class="item-lbl">External</div><div class="item-val">${d.externals.length}</div></div>
+        ${d.externals.length ? `<div class="item"><div class="item-lbl">Legacy external</div><div class="item-val">${d.externals.length}</div></div>` : ''}
       </div>
 
       <div class="section-title" style="font-size:1.1rem;display:flex;justify-content:space-between;align-items:center;">
+        <span>Church members <span style="color:var(--text3);font-size:.75rem;">assigned via the Members tab</span></span>
+        <button class="btn-ghost" onclick="switchTab('members')">+ Add via Members tab</button>
+      </div>
+      ${(d.members || []).length ? `
+        <div style="display:flex;flex-direction:column;gap:.35rem;">
+          ${d.members.map(m => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.55rem .8rem;background:var(--paper2);border:1px solid var(--border);border-radius:4px;">
+              <div>
+                <span style="color:var(--text);">${m.name}</span>
+                ${m.birthday ? `<span style="color:var(--text2);font-size:.82rem;"> · b. ${m.birthday}</span>` : ''}
+                ${m.contact ? `<span style="color:var(--text2);font-size:.82rem;"> · ${m.contact}</span>` : ''}
+                ${m.status === 'inactive' ? '<span class="type-tag inactive" style="margin-left:.4rem;">inactive</span>' : ''}
+              </div>
+              <div style="font-size:.7rem;color:var(--text3);font-style:italic;">from Members tab</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<div style="padding:1rem 0;color:var(--text3);font-style:italic;">No church members assigned to this group. Add them from the Members tab.</div>'}
+
+      <div class="section-title" style="margin-top:2rem;font-size:1.1rem;display:flex;justify-content:space-between;align-items:center;">
         <span>Partners <span style="color:var(--text3);font-size:.75rem;">assigned by Home Offices or the church</span></span>
         <button class="btn-ghost" onclick="openAddPartnerModal('${d.id}')" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">+ Add partner</button>
       </div>
       ${d.partners.length ? partnerSections : '<div style="padding:1rem 0;color:var(--text3);font-style:italic;">No partners assigned yet. Click <strong>+ Add partner</strong> above, or ask a HO CEO to assign from their partner form.</div>'}
 
-      <div class="section-title" style="margin-top:2rem;font-size:1.1rem;display:flex;justify-content:space-between;align-items:center;">
-        <span>External members <span style="color:var(--text3);font-size:.75rem;">visitors, unaffiliated attendees</span></span>
-        <button class="btn-ghost" onclick="openExternalMemberModal('${d.id}')" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">+ Add external</button>
-      </div>
       ${d.externals.length ? `
+        <div class="section-title" style="margin-top:2rem;font-size:1.1rem;">
+          <span>Legacy external members <span style="color:var(--text3);font-size:.75rem;">from before the Members tab</span></span>
+        </div>
+        <div style="padding:.75rem 1rem;background:rgba(180,138,30,.06);border-left:2px solid var(--gold);border-radius:2px;margin-bottom:.75rem;font-size:.82rem;color:var(--text2);line-height:1.5;">
+          These entries were added before this group had a Members-tab flow. Copy them into the Members tab (with birthday + this life group), then remove the legacy entry here.
+        </div>
         <div style="display:flex;flex-direction:column;gap:.35rem;">
           ${d.externals.map(m => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:.55rem .8rem;background:var(--paper2);border:1px solid var(--border);border-radius:4px;">
@@ -1878,7 +1920,7 @@
             </div>
           `).join('')}
         </div>
-      ` : '<div style="padding:.75rem 0;color:var(--text3);font-style:italic;">No external members yet.</div>'}
+      ` : ''}
     `;
   }
 
@@ -3034,16 +3076,18 @@
     wrap.innerHTML = `<table>
       <thead><tr>
         <th>Name</th>
+        <th>Life group</th>
+        <th>Birthday</th>
         <th>Contact</th>
-        <th>Note</th>
         <th>Status</th>
         <th></th>
       </tr></thead>
       <tbody>${filtered.map(m => `
         <tr>
-          <td class="name">${m.name}</td>
+          <td class="name">${m.name}${m.note ? `<div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:2px;">${m.note}</div>` : ''}</td>
+          <td>${m.lifeGroupName ? m.lifeGroupName : '<span style="color:var(--coral);font-style:italic;">Not set</span>'}</td>
+          <td>${m.birthday || '<span style="color:var(--coral);font-style:italic;">Not set</span>'}</td>
           <td>${m.contact || '<span style="color:var(--text3);">—</span>'}</td>
-          <td style="color:var(--text2);font-style:italic;">${m.note || ''}</td>
           <td>${m.status === 'active'
             ? '<span class="type-tag" style="background:rgba(43,100,56,.18);color:#a8d6b3;">active</span>'
             : `<span class="type-tag inactive">inactive${m.deactivatedAt ? ' · ' + m.deactivatedAt : ''}</span>${m.deactivationReason ? `<div style="font-size:10.5px;color:var(--text3);font-style:italic;margin-top:2px;">${m.deactivationReason}</div>` : ''}`
@@ -3070,14 +3114,41 @@
   document.getElementById('mem-search').addEventListener('input', (e) => { _memFilters.search = e.target.value; renderMembers(); });
   document.getElementById('mem-status-filter').addEventListener('change', (e) => { _memFilters.status = e.target.value; renderMembers(); });
 
-  window.openMemberModal = function(id){
+  // Life-group list cache used by the member modal + bulk modal.
+  // Populated on demand so an empty church (no groups yet) surfaces
+  // a helpful error rather than a silent empty dropdown.
+  let _memLifeGroupsCache = null;
+  async function ensureMemLifeGroups(){
+    if (_memLifeGroupsCache) return _memLifeGroupsCache;
+    try {
+      _memLifeGroupsCache = await client.query('lifeGroups:list', { sessionToken });
+    } catch { _memLifeGroupsCache = []; }
+    return _memLifeGroupsCache;
+  }
+  function _populateLifeGroupSelect(selectEl, currentId){
+    const groups = _memLifeGroupsCache || [];
+    selectEl.innerHTML = '<option value="">— Select a life group —</option>' +
+      groups.map(g => `<option value="${g.id}">${g.name}${g.leader ? ' · ' + g.leader : ''}</option>`).join('');
+    if (currentId) selectEl.value = currentId;
+  }
+
+  window.openMemberModal = async function(id){
     _memEditingId = id;
     const existing = id && _memCache ? _memCache.find(m => m.id === id) : null;
     document.getElementById('mem-modal-title').textContent = existing ? 'Edit member' : 'Add member';
     document.getElementById('mem-modal-name').value = existing?.name || '';
     document.getElementById('mem-modal-contact').value = existing?.contact || '';
     document.getElementById('mem-modal-note').value = existing?.note || '';
-    document.getElementById('mem-modal-msg').style.display = 'none';
+    document.getElementById('mem-modal-bday').value = existing?.birthday || '';
+    await ensureMemLifeGroups();
+    _populateLifeGroupSelect(document.getElementById('mem-modal-lg'), existing?.lifeGroupId || '');
+    const msg = document.getElementById('mem-modal-msg');
+    msg.style.display = 'none';
+    if (!(_memLifeGroupsCache || []).length) {
+      msg.textContent = 'Set up at least one life group under the Life Groups tab before adding members.';
+      msg.style.color = 'var(--gold-bright)';
+      msg.style.display = '';
+    }
     const statusBtn = document.getElementById('mem-modal-status');
     if (existing) {
       statusBtn.style.display = '';
@@ -3096,13 +3167,20 @@
   };
   window.saveMemberModal = async function(){
     const msg = document.getElementById('mem-modal-msg');
+    msg.style.color = 'var(--coral)';
     const name = document.getElementById('mem-modal-name').value.trim();
+    const lifeGroupId = document.getElementById('mem-modal-lg').value;
+    const birthday = document.getElementById('mem-modal-bday').value;
     if (!name) { msg.textContent = 'Name is required.'; msg.style.display = ''; return; }
+    if (!lifeGroupId) { msg.textContent = 'Life group is required.'; msg.style.display = ''; return; }
+    if (!birthday) { msg.textContent = 'Birthday is required.'; msg.style.display = ''; return; }
     const payload = {
       sessionToken,
       name,
       contact: document.getElementById('mem-modal-contact').value.trim(),
       note: document.getElementById('mem-modal-note').value.trim(),
+      lifeGroupId,
+      birthday,
     };
     try {
       if (_memEditingId) {
@@ -3112,7 +3190,6 @@
       }
       closeMemberModal();
       await loadMembers();
-      // Bust the giver picker cache so Direct income pickers see the change.
       _giversCache = null;
     } catch (e) {
       msg.textContent = e.message || String(e);
@@ -3229,6 +3306,12 @@
   function _memRowInputStyle(){
     return 'width:100%;background:transparent;border:none;color:var(--text);font-family:inherit;font-size:.85rem;padding:.35rem .5rem;outline:none;';
   }
+  function _lifeGroupOptionsHtml(currentId){
+    const groups = _memLifeGroupsCache || [];
+    return '<option value="">— Use default —</option>' +
+      groups.map(g => `<option value="${g.id}"${g.id === currentId ? ' selected' : ''}>${g.name}</option>`).join('');
+  }
+
   function renderMemBulkRows(){
     const tbody = document.getElementById('mem-bulk-rows');
     const summary = document.getElementById('mem-bulk-summary');
@@ -3236,12 +3319,17 @@
     tbody.innerHTML = _memBulkRows.map((r, i) => `
       <tr>
         <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="text" data-mb-field="name" data-mb-idx="${i}" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="Required" style="${_memRowInputStyle()}"/></td>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="date" data-mb-field="birthday" data-mb-idx="${i}" value="${r.birthday||''}" style="${_memRowInputStyle()}"/></td>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><select data-mb-field="lifeGroupId" data-mb-idx="${i}" style="${_memRowInputStyle()};appearance:auto;">${_lifeGroupOptionsHtml(r.lifeGroupId || '')}</select></td>
         <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="text" data-mb-field="contact" data-mb-idx="${i}" value="${(r.contact||'').replace(/"/g,'&quot;')}" placeholder="Phone / email / address" style="${_memRowInputStyle()}"/></td>
         <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="text" data-mb-field="note" data-mb-idx="${i}" value="${(r.note||'').replace(/"/g,'&quot;')}" style="${_memRowInputStyle()}"/></td>
         <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;text-align:center;"><button class="btn-ghost" onclick="memBulkRemoveRow(${i})" title="Remove row" style="padding:2px 8px;font-size:.75rem;border-color:var(--coral);color:var(--coral);">×</button></td>
       </tr>
     `).join('');
-    tbody.querySelectorAll('input[data-mb-field]').forEach(el => el.addEventListener('input', _memBulkOnChange));
+    tbody.querySelectorAll('input[data-mb-field], select[data-mb-field]').forEach(el => {
+      el.addEventListener('input', _memBulkOnChange);
+      el.addEventListener('change', _memBulkOnChange);
+    });
     const populated = _memBulkRows.filter(r => r.name && r.name.trim()).length;
     summary.textContent = populated > 0 ? `${populated} name${populated === 1 ? '' : 's'} ready` : 'No names populated yet';
   }
@@ -3254,7 +3342,7 @@
     document.getElementById('mem-bulk-summary').textContent = populated > 0 ? `${populated} name${populated === 1 ? '' : 's'} ready` : 'No names populated yet';
   }
   window.memBulkAddRow = function(){
-    _memBulkRows.push({ name: '', contact: '', note: '' });
+    _memBulkRows.push({ name: '', birthday: '', lifeGroupId: '', contact: '', note: '' });
     renderMemBulkRows();
     setTimeout(() => {
       const inp = document.querySelector(`input[data-mb-field="name"][data-mb-idx="${_memBulkRows.length - 1}"]`);
@@ -3282,26 +3370,43 @@
     const raw = document.getElementById('mem-bulk-paste-text').value.trim();
     if (!raw) { memBulkTogglePaste(); return; }
     const lines = raw.split(/\r?\n/).filter(l => l.trim());
+    // Build a case-insensitive lookup so pasted life-group names
+    // ("Emmaus Home") resolve to their ids.
+    const lgByName = new Map();
+    (_memLifeGroupsCache || []).forEach(g => lgByName.set(g.name.trim().toLowerCase(), g.id));
     const parsed = [];
     for (const line of lines) {
       const parts = line.includes('\t') ? line.split('\t') : line.split(',');
       const name = (parts[0] || '').trim();
-      const contact = (parts[1] || '').trim();
-      const note = (parts[2] || '').trim();
-      if (!name && !contact && !note) continue;
-      parsed.push({ name, contact, note });
+      const birthdayRaw = (parts[1] || '').trim();
+      const birthday = /^\d{4}-\d{2}-\d{2}$/.test(birthdayRaw) ? birthdayRaw : '';
+      const lgNameRaw = (parts[2] || '').trim();
+      const lgId = lgNameRaw ? (lgByName.get(lgNameRaw.toLowerCase()) || '') : '';
+      const contact = (parts[3] || '').trim();
+      const note = (parts[4] || '').trim();
+      if (!name && !birthday && !lgId && !contact && !note) continue;
+      parsed.push({ name, birthday, lifeGroupId: lgId, contact, note });
     }
     const kept = _memBulkRows.filter(r => r.name && r.name.trim());
     _memBulkRows = kept.concat(parsed);
-    if (!_memBulkRows.length) for (let i = 0; i < MEM_BULK_INITIAL_ROWS; i++) _memBulkRows.push({ name: '', contact: '', note: '' });
+    if (!_memBulkRows.length) for (let i = 0; i < MEM_BULK_INITIAL_ROWS; i++) _memBulkRows.push({ name: '', birthday: '', lifeGroupId: '', contact: '', note: '' });
     renderMemBulkRows();
     document.getElementById('mem-bulk-paste-panel').style.display = 'none';
     document.getElementById('mem-bulk-paste-text').value = '';
   };
-  window.openBulkMembersModal = function(){
+  window.openBulkMembersModal = async function(){
+    await ensureMemLifeGroups();
     _memBulkRows = [];
-    for (let i = 0; i < MEM_BULK_INITIAL_ROWS; i++) _memBulkRows.push({ name: '', contact: '', note: '' });
-    document.getElementById('mem-bulk-msg').style.display = 'none';
+    for (let i = 0; i < MEM_BULK_INITIAL_ROWS; i++) _memBulkRows.push({ name: '', birthday: '', lifeGroupId: '', contact: '', note: '' });
+    // Populate the default-life-group select from the freshly-loaded cache.
+    _populateLifeGroupSelect(document.getElementById('mem-bulk-default-lg'), '');
+    const msg = document.getElementById('mem-bulk-msg');
+    msg.style.display = 'none';
+    if (!(_memLifeGroupsCache || []).length) {
+      msg.textContent = 'Set up at least one life group under the Life Groups tab before bulk-adding members.';
+      msg.style.color = 'var(--gold-bright)';
+      msg.style.display = '';
+    }
     document.getElementById('mem-bulk-paste-panel').style.display = 'none';
     document.getElementById('mem-bulk-modal-overlay').style.display = 'flex';
     renderMemBulkRows();
@@ -3317,27 +3422,53 @@
   window.saveBulkMembers = async function(){
     const msg = document.getElementById('mem-bulk-msg');
     const btn = document.getElementById('mem-bulk-save-btn');
-    const entries = _memBulkRows.map(r => ({
-      name: (r.name || '').trim(),
+    const defaultLg = document.getElementById('mem-bulk-default-lg').value;
+    // Only rows with a name become candidates.
+    const candidateRows = _memBulkRows.filter(r => (r.name || '').trim());
+    if (!candidateRows.length) {
+      msg.textContent = 'Populate at least one name to save.';
+      msg.style.color = 'var(--coral)'; msg.style.display = '';
+      return;
+    }
+    // Validate per row: birthday + life group (either per-row or default) required.
+    const missing = [];
+    candidateRows.forEach((r, i) => {
+      const bday = (r.birthday || '').trim();
+      const lg = r.lifeGroupId || defaultLg;
+      if (!bday) missing.push(`Row ${i + 1}: birthday`);
+      else if (!/^\d{4}-\d{2}-\d{2}$/.test(bday)) missing.push(`Row ${i + 1}: birthday must be YYYY-MM-DD`);
+      if (!lg) missing.push(`Row ${i + 1}: life group (set a default at the top or pick one on the row)`);
+    });
+    if (missing.length) {
+      msg.textContent = missing.slice(0, 4).join(' · ') + (missing.length > 4 ? '…' : '');
+      msg.style.color = 'var(--coral)'; msg.style.display = '';
+      return;
+    }
+    const entries = candidateRows.map(r => ({
+      name: r.name.trim(),
       contact: (r.contact || '').trim(),
       note: (r.note || '').trim(),
-    })).filter(e => e.name);
-    if (!entries.length) { msg.textContent = 'Populate at least one name to save.'; msg.style.color = 'var(--coral)'; msg.style.display = ''; return; }
+      lifeGroupId: r.lifeGroupId || defaultLg,
+      birthday: (r.birthday || '').trim(),
+    }));
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
       const res = await client.mutation('churchMembers:createMany', { sessionToken, entries });
       const skipped = res.skippedDup || 0;
-      if (skipped > 0 && res.inserted > 0) {
-        msg.textContent = `Added ${res.inserted}. ${skipped} skipped (already a member).`;
-        msg.style.color = 'var(--gold-bright)'; msg.style.display = '';
-      } else if (skipped > 0 && res.inserted === 0) {
-        msg.textContent = `All ${skipped} names were already members — nothing new saved.`;
-        msg.style.color = 'var(--gold-bright)'; msg.style.display = '';
+      const errCount = (res.errors || []).length;
+      const bits = [];
+      if (res.inserted > 0) bits.push(`Added ${res.inserted}`);
+      if (skipped > 0) bits.push(`${skipped} already a member`);
+      if (errCount > 0) bits.push(`${errCount} skipped for errors — ${res.errors.slice(0, 2).map(e => 'Row ' + e.row + ': ' + e.reason).join(' · ')}`);
+      if (bits.length && (skipped > 0 || errCount > 0)) {
+        msg.textContent = bits.join(' · ');
+        msg.style.color = errCount > 0 ? 'var(--coral)' : 'var(--gold-bright)';
+        msg.style.display = '';
       }
       if (res.inserted > 0) {
         _giversCache = null;
         await loadMembers();
-        if (skipped === 0) closeBulkMembersModal();
+        if (skipped === 0 && errCount === 0) closeBulkMembersModal();
       }
     } catch (e) {
       msg.textContent = e.message || String(e);

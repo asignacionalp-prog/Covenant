@@ -581,12 +581,22 @@ export default defineSchema({
     contact: v.optional(v.string()),
     note: v.optional(v.string()),
     status: v.union(v.literal("active"), v.literal("inactive")),
+    /**
+     * Life group assignment. Required in the UI going forward — the
+     * schema keeps it optional so pre-feature rows (added before
+     * this field existed, including any auto-created from direct
+     * income entries) still validate.
+     */
+    lifeGroupId: v.optional(v.id("lifeGroups")),
+    /** YYYY-MM-DD. Required in the UI; schema-optional for legacy rows. */
+    birthday: v.optional(v.string()),
     createdAt: v.number(),
     deactivatedAt: v.optional(v.string()),   // YYYY-MM-DD
     deactivationReason: v.optional(v.string()),
   })
     .index("by_church", ["churchId"])
-    .index("by_church_status", ["churchId", "status"]),
+    .index("by_church_status", ["churchId", "status"])
+    .index("by_lifeGroup", ["lifeGroupId"]),
 
   /** Log of remittances the church has sent to its upstream church. */
   higherChurchRemittances: defineTable({
