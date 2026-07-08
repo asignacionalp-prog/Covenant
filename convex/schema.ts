@@ -565,6 +565,29 @@ export default defineSchema({
     .index("by_church", ["churchId"])
     .index("by_church_date", ["churchId", "date"]),
 
+  /**
+   * Master roster of church members. Used to populate the "Name"
+   * options on Direct-income entry (single + bulk) and any future
+   * member-picker. Distinct from HO partners (which live in the
+   * partners table under each org) — the direct-income name picker
+   * unions this list with active partners across every affiliated HO.
+   * Status supports 'active' + 'inactive' so once someone leaves,
+   * they stop appearing in future pick lists but old records referring
+   * to them stay legible.
+   */
+  churchMembers: defineTable({
+    churchId: v.id("churches"),
+    name: v.string(),
+    contact: v.optional(v.string()),
+    note: v.optional(v.string()),
+    status: v.union(v.literal("active"), v.literal("inactive")),
+    createdAt: v.number(),
+    deactivatedAt: v.optional(v.string()),   // YYYY-MM-DD
+    deactivationReason: v.optional(v.string()),
+  })
+    .index("by_church", ["churchId"])
+    .index("by_church_status", ["churchId", "status"]),
+
   /** Log of remittances the church has sent to its upstream church. */
   higherChurchRemittances: defineTable({
     churchId: v.id("churches"),

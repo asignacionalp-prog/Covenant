@@ -177,6 +177,53 @@ export const listDirectIncome = query({
   },
 });
 
+/**
+ * If a name looks like a partner label ("Maria Cruz — Faith HO" or
+ * "Maria Cruz (Faith HO)"), peel the org suffix so what we save on
+ * the record is just the person's name. Matches both the datalist
+ * "—" separator and the older "(orgName)" form so pasted rows from
+ * either source stay clean.
+ */
+function _stripPartnerSuffix(raw: string): string {
+  let s = raw.trim();
+  // "Name — Org" (em-dash used in the datalist labels).
+  const em = s.indexOf(" — ");
+  if (em > 0) s = s.slice(0, em).trim();
+  // "Name (Org)"
+  const paren = s.match(/^(.*)\s*\([^)]+\)\s*$/);
+  if (paren) s = paren[1].trim();
+  return s;
+}
+
+/**
+ * Case-insensitively check whether any church member with this name
+ * already exists (active or inactive). If none, create a fresh
+ * active member so the church roster grows with every new giver.
+ * Idempotent — never creates duplicates.
+ */
+async function _ensureChurchMember(
+  ctx: MutationCtx,
+  churchId: Id<"churches">,
+  rawName: string,
+  contact: string | undefined,
+): Promise<void> {
+  const name = rawName.trim();
+  if (!name) return;
+  const nameKey = name.toLowerCase();
+  const all = await ctx.db
+    .query("churchMembers")
+    .withIndex("by_church", (q) => q.eq("churchId", churchId))
+    .collect();
+  if (all.some((m) => m.name.trim().toLowerCase() === nameKey)) return;
+  await ctx.db.insert("churchMembers", {
+    churchId,
+    name,
+    contact: contact?.trim() || undefined,
+    status: "active",
+    createdAt: Date.now(),
+  });
+}
+
 export const createDirectIncome = mutation({
   args: {
     sessionToken: v.string(),
@@ -197,17 +244,23 @@ export const createDirectIncome = mutation({
     const church = await requireChurch(ctx, args.sessionToken);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(args.date)) throw new Error("Date must be YYYY-MM-DD.");
     if (args.amount <= 0) throw new Error("Amount must be greater than zero.");
+    const giverName = args.giverName
+      ? _stripPartnerSuffix(args.giverName)
+      : undefined;
     const id = await ctx.db.insert("churchDirectRemittances", {
       churchId: church._id,
       date: args.date,
       amount: args.amount,
       type: args.type,
-      giverName: args.giverName?.trim() || undefined,
+      giverName: giverName || undefined,
       giverContact: args.giverContact?.trim() || undefined,
       mode: args.mode?.trim() || undefined,
       note: args.note?.trim() || undefined,
       createdAt: Date.now(),
     });
+    if (giverName) {
+      await _ensureChurchMember(ctx, church._id, giverName, args.giverContact);
+    }
     return { id };
   },
 });
@@ -264,17 +317,21 @@ export const createManyDirectIncome = mutation({
         errors.push({ row: i + 1, reason: "Amount must be greater than zero" });
         continue;
       }
+      const giverName = e.giverName ? _stripPartnerSuffix(e.giverName) : "";
       await ctx.db.insert("churchDirectRemittances", {
         churchId: church._id,
         date: e.date,
         amount: e.amount,
         type: e.type,
-        giverName: e.giverName?.trim() || undefined,
+        giverName: giverName || undefined,
         giverContact: e.giverContact?.trim() || undefined,
         mode: e.mode?.trim() || undefined,
         note: e.note?.trim() || undefined,
         createdAt: now,
       });
+      if (giverName) {
+        await _ensureChurchMember(ctx, church._id, giverName, e.giverContact);
+      }
       inserted++;
     }
     return { inserted, errors };

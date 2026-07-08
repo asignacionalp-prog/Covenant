@@ -260,6 +260,7 @@
       <button class="tab" data-tab="obligations">Obligations</button>
       <button class="tab" data-tab="health">Home Office Health</button>
       <button class="tab" data-tab="lifegroups">Life Groups</button>
+      <button class="tab" data-tab="members">Members</button>
       <button class="tab" data-tab="calendar">Calendar</button>
       <button class="tab" data-tab="finances">Finances</button>
     </div>
@@ -384,6 +385,11 @@
 
     <!-- Finances tab -->
     <div id="tab-finances" class="tab-panel">
+      <!-- Datalist shared by every giver name input in the sub-tabs
+           (single-add + bulk-add). Populated by ensureGivers() +
+           renderGiversDatalist() with active partners across all HOs
+           plus active church members. -->
+      <datalist id="fin-givers-datalist"></datalist>
       <div class="section-title">Finances</div>
       <div class="section-sub">Verify remittances from your Home Offices, log direct income and expenses, and track what you owe the higher church.</div>
 
@@ -489,7 +495,11 @@
           </div>
           <div class="field"><label>Mode</label><input type="text" id="fin-direct-mode" placeholder="Cash, GCash, BankTransfer…"/></div>
         </div>
-        <div class="field" style="margin-top:.75rem;"><label>Giver name</label><input type="text" id="fin-direct-giver" placeholder="Optional"/></div>
+        <div class="field" style="margin-top:.75rem;">
+          <label>Giver name</label>
+          <input type="text" id="fin-direct-giver" list="fin-givers-datalist" placeholder="Start typing — active members auto-suggest"/>
+          <div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:4px;">Choose from active members, or type a new name — new names auto-register as active members.</div>
+        </div>
         <div class="field" style="margin-top:.75rem;"><label>Contact (optional)</label><input type="text" id="fin-direct-contact"/></div>
         <div class="field" style="margin-top:.75rem;"><label>Note (optional)</label><input type="text" id="fin-direct-note"/></div>
         <div id="fin-direct-msg" style="margin-top:.8rem;font-size:.85rem;font-style:italic;color:var(--coral);display:none;"></div>
@@ -596,6 +606,68 @@
         <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.4rem;">
           <button class="btn-ghost" onclick="closeHigherRemitModal()">Cancel</button>
           <button class="btn-ghost" onclick="saveHigherRemit()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Members tab -->
+    <div id="tab-members" class="tab-panel">
+      <div class="section-title">Church members</div>
+      <div class="section-sub">Your master roster. Active members appear as options in Direct income name pickers; inactive ones stay in the record but don't show up in dropdowns going forward.</div>
+
+      <div id="mem-sumbar" class="sumbar"></div>
+      <div class="toolbar">
+        <input type="search" id="mem-search" placeholder="Search name, contact, note…"/>
+        <select id="mem-status-filter">
+          <option value="active">Active only</option>
+          <option value="all">All statuses</option>
+          <option value="inactive">Inactive only</option>
+        </select>
+        <button class="btn-ghost" onclick="openMemberModal(null)" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">+ Add member</button>
+        <span class="count" id="mem-count"></span>
+      </div>
+      <div id="mem-list" class="data-tbl"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
+    </div>
+
+    <!-- Add / edit member modal -->
+    <div id="mem-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:480px;width:100%;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 1rem;color:var(--text);" id="mem-modal-title">Add member</h3>
+        <div class="field">
+          <label>Name *</label>
+          <input type="text" id="mem-modal-name"/>
+        </div>
+        <div class="field" style="margin-top:.75rem;">
+          <label>Contact</label>
+          <input type="text" id="mem-modal-contact" placeholder="Phone, email, or address"/>
+        </div>
+        <div class="field" style="margin-top:.75rem;">
+          <label>Note</label>
+          <input type="text" id="mem-modal-note" placeholder="Anything worth remembering"/>
+        </div>
+        <div id="mem-modal-msg" style="margin-top:.8rem;font-size:.85rem;font-style:italic;color:var(--coral);display:none;"></div>
+        <div style="display:flex;gap:.6rem;justify-content:space-between;margin-top:1.4rem;">
+          <button class="btn-ghost" id="mem-modal-status" onclick="toggleMemberStatus()" style="display:none;">Deactivate</button>
+          <div style="display:flex;gap:.6rem;margin-left:auto;">
+            <button class="btn-ghost" onclick="closeMemberModal()">Cancel</button>
+            <button class="btn-ghost" id="mem-modal-save" onclick="saveMemberModal()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deactivation prompt -->
+    <div id="mem-deactivate-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:460px;width:100%;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.4rem;margin:0 0 .5rem;color:var(--text);">Deactivate member</h3>
+        <div style="font-size:.82rem;color:var(--text2);margin-bottom:1rem;line-height:1.5;" id="mem-deactivate-context"></div>
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:.75rem;">
+          <div class="field"><label>Effective date</label><input type="date" id="mem-deactivate-date"/></div>
+          <div class="field"><label>Reason (optional)</label><input type="text" id="mem-deactivate-reason" placeholder="Moved, joined another church, etc."/></div>
+        </div>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.4rem;">
+          <button class="btn-ghost" onclick="closeDeactivate()">Cancel</button>
+          <button class="btn-ghost" onclick="confirmDeactivate()" style="background:var(--coral);color:#F6F2E8;border-color:var(--coral);">Deactivate</button>
         </div>
       </div>
     </div>
@@ -1064,6 +1136,7 @@
     else if (name === 'lifegroups') loadLifeGroups();
     else if (name === 'calendar') loadCalendar();
     else if (name === 'finances') loadFinances();
+    else if (name === 'members') loadMembers();
   }
 
   document.querySelectorAll('.tabs .tab').forEach(btn => {
@@ -2383,6 +2456,7 @@
         note: document.getElementById('fin-direct-note').value.trim(),
       });
       closeDirectModal();
+      _giversCache = null;
       await loadFinDirect();
       _finSubLoaded.overview = false;
     } catch (e) {
@@ -2430,7 +2504,7 @@
     if (!tbody) return;
     tbody.innerHTML = _finBulkRows.map((r, i) => `
       <tr>
-        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="text" data-bulk-field="name" data-bulk-idx="${i}" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="Optional" style="${_rowInputStyle()}"/></td>
+        <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;"><input type="text" list="fin-givers-datalist" data-bulk-field="name" data-bulk-idx="${i}" value="${(r.name||'').replace(/"/g,'&quot;')}" placeholder="Active members auto-suggest" style="${_rowInputStyle()}"/></td>
         <td style="border-bottom:1px solid rgba(55,71,101,.4);padding:0 .25rem;">
           <select data-bulk-field="type" data-bulk-idx="${i}" style="${_rowInputStyle()};appearance:auto;">
             <option value="">— Use default —</option>
@@ -2592,6 +2666,7 @@
       }
       if (res.inserted > 0) {
         // Refresh underlying data; if no errors, close the modal.
+        _giversCache = null;
         await loadFinDirect();
         _finSubLoaded.overview = false;
         if (errCount === 0) closeBulkDirectModal();
@@ -2820,6 +2895,233 @@
       await loadFinHigher();
       _finSubLoaded.overview = false;
     } catch (e) { alert('Delete failed: ' + (e.message || e)); }
+  };
+
+  // ─── Members tab ───────────────────────────────────────
+  let _memCache = null;
+  let _memFilters = { search: '', status: 'active' };
+  let _memEditingId = null;
+  let _memDeactivateId = null;
+
+  function renderMembers(){
+    const wrap = document.getElementById('mem-list');
+    const countEl = document.getElementById('mem-count');
+    const sumEl = document.getElementById('mem-sumbar');
+    if (!_memCache) return;
+    const activeCount = _memCache.filter(m => m.status === 'active').length;
+    const inactiveCount = _memCache.filter(m => m.status === 'inactive').length;
+    sumEl.innerHTML =
+      `<div class="item"><div class="item-lbl">Total</div><div class="item-val">${fmtInt(_memCache.length)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Active</div><div class="item-val" style="color:#a8d6b3;">${fmtInt(activeCount)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Inactive</div><div class="item-val" style="color:var(--text3);">${fmtInt(inactiveCount)}</div></div>`;
+
+    const q = _memFilters.search.trim().toLowerCase();
+    const filtered = _memCache.filter(m => {
+      if (_memFilters.status !== 'all' && m.status !== _memFilters.status) return false;
+      if (q) {
+        const hay = (m.name + ' ' + m.contact + ' ' + m.note).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    countEl.textContent = `${filtered.length} of ${_memCache.length} shown`;
+    if (!_memCache.length) {
+      wrap.innerHTML = '<div class="empty-state">No members added yet. Click <strong>+ Add member</strong>, or record a direct income entry with a new name — they auto-register as an active member.</div>';
+      return;
+    }
+    if (!filtered.length) {
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No members match your filters.</div>';
+      return;
+    }
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Name</th>
+        <th>Contact</th>
+        <th>Note</th>
+        <th>Status</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${filtered.map(m => `
+        <tr>
+          <td class="name">${m.name}</td>
+          <td>${m.contact || '<span style="color:var(--text3);">—</span>'}</td>
+          <td style="color:var(--text2);font-style:italic;">${m.note || ''}</td>
+          <td>${m.status === 'active'
+            ? '<span class="type-tag" style="background:rgba(43,100,56,.18);color:#a8d6b3;">active</span>'
+            : `<span class="type-tag inactive">inactive${m.deactivatedAt ? ' · ' + m.deactivatedAt : ''}</span>${m.deactivationReason ? `<div style="font-size:10.5px;color:var(--text3);font-style:italic;margin-top:2px;">${m.deactivationReason}</div>` : ''}`
+          }</td>
+          <td style="white-space:nowrap;">
+            <button class="btn-ghost" onclick="openMemberModal('${m.id}')" style="padding:4px 10px;font-size:.65rem;">Edit</button>
+            ${m.status === 'active'
+              ? `<button class="btn-ghost" onclick="openDeactivate('${m.id}','${m.name.replace(/'/g,"\\\'")}')" style="padding:4px 10px;font-size:.65rem;border-color:var(--coral);color:var(--coral);">Deactivate</button>`
+              : `<button class="btn-ghost" onclick="reactivateMember('${m.id}')" style="padding:4px 10px;font-size:.65rem;background:var(--teal);color:#F6F2E8;border-color:var(--teal);">Reactivate</button>`}
+          </td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+  }
+
+  async function loadMembers(){
+    try {
+      _memCache = await client.query('churchMembers:list', { sessionToken, includeInactive: true });
+      renderMembers();
+    } catch (e) {
+      document.getElementById('mem-list').innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
+    }
+  }
+  document.getElementById('mem-search').addEventListener('input', (e) => { _memFilters.search = e.target.value; renderMembers(); });
+  document.getElementById('mem-status-filter').addEventListener('change', (e) => { _memFilters.status = e.target.value; renderMembers(); });
+
+  window.openMemberModal = function(id){
+    _memEditingId = id;
+    const existing = id && _memCache ? _memCache.find(m => m.id === id) : null;
+    document.getElementById('mem-modal-title').textContent = existing ? 'Edit member' : 'Add member';
+    document.getElementById('mem-modal-name').value = existing?.name || '';
+    document.getElementById('mem-modal-contact').value = existing?.contact || '';
+    document.getElementById('mem-modal-note').value = existing?.note || '';
+    document.getElementById('mem-modal-msg').style.display = 'none';
+    const statusBtn = document.getElementById('mem-modal-status');
+    if (existing) {
+      statusBtn.style.display = '';
+      statusBtn.textContent = existing.status === 'active' ? 'Deactivate' : 'Reactivate';
+      statusBtn.style.borderColor = existing.status === 'active' ? 'var(--coral)' : 'var(--teal)';
+      statusBtn.style.color = existing.status === 'active' ? 'var(--coral)' : 'var(--teal)';
+    } else {
+      statusBtn.style.display = 'none';
+    }
+    document.getElementById('mem-modal-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('mem-modal-name').focus(), 60);
+  };
+  window.closeMemberModal = function(){
+    document.getElementById('mem-modal-overlay').style.display = 'none';
+    _memEditingId = null;
+  };
+  window.saveMemberModal = async function(){
+    const msg = document.getElementById('mem-modal-msg');
+    const name = document.getElementById('mem-modal-name').value.trim();
+    if (!name) { msg.textContent = 'Name is required.'; msg.style.display = ''; return; }
+    const payload = {
+      sessionToken,
+      name,
+      contact: document.getElementById('mem-modal-contact').value.trim(),
+      note: document.getElementById('mem-modal-note').value.trim(),
+    };
+    try {
+      if (_memEditingId) {
+        await client.mutation('churchMembers:update', { ...payload, id: _memEditingId });
+      } else {
+        await client.mutation('churchMembers:create', payload);
+      }
+      closeMemberModal();
+      await loadMembers();
+      // Bust the giver picker cache so Direct income pickers see the change.
+      _giversCache = null;
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+      msg.style.display = '';
+    }
+  };
+  window.toggleMemberStatus = function(){
+    if (!_memEditingId || !_memCache) return;
+    const m = _memCache.find(x => x.id === _memEditingId);
+    if (!m) return;
+    if (m.status === 'active') {
+      closeMemberModal();
+      openDeactivate(_memEditingId, m.name);
+    } else {
+      reactivateMember(_memEditingId);
+    }
+  };
+  window.openDeactivate = function(id, name){
+    _memDeactivateId = id;
+    document.getElementById('mem-deactivate-context').innerHTML = `<strong>${name}</strong> — they will stop appearing in Direct income name pickers going forward. Past entries under their name stay unchanged.`;
+    const today = new Date();
+    document.getElementById('mem-deactivate-date').value = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    document.getElementById('mem-deactivate-reason').value = '';
+    document.getElementById('mem-deactivate-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('mem-deactivate-reason').focus(), 60);
+  };
+  window.closeDeactivate = function(){
+    document.getElementById('mem-deactivate-overlay').style.display = 'none';
+    _memDeactivateId = null;
+  };
+  window.confirmDeactivate = async function(){
+    try {
+      await client.mutation('churchMembers:setStatus', {
+        sessionToken,
+        id: _memDeactivateId,
+        status: 'inactive',
+        deactivatedAt: document.getElementById('mem-deactivate-date').value,
+        deactivationReason: document.getElementById('mem-deactivate-reason').value.trim(),
+      });
+      closeDeactivate();
+      await loadMembers();
+      _giversCache = null;
+    } catch (e) { alert('Deactivate failed: ' + (e.message || e)); }
+  };
+  window.reactivateMember = async function(id){
+    if (!confirm('Reactivate this member? They will show up in Direct income name pickers again.')) return;
+    try {
+      await client.mutation('churchMembers:setStatus', { sessionToken, id, status: 'active' });
+      await loadMembers();
+      _giversCache = null;
+    } catch (e) { alert('Reactivate failed: ' + (e.message || e)); }
+  };
+
+  // ─── Giver picker (for direct-income name fields) ──────
+  let _giversCache = null;
+  async function ensureGivers(){
+    if (_giversCache) return _giversCache;
+    try {
+      _giversCache = await client.query('churchMembers:listGivers', { sessionToken });
+    } catch { _giversCache = []; }
+    return _giversCache;
+  }
+
+  /**
+   * Fill the shared #fin-givers-datalist element with active givers.
+   * Uses giver.name as the input value (what the CEO types + what we
+   * save on the record) and puts the HO name into the option label so
+   * partners appear as "Maria Cruz — Faith HO" in the dropdown while
+   * still saving just "Maria Cruz" on select. Deduped by name to keep
+   * the picker tidy when someone appears in both HO and church rolls.
+   */
+  function renderGiversDatalist(){
+    const dl = document.getElementById('fin-givers-datalist');
+    if (!dl || !_giversCache) return;
+    const seen = new Set();
+    dl.innerHTML = _giversCache.map(g => {
+      const key = g.name.trim().toLowerCase();
+      if (!key || seen.has(key)) return '';
+      seen.add(key);
+      const labelSuffix = g.source === 'partner' && g.orgName ? ` — ${g.orgName}` : '';
+      return `<option value="${g.name.replace(/"/g,'&quot;')}" label="${(g.name + labelSuffix).replace(/"/g,'&quot;')}"></option>`;
+    }).join('');
+  }
+
+  // Warm the givers cache when the Direct sub-tab loads so both the
+  // single-add and bulk-add modals open with a full datalist ready.
+  const _origLoadFinDirect = loadFinDirect;
+  loadFinDirect = async function(){
+    await Promise.all([_origLoadFinDirect(), ensureGivers()]);
+    renderGiversDatalist();
+  };
+
+  // Wrap the single-add and bulk-add modal openers so the datalist is
+  // refreshed just before each open — if the CEO has just deactivated
+  // or added a member, the picker reflects that immediately.
+  const _origOpenDirectModal = openDirectModal;
+  window.openDirectModal = async function(){
+    await ensureGivers();
+    renderGiversDatalist();
+    _origOpenDirectModal();
+  };
+
+  const _origOpenBulkDirectModal = openBulkDirectModal;
+  window.openBulkDirectModal = async function(){
+    await ensureGivers();
+    renderGiversDatalist();
+    _origOpenBulkDirectModal();
   };
 
   // ─── Init ───────────────────────────────────────────────
