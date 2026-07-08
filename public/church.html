@@ -223,6 +223,7 @@
       <button class="tab" data-tab="clients">Clients</button>
       <button class="tab" data-tab="obligations">Obligations</button>
       <button class="tab" data-tab="health">Home Office Health</button>
+      <button class="tab" data-tab="lifegroups">Life Groups</button>
     </div>
 
     <div class="content-main">
@@ -320,6 +321,91 @@
         <span class="count" id="health-count"></span>
       </div>
       <div id="health-view" class="health-hos"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
+    </div>
+
+    <!-- Life Groups tab -->
+    <div id="tab-lifegroups" class="tab-panel">
+      <!-- List view -->
+      <div id="lg-list-view">
+        <div class="section-title">Life Groups</div>
+        <div class="section-sub">Groups set by your church. Home Offices assign partners from their partner form; you can also add external members (visitors, unaffiliated attendees) directly.</div>
+        <div id="lg-sumbar" class="sumbar"></div>
+        <div class="toolbar">
+          <input type="search" id="lg-search" placeholder="Search life groups…"/>
+          <button class="btn-ghost" onclick="openLifeGroupModal(null)" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">+ Add life group</button>
+          <span class="count" id="lg-count"></span>
+        </div>
+        <div id="lg-list" class="data-tbl"><div style="padding:1.5rem;text-align:center;color:var(--text3);">Loading…</div></div>
+      </div>
+      <!-- Detail view -->
+      <div id="lg-detail-view" style="display:none;">
+        <button class="btn-ghost" onclick="closeLifeGroupDetail()" style="margin-bottom:1rem;">← Back to life groups</button>
+        <div id="lg-detail-body"></div>
+      </div>
+    </div>
+
+    <!-- Add/edit Life Group modal -->
+    <div id="lg-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:520px;width:100%;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 1.2rem;color:var(--text);" id="lg-modal-title">Add life group</h3>
+        <div class="field">
+          <label>Name *</label>
+          <input type="text" id="lg-modal-name" placeholder="e.g. Emmaus Home"/>
+        </div>
+        <div class="field" style="margin-top:.9rem;">
+          <label>Leader</label>
+          <input type="text" id="lg-modal-leader" placeholder="Life group leader's name"/>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.9rem;">
+          <div class="field">
+            <label>Meeting day</label>
+            <select id="lg-modal-day">
+              <option value="">—</option>
+              <option>Sunday</option>
+              <option>Monday</option>
+              <option>Tuesday</option>
+              <option>Wednesday</option>
+              <option>Thursday</option>
+              <option>Friday</option>
+              <option>Saturday</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Meeting time</label>
+            <input type="text" id="lg-modal-time" placeholder="e.g. 7:00 PM"/>
+          </div>
+        </div>
+        <div class="field" style="margin-top:.9rem;">
+          <label>Description</label>
+          <input type="text" id="lg-modal-desc" placeholder="Purpose, focus, or any notes"/>
+        </div>
+        <div id="lg-modal-msg" style="margin-top:.8rem;font-size:.85rem;font-style:italic;color:var(--coral);display:none;"></div>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.4rem;">
+          <button class="btn-ghost" onclick="closeLifeGroupModal()">Cancel</button>
+          <button class="btn-ghost" id="lg-modal-save" onclick="saveLifeGroupModal()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add external member modal -->
+    <div id="lg-ext-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,23,41,.75);z-index:100;align-items:center;justify-content:center;padding:2rem;">
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:8px;max-width:460px;width:100%;padding:2rem;box-shadow:0 12px 36px rgba(0,0,0,.4);">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.5rem;margin:0 0 1.2rem;color:var(--text);">Add external member</h3>
+        <div style="font-size:.82rem;color:var(--text2);margin-bottom:1rem;line-height:1.5;">People who attend this life group but are not partners of any affiliated Home Office — visitors, family members, unaffiliated attendees.</div>
+        <div class="field">
+          <label>Name *</label>
+          <input type="text" id="lg-ext-name"/>
+        </div>
+        <div class="field" style="margin-top:.9rem;">
+          <label>Contact (optional)</label>
+          <input type="text" id="lg-ext-contact" placeholder="Phone, email, or note"/>
+        </div>
+        <div id="lg-ext-msg" style="margin-top:.8rem;font-size:.85rem;font-style:italic;color:var(--coral);display:none;"></div>
+        <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.4rem;">
+          <button class="btn-ghost" onclick="closeExternalMemberModal()">Cancel</button>
+          <button class="btn-ghost" onclick="saveExternalMember()" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">Add</button>
+        </div>
+      </div>
     </div>
     </div><!-- /content-main -->
   </div>
@@ -634,6 +720,7 @@
     if (name === 'clients') loadClients();
     else if (name === 'obligations') loadObligations();
     else if (name === 'health') loadHealth();
+    else if (name === 'lifegroups') loadLifeGroups();
   }
 
   document.querySelectorAll('.tabs .tab').forEach(btn => {
@@ -1057,6 +1144,279 @@
     const nowExpanded = !card.classList.contains('expanded');
     card.classList.toggle('expanded', nowExpanded);
     btn.textContent = nowExpanded ? 'Hide partners ▴' : 'Show partners ▾';
+  };
+
+  // ─── Life Groups tab ────────────────────────────────────
+  let _lgCache = null;
+  let _lgSearch = '';
+  let _lgEditingId = null;      // null → creating; id → editing
+  let _lgCurrentDetailId = null;
+  let _lgExtAddingToGroup = null;
+
+  function renderLifeGroupsList(){
+    const wrap = document.getElementById('lg-list');
+    const countEl = document.getElementById('lg-count');
+    const sumEl = document.getElementById('lg-sumbar');
+    if (!_lgCache) return;
+    const total = _lgCache.length;
+    const totalMembers = _lgCache.reduce((a, g) => a + g.totalMembers, 0);
+    const partnerMembers = _lgCache.reduce((a, g) => a + g.partnerCount, 0);
+    const externalMembers = _lgCache.reduce((a, g) => a + g.externalCount, 0);
+    const avg = total > 0 ? Math.round(totalMembers / total) : 0;
+    sumEl.innerHTML =
+      `<div class="item"><div class="item-lbl">Life groups</div><div class="item-val">${fmtInt(total)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Total members</div><div class="item-val">${fmtInt(totalMembers)}</div></div>` +
+      `<div class="item"><div class="item-lbl">From HOs</div><div class="item-val">${fmtInt(partnerMembers)}</div></div>` +
+      `<div class="item"><div class="item-lbl">External</div><div class="item-val">${fmtInt(externalMembers)}</div></div>` +
+      `<div class="item"><div class="item-lbl">Avg. size</div><div class="item-val">${fmtInt(avg)}</div></div>`;
+
+    if (!total) {
+      wrap.innerHTML = `<div class="empty-state">
+        No life groups yet.
+        <div class="empty-hint">Click <strong>+ Add life group</strong> to set up your first one. Home Offices will then be able to assign their partners from their partner form.</div>
+      </div>`;
+      countEl.textContent = '';
+      return;
+    }
+    const q = _lgSearch.trim().toLowerCase();
+    const filtered = q
+      ? _lgCache.filter(g => (g.name + ' ' + g.leader).toLowerCase().includes(q))
+      : _lgCache;
+    countEl.textContent = q ? `${filtered.length} of ${total} shown` : `${total} group${total === 1 ? '' : 's'}`;
+    if (!filtered.length) {
+      wrap.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-style:italic;">No life groups match your search.</div>';
+      return;
+    }
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Name</th>
+        <th>Leader</th>
+        <th>Meets</th>
+        <th class="r">Members</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${filtered.map(g => `
+        <tr style="cursor:pointer;" data-id="${g.id}">
+          <td class="name">${g.name}</td>
+          <td>${g.leader || '<span style="color:var(--text3);font-style:italic;">—</span>'}</td>
+          <td>${g.meetingDay ? g.meetingDay + (g.meetingTime ? ' · ' + g.meetingTime : '') : '<span style="color:var(--text3);font-style:italic;">—</span>'}</td>
+          <td class="r"><strong>${fmtInt(g.totalMembers)}</strong>${g.externalCount ? ` <span style="color:var(--text3);font-size:11px;">(${g.partnerCount}+${g.externalCount})</span>` : ''}</td>
+          <td onclick="event.stopPropagation()"><button class="btn-ghost" onclick="openLifeGroupModal('${g.id}')" style="padding:4px 10px;font-size:.65rem;">Edit</button></td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+    wrap.querySelectorAll('tr[data-id]').forEach(tr => {
+      tr.addEventListener('click', () => showLifeGroupDetail(tr.dataset.id));
+    });
+  }
+
+  async function loadLifeGroups(){
+    try {
+      _lgCache = await client.query('lifeGroups:list', { sessionToken });
+      renderLifeGroupsList();
+    } catch (e) {
+      document.getElementById('lg-list').innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
+    }
+  }
+
+  document.getElementById('lg-search').addEventListener('input', (e) => {
+    _lgSearch = e.target.value;
+    renderLifeGroupsList();
+  });
+
+  // ── Add / edit modal ────────────────────────────────────
+  window.openLifeGroupModal = function(id){
+    _lgEditingId = id;
+    const existing = id ? _lgCache.find(g => g.id === id) : null;
+    document.getElementById('lg-modal-title').textContent = existing ? 'Edit life group' : 'Add life group';
+    document.getElementById('lg-modal-name').value = existing?.name || '';
+    document.getElementById('lg-modal-leader').value = existing?.leader || '';
+    document.getElementById('lg-modal-day').value = existing?.meetingDay || '';
+    document.getElementById('lg-modal-time').value = existing?.meetingTime || '';
+    document.getElementById('lg-modal-desc').value = existing?.description || '';
+    document.getElementById('lg-modal-msg').style.display = 'none';
+    document.getElementById('lg-modal-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('lg-modal-name').focus(), 60);
+  };
+  window.closeLifeGroupModal = function(){
+    document.getElementById('lg-modal-overlay').style.display = 'none';
+    _lgEditingId = null;
+  };
+  window.saveLifeGroupModal = async function(){
+    const btn = document.getElementById('lg-modal-save');
+    const msg = document.getElementById('lg-modal-msg');
+    const name = document.getElementById('lg-modal-name').value.trim();
+    if (!name) { msg.textContent = 'Name is required.'; msg.style.display = ''; return; }
+    const payload = {
+      sessionToken,
+      name,
+      leader: document.getElementById('lg-modal-leader').value.trim(),
+      meetingDay: document.getElementById('lg-modal-day').value.trim(),
+      meetingTime: document.getElementById('lg-modal-time').value.trim(),
+      description: document.getElementById('lg-modal-desc').value.trim(),
+    };
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      if (_lgEditingId) {
+        await client.mutation('lifeGroups:update', { ...payload, id: _lgEditingId });
+      } else {
+        await client.mutation('lifeGroups:create', payload);
+      }
+      closeLifeGroupModal();
+      await loadLifeGroups();
+      if (_lgCurrentDetailId === _lgEditingId && _lgCurrentDetailId) {
+        showLifeGroupDetail(_lgCurrentDetailId);
+      }
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+      msg.style.display = '';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  };
+
+  // ── Detail view ─────────────────────────────────────────
+  async function showLifeGroupDetail(id){
+    _lgCurrentDetailId = id;
+    document.getElementById('lg-list-view').style.display = 'none';
+    document.getElementById('lg-detail-view').style.display = 'block';
+    const body = document.getElementById('lg-detail-body');
+    body.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);">Loading…</div>';
+    try {
+      const d = await client.query('lifeGroups:getWithRoster', { sessionToken, id });
+      renderLifeGroupDetail(d);
+    } catch (e) {
+      body.innerHTML = `<div style="padding:1.5rem;color:var(--coral);">${e.message || e}</div>`;
+    }
+  }
+  window.closeLifeGroupDetail = function(){
+    _lgCurrentDetailId = null;
+    document.getElementById('lg-detail-view').style.display = 'none';
+    document.getElementById('lg-list-view').style.display = 'block';
+  };
+
+  function renderLifeGroupDetail(d){
+    const body = document.getElementById('lg-detail-body');
+    const partnersByOrg = {};
+    for (const p of d.partners) {
+      if (!partnersByOrg[p.orgName]) partnersByOrg[p.orgName] = [];
+      partnersByOrg[p.orgName].push(p);
+    }
+    const partnerSections = Object.keys(partnersByOrg).sort().map(orgName => `
+      <div style="margin-top:1rem;">
+        <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1rem;color:var(--gold);margin-bottom:.4rem;">${orgName} <span style="color:var(--text3);font-size:.75rem;">· ${partnersByOrg[orgName].length}</span></div>
+        <div style="display:flex;flex-direction:column;gap:.25rem;">
+          ${partnersByOrg[orgName].map(p => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.4rem .7rem;background:var(--paper2);border:1px solid var(--border);border-radius:4px;">
+              <div>
+                <span style="color:var(--text);">${p.name}</span>
+                ${p.role ? `<span style="color:var(--text3);font-size:.78rem;"> · ${p.role}</span>` : ''}
+                ${p.status === 'inactive' ? '<span class="type-tag inactive" style="margin-left:.5rem;">inactive</span>' : ''}
+              </div>
+              <div style="font-size:.7rem;color:var(--text3);font-style:italic;">assigned by HO</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    body.innerHTML = `
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.2rem;flex-wrap:wrap;">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;font-size:1.65rem;color:var(--text);letter-spacing:.005em;">${d.name}</div>
+          <div style="font-size:.85rem;color:var(--text2);margin-top:.3rem;">
+            ${d.leader ? `<strong style="color:var(--text);">${d.leader}</strong>` : '<span style="color:var(--text3);">No leader set</span>'}
+            ${d.meetingDay ? ` · ${d.meetingDay}${d.meetingTime ? ' · ' + d.meetingTime : ''}` : ''}
+          </div>
+          ${d.description ? `<div style="font-size:.85rem;color:var(--text2);font-style:italic;margin-top:.4rem;line-height:1.5;">${d.description}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+          <button class="btn-ghost" onclick="openLifeGroupModal('${d.id}')">Edit</button>
+          <button class="btn-ghost" onclick="deleteLifeGroupFromDetail('${d.id}','${d.name.replace(/'/g,"\\\'")}')" style="border-color:var(--coral);color:var(--coral);">Delete</button>
+        </div>
+      </div>
+
+      <div class="sumbar" style="margin-bottom:1.2rem;">
+        <div class="item"><div class="item-lbl">Total</div><div class="item-val">${d.partners.length + d.externals.length}</div></div>
+        <div class="item"><div class="item-lbl">From HOs</div><div class="item-val">${d.partners.length}</div></div>
+        <div class="item"><div class="item-lbl">External</div><div class="item-val">${d.externals.length}</div></div>
+      </div>
+
+      <div class="section-title" style="font-size:1.1rem;">Partners <span style="color:var(--text3);font-size:.75rem;">assigned by Home Offices</span></div>
+      ${d.partners.length ? partnerSections : '<div style="padding:1rem 0;color:var(--text3);font-style:italic;">No partners assigned yet. HOs assign their partners from Users → Partners → edit → Life group.</div>'}
+
+      <div class="section-title" style="margin-top:2rem;font-size:1.1rem;display:flex;justify-content:space-between;align-items:center;">
+        <span>External members <span style="color:var(--text3);font-size:.75rem;">visitors, unaffiliated attendees</span></span>
+        <button class="btn-ghost" onclick="openExternalMemberModal('${d.id}')" style="background:var(--gold);color:#0D1729;border-color:var(--gold);">+ Add external</button>
+      </div>
+      ${d.externals.length ? `
+        <div style="display:flex;flex-direction:column;gap:.35rem;">
+          ${d.externals.map(m => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:.55rem .8rem;background:var(--paper2);border:1px solid var(--border);border-radius:4px;">
+              <div>
+                <span style="color:var(--text);">${m.name}</span>
+                ${m.contact ? `<span style="color:var(--text2);font-size:.82rem;"> · ${m.contact}</span>` : ''}
+              </div>
+              <button class="btn-ghost" onclick="removeExternalMember('${m.memberId}','${m.name.replace(/'/g,"\\\'")}')" style="padding:4px 10px;font-size:.65rem;border-color:var(--coral);color:var(--coral);">Remove</button>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<div style="padding:.75rem 0;color:var(--text3);font-style:italic;">No external members yet.</div>'}
+    `;
+  }
+
+  window.deleteLifeGroupFromDetail = async function(id, name){
+    if (!confirm(`Delete "${name}"? This removes the life group entirely — partners will be unassigned. External members added to this group will be dropped too.`)) return;
+    try {
+      await client.mutation('lifeGroups:remove', { sessionToken, id });
+      closeLifeGroupDetail();
+      await loadLifeGroups();
+    } catch (e) {
+      alert('Could not delete: ' + (e.message || e));
+    }
+  };
+
+  window.openExternalMemberModal = function(groupId){
+    _lgExtAddingToGroup = groupId;
+    document.getElementById('lg-ext-name').value = '';
+    document.getElementById('lg-ext-contact').value = '';
+    document.getElementById('lg-ext-msg').style.display = 'none';
+    document.getElementById('lg-ext-modal-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('lg-ext-name').focus(), 60);
+  };
+  window.closeExternalMemberModal = function(){
+    document.getElementById('lg-ext-modal-overlay').style.display = 'none';
+    _lgExtAddingToGroup = null;
+  };
+  window.saveExternalMember = async function(){
+    const msg = document.getElementById('lg-ext-msg');
+    const name = document.getElementById('lg-ext-name').value.trim();
+    if (!name) { msg.textContent = 'Name is required.'; msg.style.display = ''; return; }
+    try {
+      await client.mutation('lifeGroups:addExternalMember', {
+        sessionToken,
+        lifeGroupId: _lgExtAddingToGroup,
+        name,
+        contact: document.getElementById('lg-ext-contact').value.trim(),
+      });
+      const gid = _lgExtAddingToGroup;
+      closeExternalMemberModal();
+      await loadLifeGroups();
+      showLifeGroupDetail(gid);
+    } catch (e) {
+      msg.textContent = e.message || String(e);
+      msg.style.display = '';
+    }
+  };
+  window.removeExternalMember = async function(memberId, name){
+    if (!confirm(`Remove ${name} from this life group?`)) return;
+    try {
+      await client.mutation('lifeGroups:removeExternalMember', { sessionToken, memberId });
+      await loadLifeGroups();
+      if (_lgCurrentDetailId) showLifeGroupDetail(_lgCurrentDetailId);
+    } catch (e) {
+      alert('Could not remove: ' + (e.message || e));
+    }
   };
 
   // ─── Init ───────────────────────────────────────────────

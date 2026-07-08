@@ -100,6 +100,40 @@ export default defineSchema({
     .index("by_church", ["churchId"]),
 
   // ─────────────────────────────────────────────────────────────
+  // LIFE GROUPS — set up by the church; partners across affiliated
+  // Home Offices get assigned to one from their HO's partner form,
+  // and the church can add external members (visitors, unaffiliated
+  // attendees) directly.
+  // ─────────────────────────────────────────────────────────────
+  lifeGroups: defineTable({
+    churchId: v.id("churches"),
+    name: v.string(),
+    leader: v.optional(v.string()),
+    meetingDay: v.optional(v.string()),      // 'sunday' | 'monday' | … | free-text
+    meetingTime: v.optional(v.string()),     // '19:00' | 'Evening' — kept as free-text
+    description: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_church", ["churchId"]),
+
+  lifeGroupMembers: defineTable({
+    lifeGroupId: v.id("lifeGroups"),
+    // Kind === 'partner' → orgId + partnerLegacyId identify a
+    // partner in an affiliated Home Office. HO-side assignment
+    // happens via partners.lifeGroupId (below) and is mirrored here
+    // for church-side roster queries.
+    // Kind === 'external' → externalName + externalContact identify
+    // a person not affiliated with any Home Office.
+    kind: v.union(v.literal("partner"), v.literal("external")),
+    orgId: v.optional(v.id("orgs")),
+    partnerLegacyId: v.optional(v.number()),
+    externalName: v.optional(v.string()),
+    externalContact: v.optional(v.string()),
+    addedAt: v.number(),
+  })
+    .index("by_lifeGroup", ["lifeGroupId"])
+    .index("by_org_partner", ["orgId", "partnerLegacyId"]),
+
+  // ─────────────────────────────────────────────────────────────
   // ORGS + LICENSES + MEMBERSHIP
   // ─────────────────────────────────────────────────────────────
 
@@ -231,6 +265,13 @@ export default defineSchema({
     deactivatedAt: v.optional(v.string()),
     /** Free-text reason a partner was deactivated. For HR/audit. */
     deactivationReason: v.optional(v.string()),
+    /**
+     * If the HO is affiliated with a church that has life groups
+     * configured, the CEO can assign each partner to one via the
+     * partner form. Stored here as the Convex id so the church-side
+     * roster query can join without going through the sync layer.
+     */
+    lifeGroupId: v.optional(v.id("lifeGroups")),
     /**
      * Forward-looking schedule of rate changes. Distinct from the
      * legacy in-memory `rateHistory` audit log (which records the

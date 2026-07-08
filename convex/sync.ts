@@ -206,6 +206,13 @@ export const syncPartnersDiff = mutation({
           notes: str(p.notes),
           deactivatedAt: str(p.deactivatedAt),
           deactivationReason: str(p.deactivationReason),
+          // Life-group assignment. Client sends the Convex id as a
+          // string; if the id is malformed or doesn't belong to the
+          // HO's affiliated church, we silently drop it below.
+          lifeGroupId:
+            typeof p.lifeGroupId === "string" && p.lifeGroupId
+              ? (p.lifeGroupId as Id<"lifeGroups">)
+              : undefined,
           rateSchedule: Array.isArray(p.rateSchedule)
             ? p.rateSchedule
                 .filter((e: any) => e && typeof e.effectiveFrom === "string")
@@ -224,7 +231,69 @@ export const syncPartnersDiff = mutation({
         },
       });
     }
-    return diffApplyByLegacyId(ctx, orgId, "partners", upserts, args.deletes);
+    const result = await diffApplyByLegacyId(
+      ctx,
+      orgId,
+      "partners",
+      upserts,
+      args.deletes,
+    );
+
+    // Mirror partner lifeGroupId into the lifeGroupMembers roster so
+    // the church can query group membership without scanning every
+    // partner in every HO. Runs per synced row so a single sync
+    // corrects any drift.
+    //
+    // Guard: any lifeGroupId that doesn't belong to the HO's
+    // affiliated church is treated as "unassigned" so a malicious or
+    // buggy client can't attach a partner to another church's group.
+    const orgDoc = await ctx.db.get(orgId);
+    const churchIdForOrg = orgDoc?.churchId ?? null;
+    for (const item of upserts) {
+      const p = await ctx.db
+        .query("partners")
+        .withIndex("by_org_legacyId", (q) =>
+          q.eq("orgId", orgId).eq("legacyId", item.legacyId),
+        )
+        .unique();
+      if (!p) continue;
+
+      let desiredGroupId: Id<"lifeGroups"> | null = null;
+      if (p.lifeGroupId) {
+        const g = await ctx.db.get(p.lifeGroupId);
+        if (g && churchIdForOrg && g.churchId === churchIdForOrg) {
+          desiredGroupId = p.lifeGroupId;
+        } else {
+          // Group doesn't exist or belongs to another church —
+          // scrub the partner's field so future reads don't dangle.
+          await ctx.db.patch(p._id, { lifeGroupId: undefined });
+        }
+      }
+
+      const existing = await ctx.db
+        .query("lifeGroupMembers")
+        .withIndex("by_org_partner", (q) =>
+          q.eq("orgId", orgId).eq("partnerLegacyId", p.legacyId),
+        )
+        .collect();
+      // Remove any stale rows (wrong group, orphaned partner rows).
+      for (const m of existing) {
+        if (!desiredGroupId || m.lifeGroupId !== desiredGroupId) {
+          await ctx.db.delete(m._id);
+        }
+      }
+      if (desiredGroupId && !existing.some((m) => m.lifeGroupId === desiredGroupId)) {
+        await ctx.db.insert("lifeGroupMembers", {
+          lifeGroupId: desiredGroupId,
+          kind: "partner",
+          orgId,
+          partnerLegacyId: p.legacyId,
+          addedAt: Date.now(),
+        });
+      }
+    }
+
+    return result;
   },
 });
 

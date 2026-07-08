@@ -1835,6 +1835,19 @@ body{
         <div id="pf-rate-history-wrap" style="margin-top:1rem;"></div>
         <div id="pf-payroll-history-wrap" style="margin-top:1rem;"></div>
       </div>
+      <div class="card" id="pf-lifegroup-card" style="display:none;">
+        <div class="card-section-title">Life group</div>
+        <div class="info-box" style="background:rgba(180,138,30,.06);border-left-color:var(--gold);">
+          Assign this partner to a life group set by your church. The church can see who's in each group; the partner form is where you set it.
+        </div>
+        <div class="fr" style="margin-top:1rem;">
+          <label>Life group</label>
+          <select id="pf-lifegroup">
+            <option value="">— Not assigned —</option>
+          </select>
+          <div id="pf-lifegroup-meta" style="font-size:11px;color:var(--text3);font-style:italic;margin-top:6px;line-height:1.5;"></div>
+        </div>
+      </div>
       <div class="card">
         <div class="card-section-title">Payment QR Code</div>
         <div class="info-box">Upload a photo or screenshot of the partner's bank/e-wallet QR code (GCash, Maya, BPI, etc.). Will be shown on payslip for easy salary transfer.</div>
@@ -3748,10 +3761,56 @@ function pfPopulateBiz(selectedBid){
   const active=S.businesses.filter(b=>b.st==='active');
   document.getElementById('pf-bid').innerHTML=active.length?active.map(b=>`<option value="${b.id}"${b.id===selectedBid?' selected':''}>${b.nm}${b.type?` (${b.type})`:''}</option>`).join(''):'<option value="">-- No active businesses --</option>';
 }
+// Life-group dropdown source (cached from the affiliated church).
+// null = not yet loaded; [] = no life groups / HO not affiliated;
+// list otherwise. Refreshed each time the partner form opens so a
+// church-side change (new group, renamed group) is picked up.
+let __pfLifeGroupCache = null;
+
+async function pfLoadLifeGroups(){
+  if (!window.__covClient || !window.__covSessionToken) return [];
+  try {
+    return await window.__covClient.query('lifeGroups:listForMyChurch', { sessionToken: window.__covSessionToken });
+  } catch { return []; }
+}
+
+async function pfRenderLifeGroupSection(currentLifeGroupId){
+  const card = document.getElementById('pf-lifegroup-card');
+  const sel = document.getElementById('pf-lifegroup');
+  const meta = document.getElementById('pf-lifegroup-meta');
+  if (!card || !sel) return;
+  const groups = await pfLoadLifeGroups();
+  __pfLifeGroupCache = groups;
+  if (!groups.length) {
+    // HO not affiliated OR no life groups configured yet — hide the card.
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+  sel.innerHTML = '<option value="">— Not assigned —</option>' +
+    groups.map(g => `<option value="${g.id}">${g.name}${g.leader ? ' · led by ' + g.leader : ''}</option>`).join('');
+  if (currentLifeGroupId && groups.some(g => g.id === currentLifeGroupId)) {
+    sel.value = currentLifeGroupId;
+  } else {
+    sel.value = '';
+  }
+  const showMeta = () => {
+    const g = groups.find(x => x.id === sel.value);
+    if (!g) { meta.textContent = ''; return; }
+    const bits = [];
+    if (g.meetingDay) bits.push(g.meetingDay + (g.meetingTime ? ' at ' + g.meetingTime : ''));
+    if (g.leader) bits.push('Leader: ' + g.leader);
+    meta.textContent = bits.join(' · ');
+  };
+  sel.onchange = showMeta;
+  showMeta();
+}
+
 function openAddPartner(){
   if(!S.businesses.filter(b=>b.st==='active').length){alert('Please add at least one business before adding partners.');showView('businesses');initBusinesses();return;}
   S.editPid=null;clearPf();document.getElementById('pf-title').textContent='Add partner';document.getElementById('pf-sd').value=td();
   pfPopulateBiz();
+  pfRenderLifeGroupSection(null);
   showView('partner-form');
 }
 function openEditPartner(id){
@@ -3777,6 +3836,7 @@ function openEditPartner(id){
   pfRenderRateHistory(p);
   pfRenderPayrollHistory(p);
   pfRenderDocsPanel(p);
+  pfRenderLifeGroupSection(p.lifeGroupId || null);
   showView('partner-form');
 }
 function clearPf(){
@@ -3893,7 +3953,10 @@ function savePartner(){
     }
   }
 
-  const data={bid,fn,ln,mn:document.getElementById('pf-mn').value.trim(),ex:document.getElementById('pf-ex').value,ct:document.getElementById('pf-ct').value,dob:document.getElementById('pf-dob').value,em:document.getElementById('pf-em').value.trim(),gn:document.getElementById('pf-gn').value,cs:document.getElementById('pf-cs').value,pob:document.getElementById('pf-pob').value.trim(),ad:document.getElementById('pf-ad').value.trim(),ecn:document.getElementById('pf-ecn').value.trim(),ecp:document.getElementById('pf-ecp').value.trim(),ecr:document.getElementById('pf-ecr').value.trim(),sss:document.getElementById('pf-sss').value.trim(),tin:document.getElementById('pf-tin').value.trim(),pg:document.getElementById('pf-pg').value.trim(),ph:document.getElementById('pf-ph').value.trim(),ro:document.getElementById('pf-ro').value.trim(),sd:document.getElementById('pf-sd').value,st:document.getElementById('pf-st').value,sa,cu:document.getElementById('pf-cu').value,eh:parseFloat(document.getElementById('pf-eh').value)||8,hr,tc,tp,gd:{sss:0,ph:0,pg:0},qrData:__pfQrData||null,qrLabel:document.getElementById('pf-qr-label').value.trim()};
+  // Life group is optional; empty string means "unassigned".
+  const lifeGroupSel = document.getElementById('pf-lifegroup');
+  const lifeGroupId = lifeGroupSel && lifeGroupSel.value ? lifeGroupSel.value : undefined;
+  const data={bid,fn,ln,mn:document.getElementById('pf-mn').value.trim(),ex:document.getElementById('pf-ex').value,ct:document.getElementById('pf-ct').value,dob:document.getElementById('pf-dob').value,em:document.getElementById('pf-em').value.trim(),gn:document.getElementById('pf-gn').value,cs:document.getElementById('pf-cs').value,pob:document.getElementById('pf-pob').value.trim(),ad:document.getElementById('pf-ad').value.trim(),ecn:document.getElementById('pf-ecn').value.trim(),ecp:document.getElementById('pf-ecp').value.trim(),ecr:document.getElementById('pf-ecr').value.trim(),sss:document.getElementById('pf-sss').value.trim(),tin:document.getElementById('pf-tin').value.trim(),pg:document.getElementById('pf-pg').value.trim(),ph:document.getElementById('pf-ph').value.trim(),ro:document.getElementById('pf-ro').value.trim(),sd:document.getElementById('pf-sd').value,st:document.getElementById('pf-st').value,sa,cu:document.getElementById('pf-cu').value,eh:parseFloat(document.getElementById('pf-eh').value)||8,hr,tc,tp,gd:{sss:0,ph:0,pg:0},lifeGroupId,qrData:__pfQrData||null,qrLabel:document.getElementById('pf-qr-label').value.trim()};
   if(S.editPid){
     const p=gP(S.editPid);
     if(p){
