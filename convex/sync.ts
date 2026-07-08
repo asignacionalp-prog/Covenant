@@ -290,6 +290,30 @@ export const syncPartnersDiff = mutation({
           partnerLegacyId: p.legacyId,
           addedAt: Date.now(),
         });
+
+        // Auto-drop any external placeholder in the same group whose
+        // name matches this partner's — the person is no longer an
+        // unaffiliated attendee; they've been onboarded as a partner.
+        // Matches the same auto-drop that assignPartnerToGroup does
+        // on the church side, so both onboarding paths converge.
+        const partnerName = `${p.fn ?? ""} ${p.ln ?? ""}`
+          .trim()
+          .toLowerCase();
+        if (partnerName) {
+          const groupMembers = await ctx.db
+            .query("lifeGroupMembers")
+            .withIndex("by_lifeGroup", (q) =>
+              q.eq("lifeGroupId", desiredGroupId),
+            )
+            .collect();
+          for (const m of groupMembers) {
+            if (m.kind !== "external") continue;
+            const extName = (m.externalName ?? "").trim().toLowerCase();
+            if (extName && extName === partnerName) {
+              await ctx.db.delete(m._id);
+            }
+          }
+        }
       }
     }
 
